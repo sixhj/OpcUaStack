@@ -1,5 +1,18 @@
 #!/bin/bash
 
+#
+# Local test:
+#
+# Normal test:
+#   sh build.sh -t tst -s ~/.ASNeG/
+#
+# Enable real server test: 
+#   sh build.sh -t tst -s ~/.ASNeG/ --test-with-server opc.tcp://127.0.0.1:8889   
+#
+# Enable MQTT:
+#   export USE_MOSQUITTO_CLIENT=1
+#
+
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 #
@@ -32,6 +45,8 @@ usage()
    echo ""
    echo "--build-type, -B BUILD_TYPE:  set the build types (Debug | Release). By default, it is Debug type"
    echo "--test-with-server URI:  build client test for real OPC UA server. By default, empty "
+   echo "--debug-output: activate debug output"
+
 }
 
 
@@ -87,9 +102,12 @@ build_local()
     if [ ${BUILD_FIRST} -eq 1 ] ;
     then
         set -x
-        cmake ../src \
+        cmake ${DEBUG_OUTPUT} \
+	      ../src \
               "${CMAKE_GENERATOR_LOCAL}" \
-              -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" 
+              -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+	      -DGIT_COMMIT="${GIT_COMMIT}" \
+	      -DGIT_BRANCH="${GIT_BRANCH}" 
         RESULT=$?
         set +x
         if [ ${RESULT} -ne 0 ] ;
@@ -99,7 +117,7 @@ build_local()
         fi
     else
         set -x
-        cmake .
+        cmake . ${DEBUG_OUTPUT}
         RESULT=$?
         set +x
         if [ ${RESULT} -ne 0 ] ;
@@ -167,8 +185,11 @@ build_deb()
     then
  
         cmake ../src \
+	    ${DEBUG_OUTPUT} \
             "${CMAKE_GENERATOR_LOCAL}" \
             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+	    -DGIT_COMMIT="${GIT_COMMIT}" \
+	    -DGIT_BRANCH="${GIT_BRANCH}" \
             "-DCPACK_BINARY_DEB=1" \
             "-DCPACK_BINARY_RPM=0" \
 	    "-DCPACK_BINARY_STGZ=0" \
@@ -181,7 +202,7 @@ build_deb()
             return ${RESULT}
         fi
     else
-        cmake .
+        cmake . ${DEBUG_OUTPUT}
         RESULT=$?
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -243,8 +264,11 @@ build_rpm()
     if [ ${BUILD_FIRST} -eq 1 ] ;
     then
         cmake ../src \
+	    ${DEBUG_OUTPUT} \
             "${CMAKE_GENERATOR_LOCAL}" \
             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DGIT_COMMIT="${GIT_COMMIT}" \
+	    -DGIT_BRANCH="${GIT_BRANCH}" \ 
             "-DCPACK_BINARY_DEB=0" \
             "-DCPACK_BINARY_RPM=1" \
   	    "-DCPACK_BINARY_STGZ=0" \
@@ -257,7 +281,7 @@ build_rpm()
             return ${RESULT}
         fi
     else
-        cmake .
+        cmake . ${DEBUG_OUTPUT}
         RESULT=$?
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -310,10 +334,13 @@ build_tst()
     if [ ${BUILD_FIRST} -eq 1 ] ;
     then
         cmake ../tst \
+	     ${DEBUG_OUTPUT} \
   	     "${CMAKE_GENERATOR_LOCAL}" \
 	     -DOPCUASTACK_INSTALL_PREFIX="${STACK_PREFIX}" \
              -DTEST_SERVER_URI=${TEST_SERVER_URI} \
-             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+	     -DGIT_COMMIT="${GIT_COMMIT}" \
+	     -DGIT_BRANCH="${GIT_BRANCH}" 
         RESULT=$?
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -321,7 +348,7 @@ build_tst()
             return ${RESULT}
         fi
     else
-        cmake .
+        cmake . ${DEBUG_OUTPUT}
         RESULT=$?
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -384,6 +411,9 @@ STACK_PREFIX="/"
 JOBS=1
 BUILD_TYPE="Debug"
 TEST_SERVER_URI=""
+DEBUG_OUTPUT=""
+GIT_COMMIT=`git rev-parse HEAD`
+GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
 
 while [ $# -gt 0 ];
 do
@@ -421,6 +451,12 @@ case $key in
     shift # past flag
     shift # past value
     ;;
+
+    --debug-output) 
+    DEBUG_OUTPUT="--debug-output"
+    shift # past argument
+    ;;
+
     *)    # unknown option
     shift # past argument
     ;;
