@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,44 +18,41 @@
 #ifndef __OpcUaStackClient_QueryService_h__
 #define __OpcUaStackClient_QueryService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/ServiceSet/QueryServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/QueryServiceIf.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 
 namespace OpcUaStackClient 
 {
 
-	class DLLEXPORT QueryService : public Component
+	class DLLEXPORT QueryService
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<QueryService> SPtr;
 
-		QueryService(IOThread* ioThread);
+		QueryService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~QueryService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			QueryServiceIf* queryServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void queryServiceIf(QueryServiceIf* queryServiceIf);
 
-		void syncSend(ServiceTransactionQueryFirst::SPtr serviceTransactionQueryFirst);
-		void asyncSend(ServiceTransactionQueryFirst::SPtr serviceTransactionQueryFirst);
-		void syncSend(ServiceTransactionQueryNext::SPtr serviceTransactionQueryNext);
-		void asyncSend(ServiceTransactionQueryNext::SPtr serviceTransactionQueryNext);
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionQueryFirst::SPtr& serviceTransactionQueryFirst);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionQueryFirst::SPtr& serviceTransactionQueryFirst);
+		void syncSend(const OpcUaStackCore::ServiceTransactionQueryNext::SPtr& serviceTransactionQueryNext);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionQueryNext::SPtr& serviceTransactionQueryNext);
 
 	  private:
-		Component* componentSession_;
-
-		QueryServiceIf* queryServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

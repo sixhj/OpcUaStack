@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,148 +18,159 @@
 #ifndef __OpcUaStackServer_SessionManager_h__
 #define __OpcUaStackServer_SessionManager_h__
 
+#include <future>
 #include <boost/shared_ptr.hpp>
 #include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Base/Config.h"
 #include "OpcUaStackCore/Base/Url.h"
-#include "OpcUaStackCore/Base/ConditionProcess.h"
 #include "OpcUaStackCore/Certificate/ApplicationCertificate.h"
 #include "OpcUaStackCore/Certificate/CryptoManager.h"
 #include "OpcUaStackCore/Utility/IOThread.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelServer.h"
+#include "OpcUaStackCore/MessageBus/MessageBus.h"
 #include "OpcUaStackServer/ServiceSet/EndpointDescriptionConfig.h"
-#include "OpcUaStackServer/ServiceSet/DiscoveryService.h"
 #include "OpcUaStackServer/ServiceSet/TransactionManager.h"
 #include "OpcUaStackServer/ServiceSet/ChannelSessionHandleMap.h"
-#include "OpcUaStackServer/ServiceSet/SessionIf.h"
-#include "OpcUaStackServer/ServiceSet/DiscoveryIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT SessionManager
-	: public SecureChannelServerIf
-	, public SessionIf
-	, public DiscoveryIf
+	: public OpcUaStackCore::SecureChannelServerIf
 	{
 	  public:
-		typedef boost::shared_ptr<SessionManager> SPtr;
+		using SPtr = boost::shared_ptr<SessionManager>;
+		using DiscoveryRequestCallback = std::function<
+			void
+			(
+				OpcUaStackCore::RequestHeader::SPtr& requestHeader,
+				OpcUaStackCore::SecureChannelTransaction::SPtr secureChannelTransaction
+			)
+		>;
 
 		SessionManager(void);
 		virtual ~SessionManager(void);
 
-		void discoveryService(DiscoveryService::SPtr& discoveryService);
-		void applicationCertificate(ApplicationCertificate::SPtr& applicationCertificate);
-		void cryptoManager(CryptoManager::SPtr& cryptoManager);
+		void getEndpointRequestCallback(const DiscoveryRequestCallback& getEndpointRequestCallback);
+		void findServersRequestCallback(const DiscoveryRequestCallback& findServerRequestCallback);
+		void registerServerRequestCallback(const DiscoveryRequestCallback& registerServerRequestCallback);
+
+		void cryptoManager(OpcUaStackCore::CryptoManager::SPtr& cryptoManager);
 		void transactionManager(TransactionManager::SPtr transactionManagerSPtr);
-		void ioThread(IOThread* ioThread);
-		void endpointDescriptionSet(EndpointDescriptionSet::SPtr& endpointDescriptionSet);
-		void config(Config* config);
+		void ioThread(OpcUaStackCore::IOThread* ioThread);
+		void messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus);
+		void endpointDescriptionSet(OpcUaStackCore::EndpointDescriptionSet::SPtr& endpointDescriptionSet);
+		void config(OpcUaStackCore::Config* config);
 		void forwardGlobalSync(ForwardGlobalSync::SPtr& forwardGlobalSync);
 
 		bool startup(void);
 		bool shutdown(void);
 
 		//- SecureChannelServerIf ---------------------------------------------
-		virtual void handleConnect(SecureChannel* secureChannel);
-		virtual void handleDisconnect(SecureChannel* secureChannel);
-		virtual void handleMessageRequest(SecureChannel* secureChannel);
+		virtual void handleConnect(OpcUaStackCore::SecureChannel* secureChannel);
+		virtual void handleDisconnect(OpcUaStackCore::SecureChannel* secureChannel);
+		virtual void handleMessageRequest(OpcUaStackCore::SecureChannel* secureChannel);
 
 		virtual void handleEndpointOpen(const std::string& endpointUrl);
 		virtual void handleEndpointClose(const std::string& endpointUrl);
 		//- SecureChannelServerIf ---------------------------------------------
 
-		//- SessionIf ---------------------------------------------------------
-		virtual void responseMessage(
-			ResponseHeader::SPtr& responseHeader,
-			SecureChannelTransaction::SPtr& secureChannelTransaction
+	  private:
+		// callback function to receive response message from session
+		void responseMessage(
+			OpcUaStackCore::ResponseHeader::SPtr& responseHeader,
+			OpcUaStackCore::SecureChannelTransaction::SPtr& secureChannelTransaction
 		);
-		virtual void deleteSession(
+		// callback function to delete session
+		void deleteSession(
 			uint32_t authenticationToken
 		);
-		//- SessionIf ---------------------------------------------------------
 
-		//- DiscoveryIf -------------------------------------------------------
-		virtual void discoveryResponseMessage(
-			ResponseHeader::SPtr& responseHeader,
-			SecureChannelTransaction::SPtr& secureChannelTransaction
-		);
-		//- DiscoveryIf -------------------------------------------------------
-
-	  private:
+		bool endpointOpen(const std::string& endpointUrl);
 		void createSessionRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 
 		void activateSessionRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 		void errorActivateSessionRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader,
-			OpcUaStatusCode statusCode
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader,
+			OpcUaStackCore::OpcUaStatusCode statusCode
 		);
 
 		void closeSessionRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 		void errorCloseSessionRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader,
-			OpcUaStatusCode statusCode
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader,
+			OpcUaStackCore::OpcUaStatusCode statusCode
 		);
 
 		void cancelRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 		void errorCancelRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader,
-			OpcUaStatusCode statusCode
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader,
+			OpcUaStackCore::OpcUaStatusCode statusCode
 		);
 
 		void messageRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 		void errorMessageRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader,
-			OpcUaStatusCode statusCode
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader,
+			OpcUaStackCore::OpcUaStatusCode statusCode
 		);
 
 		void getEndpointsRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 
 		void findServersRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 
 		void registerServerRequest(
-			SecureChannel* secureChannel,
-			RequestHeader::SPtr requestHeader
+			OpcUaStackCore::SecureChannel* secureChannel,
+			OpcUaStackCore::RequestHeader::SPtr requestHeader
 		);
 
-		IOThread* ioThread_;
-		Config* config_;
-		EndpointDescriptionSet::SPtr endpointDescriptionSet_;
-		ApplicationCertificate::SPtr applicationCertificate_;
-		CryptoManager::SPtr cryptoManager_;
+		void discoveryResponseMessage(
+			OpcUaStackCore::SecureChannelTransaction::SPtr& secureChannelTransaction
+		);
 
-		ConditionProcess secureChannelServerShutdown_;
-		SecureChannelServer::Map secureChannelServerMap_;
+		boost::shared_ptr<boost::asio::io_service::strand> strand_ = nullptr;
+		OpcUaStackCore::IOThread* ioThread_ = nullptr;
+		OpcUaStackCore::MessageBus::SPtr messageBus_ = nullptr;
+		OpcUaStackCore::CryptoManager::SPtr cryptoManager_ = nullptr;
+
+		DiscoveryRequestCallback getEndpointRequestCallback_;
+		DiscoveryRequestCallback findServersRequestCallback_;
+		DiscoveryRequestCallback registerServerRequestCallback_;
+
+		OpcUaStackCore::SlotTimerElement::SPtr slotTimerElement_;
+		std::vector<std::string> disconnectedEndpointUrls_;
+
+		OpcUaStackCore::Config* config_;
+		OpcUaStackCore::EndpointDescriptionSet::SPtr endpointDescriptionSet_;
+
+		bool shutdownFlag_;
+		std::promise<bool> shutdownComplete_;
+		OpcUaStackCore::SecureChannelServer::Map secureChannelServerMap_;
 		ForwardGlobalSync::SPtr forwardGlobalSync_;
 
-		DiscoveryService::SPtr discoveryService_;
 		TransactionManager::SPtr transactionManagerSPtr_;
 
 		ChannelSessionHandleMap channelSessionHandleMap_;

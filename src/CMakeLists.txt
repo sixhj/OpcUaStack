@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project	(OpcUaStack3)
+project	(OpcUaStack4)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 11)
 
@@ -10,9 +10,105 @@ set(CMAKE_CXX_STANDARD 11)
 #
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
-set(VERSION_MAJOR "3")
-set(VERSION_MINOR "8")
-set(VERSION_PATCH "2")
+set(VERSION_MAJOR "4" CACHE STRING "major version")
+set(VERSION_MINOR "0" CACHE STRING "minor version")
+set(VERSION_PATCH "0" CACHE STRING "patch version")
+
+set(BOOST_VERSION_MAJOR "1"  CACHE STRING "boost major version")
+set(BOOST_VERSION_MINOR "65" CACHE STRING "boost minor version")
+
+set(OPENSSL_VERSION_MAJOR "1" CACHE STRING "major version")
+set(OPENSSL_VERSION_MINOR "0" CACHE STRING "minor version")
+set(OPENSSL_VERSION_PATCH "0" CACHE STRING "patch version")
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# check environment variables
+#
+# list of possible environment variables
+#   - OPENSSL_VERSION_MAJOR
+#   - OPENSSL_VERSION_MINOR
+#   - OPENSSL_VERSION_PATCH
+#   - BOOST_VERSION_MAJOR
+#   - BOOST_VERSION_MINOR
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# boost
+if (DEFINED ENV{BOOST_VERSION_MAJOR})
+    set(BOOST_VERSION_MAJOR $ENV{BOOST_VERSION_MAJOR})
+endif ()
+if (DEFINED ENV{BOOST_VERSION_MINOR})
+    set(BOOST_VERSION_MINOR $ENV{BOOST_VERSION_MINOR})
+endif ()
+
+# openssl
+if (DEFINED ENV{OPENSSL_VERSION_MAJOR})
+    set(OPENSSL_VERSION_MAJOR $ENV{OPENSSL_VERSION_MAJOR})
+endif ()
+if (DEFINED ENV{OPENSSL_VERSION_MINOR})
+    set(OPENSSL_VERSION_MINOR $ENV{OPENSSL_VERSION_MINOR})
+endif ()
+if (DEFINED ENV{OPENSSL_VERSION_PATCH})
+    set(OPENSSL_VERSION_PATCH $ENV{OPENSSL_VERSION_PATCH})
+endif ()
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# create version file and dependency file
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+if (CREATE_INFO_FILES)
+    message(STATUS "create info file ${CMAKE_BINARY_DIR}/version")
+    file(WRITE ${CMAKE_BINARY_DIR}/version "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+
+    message(STATUS "create dependency file ${CMAKE_BINARY_DIR}/dependency")
+    file(WRITE ${CMAKE_BINARY_DIR}/dependency "boost ${BOOST_VERSION_MAJOR}.${BOOST_VERSION_MINOR}")
+
+    return()
+endif ()
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# build information
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+string(TIMESTAMP BUILD_TIME "%Y-%m-%d %HH:%MM")
+set (BUILD_NUMBER 0)
+if (DEFINED ENV{BUILD_NUMBER})
+  set(BUILD_NUMBER ENV{BUILD_NUMBER})
+endif()
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# global info messages
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+message(STATUS "Version info")
+message(STATUS "  product version: ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+message(STATUS "  git commit: ${GIT_COMMIT}")
+message(STATUS "  git branch: ${GIT_BRANCH}")
+
+message(STATUS "Dependency info")
+message(STATUS "  boost version: ${BOOST_VERSION_MAJOR}.${BOOST_VERSION_MINOR}")
+message(STATUS "  openssl version: ${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_PATCH} (${OPENSSL_VERSION_NUMBER})")
+
+message(STATUS "System info")
+message(STATUS "  host system name: ${CMAKE_HOST_SYSTEM_NAME}")
+message(STATUS "  host system processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+message(STATUS "  system processor: ${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS "  system name: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "  host system: ${CMAKE_HOST_SYSTEM}")
+
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -33,19 +129,19 @@ set(VERSION_PATCH "2")
 #
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+ if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")    
     set(Boost_USE_DEBUG_LIBS     ON)
     set(Boost_USE_RELEASE_LIBS   OFF)
-else()
+ else()
     set(Boost_USE_DEBUG_LIBS     OFF)
     set(Boost_USE_RELEASE_LIBS   ON)
-endif()
+ endif()
 add_definitions(-DBOOST_ALL_DYN_LINK)
+set(Boost_NO_BOOST_CMAKE ON)
 find_package(
-        Boost
-        "1.58"
-        COMPONENTS program_options system unit_test_framework filesystem thread date_time chrono regex
-        REQUIRED
+    Boost 
+    COMPONENTS program_options system unit_test_framework filesystem thread date_time chrono regex 
+    REQUIRED
 )
 
 add_definitions(-DBOOST_VERSION_${BOOST_VERSION_MAJOR}_${BOOST_VERSION_MINOR})
@@ -89,9 +185,9 @@ message(STATUS "  libraries: ${Boost_LIBRARIES}")
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 find_package(
-        OpenSSL
-        "${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_PATCH}"
-        REQUIRED
+    OpenSSL 
+    "${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_PATCH}" 
+    REQUIRED
 )
 
 message(STATUS "OpenSSL library")
@@ -108,49 +204,39 @@ message(STATUS "  libraries: ${OPENSSL_LIBRARIES}")
 
 
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-#
-# create version file and dependency file
-#
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-if (CREATE_INFO_FILES)
-    message(STATUS "create info file ${CMAKE_BINARY_DIR}/version")
-    file(WRITE ${CMAKE_BINARY_DIR}/version "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-
-    message(STATUS "create dependency file ${CMAKE_BINARY_DIR}/dependency")
-    file(WRITE ${CMAKE_BINARY_DIR}/dependency "boost ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}")
-
-    return()
-endif ()
-
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-#
-# global info messages
-#
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-message(STATUS "Version info")
-message(STATUS "  product version: ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-
-message(STATUS "Dependency info")
-message(STATUS "  boost version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}")
-message(STATUS "  openssl version: ${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_PATCH}")
-
-message(STATUS "System info")
-message(STATUS "  host system name: ${CMAKE_HOST_SYSTEM_NAME}")
-message(STATUS "  host system processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
-message(STATUS "  system processor: ${CMAKE_SYSTEM_PROCESSOR}")
-message(STATUS "  system name: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "  host system: ${CMAKE_HOST_SYSTEM}")
-
-
-# -----------------------------------------------------------------------------
 # find thread library
 # -----------------------------------------------------------------------------
 find_package (Threads)
+
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# build info
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+message(STATUS "Build info")
+message(STATUS "  thread library: ${CMAKE_THREAD_LIBS_INIT}")
+
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# Mosquitto
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+if (DEFINED ENV{USE_MOSQUITTO_CLIENT})
+	message(STATUS "Mosquitto enabled")
+	set(USE_MOSQUITTO_CLIENT $ENV{USE_MOSQUITTO_CLIENT})
+	set(MOSQUITTO_LIBRARIES "mosquitto")
+	add_definitions(-DUSE_MOSQUITTO_CLIENT)
+else()
+        message(STATUS "Mosquitto disabled")
+endif()
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -161,6 +247,11 @@ find_package (Threads)
 # -----------------------------------------------------------------------------
 set (INSTALL_PREFIX "/usr")        
 if (WIN32)
+	if (MSVC)
+		add_definitions(/bigobj)
+	else ()
+		add_definitions(-Wa,-mbig-obj)
+	endif ()
     if (MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     endif()
@@ -179,7 +270,8 @@ include(OpcUaStackServer/CMakeLists.txt)
 include(OpcUaServer/CMakeLists.txt)
 include(OpcUaClient/CMakeLists.txt) 
 include(OpcUaProjectBuilder/CMakeLists.txt)
-include(OpcUaEventTypeGenerator/CMakeLists.txt)
+include(OpcUaGenerator/CMakeLists.txt)
+include(OpcUaCtrl/CMakeLists.txt)
 include(cmake/CMakeLists.txt)
 
 
@@ -311,7 +403,7 @@ if (CPACK_BINARY_DEB)
         
     BoostDepends(libboost-test)
     set(DEB_DEPS_DEV "${DEB_DEPS_DEV}, ${LIST_OF_LIB_VERSIONS_DEV}")
-    set(DEB_DEPS_DEV "${DEB_DEPS_DEV}, opcuastack-${VERSION_MAJOR}-bin (=${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})")    
+    set(DEB_DEPS_DEV "${DEB_DEPS_DEV}, OpcUaStack-${VERSION_MAJOR}-bin (=${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})")    
     
     set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS ${DEB_DEPS_DEV})       
     set(CPACK_DEBIAN_BIN_PACKAGE_DEPENDS ${DEB_DEPS_BIN})             

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -22,11 +22,10 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <map>
-#include "OpcUaStackCore/Base/os.h"
+#include <OpcUaStackCore/Network/TCPAcceptor.h>
 #include "OpcUaStackCore/SecureChannel/SecureChannelServerConfig.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelServerIf.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelBase.h"
-#include "OpcUaStackCore/TCPChannel/TCPAcceptor.h"
 
 namespace OpcUaStackCore
 {
@@ -41,10 +40,11 @@ namespace OpcUaStackCore
 		SecureChannelServer(IOThread* ioThread);
 		~SecureChannelServer(void);
 
+		void strand(boost::shared_ptr<boost::asio::io_service::strand>& strand);
 		void secureChannelServerIf(SecureChannelServerIf* secureChannelServerIf);
 		SecureChannelServerIf* secureChannelServerIf(void);
 
-		bool accept(SecureChannelServerConfig::SPtr secureChannelServerConfig);
+		bool accept(SecureChannelServerConfig::SPtr& secureChannelServerConfig);
 		void disconnect(void);
 		void disconnect(SecureChannel* secureChannel);
 		void sendResponse(SecureChannel* secureChannel, SecureChannelTransaction::SPtr& secureChannelTransaction);
@@ -52,12 +52,15 @@ namespace OpcUaStackCore
 		//- SecureChannelBase -------------------------------------------------
 		void handleDisconnect(SecureChannel* secureChannel);
 		void handleRecvHello(SecureChannel* secureChannel, HelloMessage& hello);
+		bool findEndpoint(SecureChannel* secureChannel) override;
 		void handleRecvOpenSecureChannelRequest(SecureChannel* secureChannel, OpcUaUInt32 channelId, OpenSecureChannelRequest& openSecureChannelRequest);
 		void handleRecvCloseSecureChannelRequest(SecureChannel* secureChannel, uint32_t channelId);
 		void handleRecvMessageRequest(SecureChannel* secureChannel);
 		//- SecureChannelBase -------------------------------------------------
 
 	  private:
+		void sendOpenSecureChannelResponseError(OpenSecureChannelResponse::SPtr& openSecureChannelResponse);
+
 		void accept(SecureChannel* secureChannel);
 		void resolveComplete(
 			const boost::system::error_code& error,

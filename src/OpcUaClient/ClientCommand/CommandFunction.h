@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,12 +23,10 @@
 #include "OpcUaStackCore/BuildInTypes/OpcUaVariant.h"
 #include "OpcUaClient/ClientCommand/CommandBase.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaClient
 {
 
-	class CommandFunction
+	class DLLEXPORT CommandFunction
 	: public CommandBase
 	{
 	  public:
@@ -44,14 +42,14 @@ namespace OpcUaClient
 		virtual std::string help(void);
 		//- CommandFunction interface ---------------------------------------------
 
-		OpcUaNodeId& functionNodeId(void);
-		OpcUaNodeId& objectNodeId(void);
-		OpcUaVariant::Vec& inputVariantVec(void);
+		OpcUaStackCore::OpcUaNodeId& functionNodeId(void);
+		OpcUaStackCore::OpcUaNodeId& objectNodeId(void);
+		OpcUaStackCore::OpcUaVariant::Vec& inputVariantVec(void);
 
 	  private:
-		OpcUaNodeId functionNodeId_;
-		OpcUaNodeId objectNodeId_;
-		OpcUaVariant::Vec inputVariantVec_;
+		OpcUaStackCore::OpcUaNodeId functionNodeId_;
+		OpcUaStackCore::OpcUaNodeId objectNodeId_;
+		OpcUaStackCore::OpcUaVariant::Vec inputVariantVec_;
 	};
 
 }

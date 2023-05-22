@@ -494,7 +494,7 @@ namespace OpcUaStackServer
 		}
 
 		// surrogate parent does not exist. Create a surrogate parent
-		baseNodeClass = constructSPtr<ObjectNodeClass>();
+		baseNodeClass = boost::make_shared<ObjectNodeClass>();
 		baseNodeClass->setNodeId(nodeId);
 		OpcUaQualifiedName browseName("SurrogateParent");
 		baseNodeClass->setBrowseName(browseName);
@@ -766,7 +766,253 @@ namespace OpcUaStackServer
 
 		Log(Warning, "HasSubTypeDefinition backward reference not exist in node")
 			.parameter("NodeId", baseNodeClass->nodeId());
-		return true;
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getBinaryEncodingNode(BaseNodeClass::SPtr baseNodeClass, BaseNodeClass::SPtr& encodingNodeClass)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default Binary") {
+				encodingNodeClass = baseNodeClass;
+				return true;
+			}
+		}
+
+		Log(Warning, "binary encoding node class not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getBinaryEncodingNode(BaseNodeClass::SPtr baseNodeClass, OpcUaNodeId& encodingNodeId)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default Binary") {
+				encodingNodeId = referenceItem->nodeId_;
+				return true;
+			}
+		}
+
+		Log(Warning, "binary encoding node id not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getXMLEncodingNode(BaseNodeClass::SPtr baseNodeClass, BaseNodeClass::SPtr& encodingNodeClass)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default XML") {
+				encodingNodeClass = baseNodeClass;
+				return true;
+			}
+		}
+
+		Log(Warning, "xml encoding node class not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getXMLEncodingNode(BaseNodeClass::SPtr baseNodeClass, OpcUaNodeId& encodingNodeId)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default XML") {
+				encodingNodeId = referenceItem->nodeId_;
+				return true;
+			}
+		}
+
+		Log(Warning, "xml encoding node id not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getJSONEncodingNode(BaseNodeClass::SPtr baseNodeClass, BaseNodeClass::SPtr& encodingNodeClass)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default JSON") {
+				encodingNodeClass = baseNodeClass;
+				return true;
+			}
+		}
+
+		Log(Warning, "json encoding node class not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
+	}
+
+	bool
+	InformationModelAccess::getJSONEncodingNode(BaseNodeClass::SPtr baseNodeClass, OpcUaNodeId& encodingNodeId)
+	{
+		// get all encoding reference items
+		auto it = baseNodeClass->referenceItemMap().equal_range(*ReferenceTypeMap::hasEncodingTypeNodeId());
+		if (it.first == it.second) {
+			Log(Warning, "HasEncodingTypeDefinition reference not exist in node")
+				.parameter("NodeId", baseNodeClass->nodeId());
+			return false;
+		}
+
+		// go through all encoding reference items
+		for (auto itl = it.first; itl != it.second; itl++) {
+			ReferenceItem::SPtr referenceItem  = itl->second;
+
+			if (!referenceItem->isForward_) continue;
+
+			// get node class
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(referenceItem->nodeId_);
+			if (baseNodeClass.get() == nullptr) {
+				continue;
+			}
+
+			// get display name
+			boost::optional<OpcUaLocalizedText&> displayName = baseNodeClass->getDisplayName();
+			if (!displayName) {
+				continue;
+			}
+
+			// check display name
+			if ((*displayName).text().toStdString() == "Default JSON") {
+				encodingNodeId = referenceItem->nodeId_;
+				return true;
+			}
+		}
+
+		Log(Warning, "json encoding node id not found")
+			.parameter("NodeId", baseNodeClass->nodeId());
+		return false;
 	}
 
 	bool
@@ -1102,10 +1348,10 @@ namespace OpcUaStackServer
 				baseNodeClass->referenceItemMap().remove(referenceTypeNodeId, referenceItem);
 
 				// add reference between node and new parent
-				referenceItem = constructSPtr<ReferenceItem>(true, *baseNodeClass->getNodeId());
+				referenceItem = boost::make_shared<ReferenceItem>(true, *baseNodeClass->getNodeId());
 				surrogateParentNode->referenceItemMap().add(ReferenceType_HasComponent, referenceItem);
 
-				referenceItem = constructSPtr<ReferenceItem>(false, *surrogateParentNode->getNodeId());
+				referenceItem = boost::make_shared<ReferenceItem>(false, *surrogateParentNode->getNodeId());
 				baseNodeClass->referenceItemMap().add(ReferenceType_HasComponent, referenceItem);
 			}
 		}

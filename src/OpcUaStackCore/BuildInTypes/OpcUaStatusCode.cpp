@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -39,7 +39,9 @@ namespace OpcUaStackCore
 		initial();
 		StatusCodeMap::iterator it = shortStatusCodeMap_.find(statusCode);
 		if (it == shortStatusCodeMap_.end()) {
-			return "";
+			std::stringstream ss;
+			ss << statusCode;
+			return ss.str();
 		}
 		return it->second;
 	}
@@ -50,7 +52,9 @@ namespace OpcUaStackCore
 		initial();
 		StatusCodeMap::iterator it = longStatusCodeMap_.find(statusCode);
 		if (it == longStatusCodeMap_.end()) {
-			return "";
+			std::stringstream ss;
+			ss << statusCode;
+			return ss.str();
 		}
 		return it->second;
 	}
@@ -59,11 +63,29 @@ namespace OpcUaStackCore
 	OpcUaStatusCodeMap::statusCode(const std::string& statusCodeString)
 	{
 		initial();
-		StatusCodeReverseMap::iterator it = reverseStatusCodeMap_.find(statusCodeString);
+		auto it = reverseStatusCodeMap_.find(statusCodeString);
 		if (it == reverseStatusCodeMap_.end()) {
 			return BadStatusCodeUnknown;
 		}
 		return it->second;
+	}
+
+	bool
+	OpcUaStatusCodeMap::exist(OpcUaStatusCode statusCode)
+	{
+		initial();
+		auto it = longStatusCodeMap_.find(statusCode);
+		if (it == longStatusCodeMap_.end()) return false;
+		return true;
+	}
+
+	bool
+	OpcUaStatusCodeMap::exist(const std::string& statusCodeString)
+	{
+		initial();
+		StatusCodeReverseMap::iterator it = reverseStatusCodeMap_.find(statusCodeString);
+		if (it == reverseStatusCodeMap_.end()) return false;
+		return true;
 	}
 
 	void
@@ -113,6 +135,7 @@ namespace OpcUaStackCore
 		insert(BadTooManyMonitoredItems,						"BadTooManyMonitoredItems",						"The request could not be processed because there are too many monitored items in the subscription");
 		insert(BadDataTypeIdUnknown,							"BadDataTypeIdUnknown",							"The extension object cannot be (de)serialized because the data type id is not recognized");
 		insert(BadCertificateInvalid,							"BadCertificateInvalid",						"The certificate provided as a parameter is not valid");
+		insert(BadCertificateChainIncomplete,					"BadCertificateChainIncomplete",				"The certificate chain is invalid");
 		insert(BadSecurityChecksFailed,							"BadSecurityChecksFailed",						"An error occurred verifying security");
 		insert(BadCertificateTimeInvalid,						"BadCertificateTimeInvalid",					"The Certificate has expired or is not yet valid");
 		insert(BadCertificateIssuerTimeInvalid,					"BadCertificateIssuerTimeInvalid",				"An Issuer Certificate has expired or is not yet valid");

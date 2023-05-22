@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,21 +19,55 @@
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackServer/ServiceSet/MonitoredItemService.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
-	MonitoredItemService::MonitoredItemService(void)
+	MonitoredItemService::MonitoredItemService(
+		const std::string& serviceName,
+		OpcUaStackCore::IOThread::SPtr& ioThread,
+		OpcUaStackCore::MessageBus::SPtr& messageBus
+	)
+	: ServerServiceBase()
 	{
+		// set parameter in server service base
+		serviceName_ = serviceName;
+		ServerServiceBase::ioThread_ = ioThread.get();
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	MonitoredItemService::~MonitoredItemService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
+		messageBus_->deregisterMember(messageBusMember_);
 	}
 
 	void 
-	MonitoredItemService::receive(Message::SPtr message)
+	MonitoredItemService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		Message::SPtr& message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		// We have to remember the sender of the message. This enables us to
+		// send a reply for the received message later
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		serviceTransaction->memberServiceSession(handleFrom);
+
 		switch (serviceTransaction->nodeTypeRequest().nodeId<uint32_t>()) 
 		{
 			case OpcUaId_CreateMonitoredItemsRequest_Encoding_DefaultBinary:
@@ -53,8 +87,18 @@ namespace OpcUaStackServer
 				break;
 			default:
 				serviceTransaction->statusCode(BadInternalError);
-				serviceTransaction->componentSession()->send(serviceTransaction);
+				sendAnswer(serviceTransaction);
 		}
+	}
+
+	void
+	MonitoredItemService::sendAnswer(OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction)
+	{
+		messageBus_->messageSend(
+			messageBusMember_,
+			serviceTransaction->memberServiceSession(),
+			serviceTransaction
+		);
 	}
 
 	static uint32_t itemId = 0;
@@ -63,9 +107,9 @@ namespace OpcUaStackServer
 	{
 		// FIXME: dummy implementation
 
-		ServiceTransactionCreateMonitoredItems::SPtr trx = boost::static_pointer_cast<ServiceTransactionCreateMonitoredItems>(serviceTransaction);
-		CreateMonitoredItemsRequest::SPtr createMonitoredItemsRequest = trx->request();
-		CreateMonitoredItemsResponse::SPtr createMonitoredItemsResponse = trx->response();
+		auto trx = boost::static_pointer_cast<ServiceTransactionCreateMonitoredItems>(serviceTransaction);
+		auto createMonitoredItemsRequest = trx->request();
+		auto createMonitoredItemsResponse = trx->response();
 
 		uint32_t items = createMonitoredItemsRequest->itemsToCreate()->size();
 		Log(Debug, "create monitored items")
@@ -79,7 +123,7 @@ namespace OpcUaStackServer
 				MonitoredItemCreateRequest::SPtr monitoredItemCreateRequest;
 				createMonitoredItemsRequest->itemsToCreate()->get(idx, monitoredItemCreateRequest);
 				
-				MonitoredItemCreateResult::SPtr monitoredItemCreateResult = constructSPtr<MonitoredItemCreateResult>();
+				MonitoredItemCreateResult::SPtr monitoredItemCreateResult = boost::make_shared<MonitoredItemCreateResult>();
 				createMonitoredItemsResponse->results()->set(idx, monitoredItemCreateResult);
 
 				itemId++;
@@ -89,15 +133,15 @@ namespace OpcUaStackServer
 					.parameter("SamplingInterval", monitoredItemCreateRequest->requestedParameters().samplingInterval())
 					.parameter("QueueSize", monitoredItemCreateRequest->requestedParameters().queueSize());
 
-				monitoredItemCreateResult->statusCode(Success);
-				monitoredItemCreateResult->monitoredItemId(itemId);
-				monitoredItemCreateResult->revisedSamplingInterval(monitoredItemCreateRequest->requestedParameters().samplingInterval());
-				monitoredItemCreateResult->revisedQueueSize(monitoredItemCreateRequest->requestedParameters().queueSize());
+				monitoredItemCreateResult->statusCode().enumeration(Success);
+				monitoredItemCreateResult->monitoredItemId() = itemId;
+				monitoredItemCreateResult->revisedSamplingInterval() = monitoredItemCreateRequest->requestedParameters().samplingInterval();
+				monitoredItemCreateResult->revisedQueueSize() =  monitoredItemCreateRequest->requestedParameters().queueSize();
 			}
 		}
 
 		serviceTransaction->statusCode(Success);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void 
@@ -105,7 +149,7 @@ namespace OpcUaStackServer
 	{
 		// FIXME:
 		serviceTransaction->statusCode(BadInternalError);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void 
@@ -113,7 +157,7 @@ namespace OpcUaStackServer
 	{
 		// FIXME:
 		serviceTransaction->statusCode(BadInternalError);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void 
@@ -121,7 +165,7 @@ namespace OpcUaStackServer
 	{
 		// FIXME:
 		serviceTransaction->statusCode(BadInternalError);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void 
@@ -129,7 +173,7 @@ namespace OpcUaStackServer
 	{
 		// FIXME:
 		serviceTransaction->statusCode(BadInternalError);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 }

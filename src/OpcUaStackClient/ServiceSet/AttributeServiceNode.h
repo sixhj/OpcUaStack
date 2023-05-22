@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,9 @@
 #ifndef __OpcUaStackClient_AttributeServiceNode_h__
 #define __OpcUaStackClient_AttributeServiceNode_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaAttributeId.h"
-#include "OpcUaStackCore/ServiceSet/NodeClass.h"
+#include "OpcUaStackCore/StandardDataTypes/NodeClass.h"
 #include "OpcUaStackClient/ServiceSet/AttributeService.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
@@ -34,13 +31,12 @@ namespace OpcUaStackClient
 		AttributeServiceNodeIf(void) {}
 		virtual ~AttributeServiceNodeIf(void) {}
 
-		virtual void attributeServiceNodeDone(OpcUaStatusCode statusCode) = 0;
-		virtual void attributeServiceNodeResult(AttributeId attributeId, OpcUaDataValue::SPtr& dataValue) = 0;
+		virtual void attributeServiceNodeDone(OpcUaStackCore::OpcUaStatusCode statusCode) = 0;
+		virtual void attributeServiceNodeResult(OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaDataValue::SPtr& dataValue) = 0;
 	};
 
 
 	class DLLEXPORT AttributeServiceNode
-	: public AttributeServiceIf
 	{
 	  public:
 		typedef boost::shared_ptr<AttributeServiceNode> SPtr;
@@ -50,46 +46,46 @@ namespace OpcUaStackClient
 
 		void attributeService(AttributeService::SPtr& attributeService);
 		void attributeServiceNodeIf(AttributeServiceNodeIf* attributeServiceNodeIf);
-		void nodeId(OpcUaNodeId& nodeId);
+		void nodeId(OpcUaStackCore::OpcUaNodeId& nodeId);
 		void attributeIds(
-			const AttributeId& attributeId1
+			const OpcUaStackCore::AttributeId& attributeId1
 		);
 		void attributeIds(
-			const AttributeId& attributeId1,
-			const AttributeId& attributeId2
+			const OpcUaStackCore::AttributeId& attributeId1,
+			const OpcUaStackCore::AttributeId& attributeId2
 		);
 		void attributeIds(
-			const AttributeId& attributeId1,
-			const AttributeId& attributeId2,
-			const AttributeId& attributeId3
+			const OpcUaStackCore::AttributeId& attributeId1,
+			const OpcUaStackCore::AttributeId& attributeId2,
+			const OpcUaStackCore::AttributeId& attributeId3
 		);
 		void attributeIds(
-			const AttributeId& attributeId1,
-			const AttributeId& attributeId2,
-			const AttributeId& attributeId3,
-			const AttributeId& attributeId4
+			const OpcUaStackCore::AttributeId& attributeId1,
+			const OpcUaStackCore::AttributeId& attributeId2,
+			const OpcUaStackCore::AttributeId& attributeId3,
+			const OpcUaStackCore::AttributeId& attributeId4
 		);
 		void attributeIds(
-			const AttributeId& attributeId1,
-			const AttributeId& attributeId2,
-			const AttributeId& attributeId3,
-			const AttributeId& attributeId4,
-			const AttributeId& attributeId5
+			const OpcUaStackCore::AttributeId& attributeId1,
+			const OpcUaStackCore::AttributeId& attributeId2,
+			const OpcUaStackCore::AttributeId& attributeId3,
+			const OpcUaStackCore::AttributeId& attributeId4,
+			const OpcUaStackCore::AttributeId& attributeId5
 		);
-		void attributeIds(NodeClassType nodeClassType);
+		void attributeIds(OpcUaStackCore::NodeClass::Enum nodeClassType);
 
 		void asyncReadNode(void);
-
-		//- AttributeServiceIf -----------------------------------------------------
-	    virtual void attributeServiceReadResponse(ServiceTransactionRead::SPtr serviceTransactionRead);
-	    //- AttributeServiceIf -----------------------------------------------------
+		void syncReadNode(void);
 
 	  private:
+		OpcUaStackCore::ServiceTransactionRead::SPtr createTransaction(void);
+		void attributeServiceReadResponse(OpcUaStackCore::ServiceTransactionRead::SPtr serviceTransactionRead);
+
 		AttributeService::SPtr attributeService_;
 		AttributeServiceNodeIf* attributeServiceNodeIf_;
 
-		OpcUaNodeId nodeId_;
-		std::vector<AttributeId> attributeIdVec_;
+		OpcUaStackCore::OpcUaNodeId nodeId_;
+		std::vector<OpcUaStackCore::AttributeId> attributeIdVec_;
 
 	};
 

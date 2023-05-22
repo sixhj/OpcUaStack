@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,11 +17,13 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/DataTypeNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	DataTypeNodeClass::DataTypeNodeClass(void)
-	: BaseNodeClass(NodeClassType_DataType)
+	: BaseNodeClass(NodeClass::EnumDataType)
 	, isAbstract_()
 	, dataTypeDefinition_()
 	{
@@ -54,12 +56,13 @@ namespace OpcUaStackServer
 	{
 		BaseNodeClass::copyTo(dataTypeNodeClass);
 		isAbstractAttribute()->copyTo(dataTypeNodeClass.isAbstractAttribute());
+		dataTypeDefinitionAttribute()->copyTo(dataTypeNodeClass.dataTypeDefinitionAttribute());
 	}
 
 	BaseNodeClass::SPtr
 	DataTypeNodeClass::clone(void)
 	{
-		DataTypeNodeClass::SPtr dataTypeNodeClass = constructSPtr<DataTypeNodeClass>();
+		DataTypeNodeClass::SPtr dataTypeNodeClass = boost::make_shared<DataTypeNodeClass>();
 		copyTo(dataTypeNodeClass);
 		return dataTypeNodeClass;
 	}

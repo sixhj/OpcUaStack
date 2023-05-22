@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,43 +18,39 @@
 #ifndef __OpcUaStackClient_MethodService_h__
 #define __OpcUaStackClient_MethodService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/ServiceSet/MethodServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/MethodServiceIf.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 
 namespace OpcUaStackClient 
 {
 
 	class DLLEXPORT MethodService
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<MethodService> SPtr;
 
-		MethodService(IOThread* ioThread);
+		MethodService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~MethodService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			MethodServiceIf* methodServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void methodServiceIf(MethodServiceIf* methodServiceIf);
 
-		void syncSend(ServiceTransactionCall::SPtr serviceTransactionRead);
-		void asyncSend(ServiceTransactionCall::SPtr serviceTransactionRead);
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionCall::SPtr& serviceTransactionRead);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionCall::SPtr& serviceTransactionRead);
 
 	  private:
-		Component* componentSession_;
-
-		MethodServiceIf* methodServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

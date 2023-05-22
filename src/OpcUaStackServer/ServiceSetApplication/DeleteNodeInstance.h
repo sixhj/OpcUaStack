@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,8 +23,6 @@
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackServer
 {
 
@@ -34,17 +32,17 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<DeleteNodeInstance> SPtr;
 
 		DeleteNodeInstance(void);
-		DeleteNodeInstance(const OpcUaNodeId& nodeId);
+		DeleteNodeInstance(const OpcUaStackCore::OpcUaNodeId& nodeId);
 		virtual ~DeleteNodeInstance(void);
 
-		void node(const OpcUaNodeId& node);
+		void node(const OpcUaStackCore::OpcUaNodeId& node);
 
 		bool query(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
 	  private:
-		OpcUaNodeId node_;
-		OpcUaStatusCode resultCode_;
+		OpcUaStackCore::OpcUaNodeId node_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_;
 	};
 
 }

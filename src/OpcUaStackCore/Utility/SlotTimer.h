@@ -1,10 +1,28 @@
+/*
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
+
+   Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
+   Datei nur in Übereinstimmung mit der Lizenz erlaubt.
+   Eine Kopie der Lizenz erhalten Sie auf http://www.apache.org/licenses/LICENSE-2.0.
+
+   Sofern nicht gemäß geltendem Recht vorgeschrieben oder schriftlich vereinbart,
+   erfolgt die Bereitstellung der im Rahmen der Lizenz verbreiteten Software OHNE
+   GEWÄHR ODER VORBEHALTE – ganz gleich, ob ausdrücklich oder stillschweigend.
+
+   Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
+   im Rahmen der Lizenz finden Sie in der Lizenz.
+
+   Autor: Kai Huebl (kai@huebl-sgh.de)
+ */
+
 #ifndef __OpcUaStackCore_SlotTimer_h__
 #define __OpcUaStackCore_SlotTimer_h__
 
-#include "boost/date_time/posix_time/posix_time.hpp"
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/Callback.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
+#include <future>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
 #include "OpcUaStackCore/Base/IOService.h"
 #include "OpcUaStackCore/Base/Condition.h"
 
@@ -12,14 +30,21 @@ namespace OpcUaStackCore
 {
 
 	class DLLEXPORT SlotTimerElement
+	: public boost::enable_shared_from_this<SlotTimerElement>
 	{
 	  public:
-		typedef boost::shared_ptr<SlotTimerElement> SPtr;
+		using SPtr = boost::shared_ptr<SlotTimerElement>;
+		using WPtr = boost::weak_ptr<SlotTimerElement>;
+		using TimeoutCallback = std::function<void (void)>;
 
 		SlotTimerElement(void);
 		~SlotTimerElement(void);
 
-		Callback& callback(void);
+		void timeoutCallback(const TimeoutCallback& timeoutCallback);
+		void timeoutCallback(
+			const boost::shared_ptr<boost::asio::io_service::strand>& strand,
+			const TimeoutCallback& timeoutCallback
+		);
 
 		void expireFromNow(uint32_t msecInterval);
 		void expireTime(boost::posix_time::ptime expireTime, uint32_t msecInterval);
@@ -28,6 +53,8 @@ namespace OpcUaStackCore
 
 		boost::posix_time::ptime expireTime(void);
 		uint32_t interval(void);
+
+		void runTimer(void);
 
 		bool isRunning(void);
 		void tick(uint64_t tick);
@@ -39,8 +66,13 @@ namespace OpcUaStackCore
 		void last(SlotTimerElement::SPtr last);
 		SlotTimerElement::SPtr& last(void);
 
+		void incSequenceNumber(void);
+
 	  private:
-		Callback callback_;
+		uint32_t sequenceNumber_ = 0;
+		boost::shared_ptr<boost::asio::io_service::strand> strand_ = nullptr;
+		TimeoutCallback timeoutCallback_ = nullptr;
+
 		boost::posix_time::ptime expireTime_;
 		uint32_t interval_;
 
@@ -125,7 +157,7 @@ namespace OpcUaStackCore
 		boost::posix_time::ptime startTime_;
 		uint32_t nextTick_;
 
-		Condition stopCondition_;
+		std::promise<void> stopCondition_;
 		SlotTimer::SPtr ownSPtr_;
 	};
 

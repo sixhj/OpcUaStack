@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -22,9 +22,9 @@ namespace OpcUaStackCore
 
 	OpenSecureChannelResponse::OpenSecureChannelResponse(void)
 	: Object()
-	, responseHeaderSPtr_(constructSPtr<ResponseHeader>())
+	, responseHeaderSPtr_(boost::make_shared<ResponseHeader>())
 	, serverProtocolVersion_(0)
-	, securityTokenSPtr_(constructSPtr<SecurityToken>())
+	, securityTokenSPtr_(boost::make_shared<SecurityToken>())
 	, serverNonce_()
 	{
 	}
@@ -81,22 +81,36 @@ namespace OpcUaStackCore
 		serverNonce_.value(buf, bufLen);
 	}
 
-	void 
-	OpenSecureChannelResponse::opcUaBinaryEncode(std::ostream& os) const
+	void
+	OpenSecureChannelResponse::serverNonce(OpcUaByteString& serverNonce)
 	{
-		responseHeaderSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, serverProtocolVersion_);
-		securityTokenSPtr_->opcUaBinaryEncode(os);
-		serverNonce_.opcUaBinaryEncode(os);
+		serverNonce_ = serverNonce;
 	}
 
-	void 
+	bool
+	OpenSecureChannelResponse::opcUaBinaryEncode(std::ostream& os) const
+	{
+		bool rc = true;
+
+		rc &= responseHeaderSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, serverProtocolVersion_);
+		rc &= securityTokenSPtr_->opcUaBinaryEncode(os);
+		rc &= serverNonce_.opcUaBinaryEncode(os);
+
+		return rc;
+	}
+
+	bool
 	OpenSecureChannelResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		responseHeaderSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, serverProtocolVersion_);
-		securityTokenSPtr_->opcUaBinaryDecode(is);
-		serverNonce_.opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= responseHeaderSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, serverProtocolVersion_);
+		rc &= securityTokenSPtr_->opcUaBinaryDecode(is);
+		rc &= serverNonce_.opcUaBinaryDecode(is);
+
+		return rc;
 	}
 
 }

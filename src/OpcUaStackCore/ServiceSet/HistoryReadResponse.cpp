@@ -30,8 +30,8 @@ namespace OpcUaStackCore
 
 	HistoryReadResponse::HistoryReadResponse(void)
 	: Object()
-	, resultArraySPtr_(constructSPtr<HistoryReadResultArray>())
-	, diagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
+	, resultArraySPtr_(boost::make_shared<HistoryReadResultArray>())
+	, diagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
 	{
 	}
 
@@ -77,6 +77,18 @@ namespace OpcUaStackCore
 		resultArraySPtr_->opcUaBinaryDecode(is);
 		diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
 		return true;
+	}
+
+	bool
+	HistoryReadResponse::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		return jsonArraySPtrEncode(pt, resultArraySPtr_, "Results");
+	}
+
+	bool
+	HistoryReadResponse::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		return jsonArraySPtrDecode(pt, resultArraySPtr_, "Results");
 	}
 
 }

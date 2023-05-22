@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,8 +18,6 @@
 #ifndef __OpcUaStackServer_MethodNodeClass_h__
 #define __OpcUaStackServer_MethodNodeClass_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
 
 namespace OpcUaStackServer
@@ -32,6 +30,7 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<MethodNodeClass> SPtr;
 
 		MethodNodeClass(void);
+		MethodNodeClass(OpcUaStackCore::OpcUaNodeId& nodeId, MethodNodeClass& methodNodeClass);
 		~MethodNodeClass(void);
 
 		ExecutableAttribute& executable(void);
@@ -50,7 +49,7 @@ namespace OpcUaStackServer
 		UserExecutableAttribute userExecutable_;
 
 		// standard properties - all optional
-		OpcUaString nodeVersion_;  
+		OpcUaStackCore::OpcUaString nodeVersion_;
 		//FIXME ArgumentArray inputArguments_;
 		//FIXME ArgumentArray outputArguments_;
 	};

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -30,9 +30,9 @@ namespace OpcUaStackCore
 
 	CallResponse::CallResponse(void)
 	: Object()
-	, responseHeaderSPtr_(constructSPtr<ResponseHeader>())
-	, callMethodResultArraySPtr_(constructSPtr<CallMethodResultArray>())
-	, diagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
+	, responseHeaderSPtr_(boost::make_shared<ResponseHeader>())
+	, callMethodResultArraySPtr_(boost::make_shared<CallMethodResultArray>())
+	, diagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
 	{
 	}
 
@@ -76,17 +76,37 @@ namespace OpcUaStackCore
 		return diagnosticInfoArraySPtr_;
 	}
 
-	void 
+	bool
 	CallResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		callMethodResultArraySPtr_->opcUaBinaryEncode(os);
-		diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= callMethodResultArraySPtr_->opcUaBinaryEncode(os);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	CallResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		callMethodResultArraySPtr_->opcUaBinaryDecode(is);
-		diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= callMethodResultArraySPtr_->opcUaBinaryDecode(is);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
+	}
+
+	bool
+	CallResponse::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		return jsonArraySPtrEncode(pt, callMethodResultArraySPtr_, "Results");
+	}
+
+	bool
+	CallResponse::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		return jsonArraySPtrDecode(pt, callMethodResultArraySPtr_, "Results");
 	}
 }

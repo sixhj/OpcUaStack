@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,8 +12,8 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
- */
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
+*/
 
 #include "OpcUaStackCore/ServiceSet/RegisterServerResponse.h"
 
@@ -30,7 +30,7 @@ namespace OpcUaStackCore
 
 	RegisterServerResponse::RegisterServerResponse(void)
 	: Object()
-	, responseHeaderSPtr_(constructSPtr<ResponseHeader>())
+	, responseHeaderSPtr_(boost::make_shared<ResponseHeader>())
 	{
 	}
 
@@ -50,16 +50,26 @@ namespace OpcUaStackCore
 		return responseHeaderSPtr_;
 	}
 
-	void 
+	bool
 	RegisterServerResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		responseHeaderSPtr_->opcUaBinaryEncode(os);
+		return responseHeaderSPtr_->opcUaBinaryEncode(os);
 	}
 	
-	void 
+	bool
 	RegisterServerResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		responseHeaderSPtr_->opcUaBinaryDecode(is);
+		return responseHeaderSPtr_->opcUaBinaryDecode(is);
+	}
+
+	bool
+	RegisterServerResponse::jsonEncodeImpl(boost::property_tree::ptree &pt) const {
+		return true;
+	}
+
+	bool
+	RegisterServerResponse::jsonDecodeImpl(const boost::property_tree::ptree &pt) {
+		return true;
 	}
 
 }

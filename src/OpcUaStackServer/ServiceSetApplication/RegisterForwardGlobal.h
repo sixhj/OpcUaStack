@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,11 +19,9 @@
 #define __OpcUaStackServer_RegisterForwardGlobal_h__
 
 #include <vector>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
+#include "OpcUaStackCore/Application/ApplicationCallback.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -36,83 +34,41 @@ namespace OpcUaStackServer
 		RegisterForwardGlobal(void);
 		virtual ~RegisterForwardGlobal(void);
 
-		void setRegisterServerCallback(Callback& callback);
-		template<typename T>
-		  void setRegisterServerCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setRegisterServerCallback(callback);
-		  }
-		void setFindServersCallback(Callback& callback);
-		template<typename T>
-		  void setFindServersCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setFindServersCallback(callback);
-		  }
-		void setEventItemStartCallback(Callback& callback);
-		template<typename T>
-		  void setEventItemStartCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setEventItemStartCallback(callback);
-		  }
-
-		void setEventItemStopCallback(Callback& callback);
-		template<typename T>
-		  void setEventItemStopCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setEventItemStopCallback(callback);
-		  }
-
-		void setAuthenticationCallback(Callback& callback);
-		template<typename T>
-		  void setAuthenticationCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setAuthenticationCallback(callback);
-		  }
-
-		void setAutorizationCallback(Callback& callback);
-		template<typename T>
-		  void setAutorizationCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setAutorizationCallback(callback);
-		  }
-
-		void setCloseSessionCallback(Callback& callback);
-		template<typename T>
-		  void setCloseSessionCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setCloseSessionCallback(callback);
-		  }
-
-		void setNodeNewCallback(Callback& callback);
-		template<typename T>
-		  void setNodeNewCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setNodeNewCallback(callback);
-		  }
-
-		void setNodeDeleteCallback(Callback& callback);
-		template<typename T>
-		  void setNodeDeleteCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setNodeDeleteCallback(callback);
-		  }
+		void setRegisterServerCallback(
+			OpcUaStackCore::ApplicationCallback::RegisterServer callback
+		);
+		void setFindServersCallback(
+			OpcUaStackCore::ApplicationCallback::FindServer callback
+		);
+		void setEventItemStartCallback(
+			OpcUaStackCore::ApplicationCallback::EventItemStart callback
+		);
+		void setEventItemStopCallback(
+			OpcUaStackCore::ApplicationCallback::EventItemStop callback
+		);
+		void setAuthenticationCallback(
+			OpcUaStackCore::ApplicationCallback::Authentication callback
+		);
+		void setAutorizationCallback(
+			OpcUaStackCore::ApplicationCallback::Autorization callback
+		);
+		void setCloseSessionCallback(
+			OpcUaStackCore::ApplicationCallback::CloseSession callback
+		);
+		void setNodeNewCallback(
+			OpcUaStackCore::ApplicationCallback::NodeNew callback
+		);
+		void setNodeDeleteCallback(
+			OpcUaStackCore::ApplicationCallback::NodeDelete callback
+		);
 
 		bool query(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
 
 	  private:
 		ForwardGlobalSync forwardGlobalSync_;
-		OpcUaStatusCode resultCode_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_;
 	};
 
 }

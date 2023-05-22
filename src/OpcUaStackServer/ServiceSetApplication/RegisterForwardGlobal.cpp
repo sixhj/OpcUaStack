@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,9 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSetApplication/RegisterForwardGlobal.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -33,55 +35,73 @@ namespace OpcUaStackServer
 	}
 
 	void
-	RegisterForwardGlobal::setRegisterServerCallback(Callback& callback)
+	RegisterForwardGlobal::setRegisterServerCallback(
+		ApplicationCallback::RegisterServer callback
+	)
 	{
 		forwardGlobalSync_.registerServerService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setFindServersCallback(Callback& callback)
+	RegisterForwardGlobal::setFindServersCallback(
+		ApplicationCallback::FindServer callback
+	)
 	{
 		forwardGlobalSync_.findServersService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setEventItemStartCallback(Callback& callback)
+	RegisterForwardGlobal::setEventItemStartCallback(
+		ApplicationCallback::EventItemStart callback
+	)
 	{
 		forwardGlobalSync_.eventItemStartService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setEventItemStopCallback(Callback& callback)
+	RegisterForwardGlobal::setEventItemStopCallback(
+		ApplicationCallback::EventItemStop callback
+	)
 	{
 		forwardGlobalSync_.eventItemStopService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setAuthenticationCallback(Callback& callback)
+	RegisterForwardGlobal::setAuthenticationCallback(
+		ApplicationCallback::Authentication callback
+	)
 	{
 		forwardGlobalSync_.authenticationService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setAutorizationCallback(Callback& callback)
+	RegisterForwardGlobal::setAutorizationCallback(
+		ApplicationCallback::Autorization callback
+	)
 	{
 		forwardGlobalSync_.autorizationService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setCloseSessionCallback(Callback& callback)
+	RegisterForwardGlobal::setCloseSessionCallback(
+		ApplicationCallback::CloseSession callback
+	)
 	{
 		forwardGlobalSync_.closeSessionService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setNodeNewCallback(Callback& callback)
+	RegisterForwardGlobal::setNodeNewCallback(
+		ApplicationCallback::NodeNew callback
+	)
 	{
 		forwardGlobalSync_.nodeNewService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardGlobal::setNodeDeleteCallback(Callback& callback)
+	RegisterForwardGlobal::setNodeDeleteCallback(
+		ApplicationCallback::NodeDelete callback
+	)
 	{
 		forwardGlobalSync_.nodeDeleteService().setCallback(callback);
 	}
@@ -92,7 +112,7 @@ namespace OpcUaStackServer
 		resultCode_ = Success;
 
 		// create request
-		auto trx = constructSPtr<ServiceTransactionRegisterForwardGlobal>();
+		auto trx = boost::make_shared<ServiceTransactionRegisterForwardGlobal>();
 		trx->request()->forwardGlobalSync()->updateFrom(forwardGlobalSync_);
 
 		// send query to application service

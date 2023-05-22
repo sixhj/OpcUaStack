@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,22 +18,21 @@
 #ifndef __OpcUaStackServer_BaseNodeClass_h__
 #define __OpcUaStackServer_BaseNodeClass_h__
 
+#include <boost/weak_ptr.hpp>
 #include <vector>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/BuildInTypes.h"
-#include "OpcUaStackCore/ServiceSetApplication/ForwardNodeSync.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardNodeSync.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardNodeAsync.h"
 #include "OpcUaStackServer/AddressSpaceModel/Attribute.h"
 #include "OpcUaStackServer/AddressSpaceModel/ReferenceType.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeBase.h"
 #include "OpcUaStackServer/AddressSpaceModel/ReferenceItemMap.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT BaseNodeClass
-	: public Object
+	: public OpcUaStackCore::Object
 	, public AttributeBase
 	{
 	  public: 
@@ -42,7 +41,8 @@ namespace OpcUaStackServer
 		typedef std::vector<BaseNodeClass::SPtr> Vec;
 
 		BaseNodeClass(void);
-		BaseNodeClass(NodeClassType nodeClass);
+		BaseNodeClass(OpcUaStackCore::NodeClass::Enum nodeClass);
+		BaseNodeClass(OpcUaStackCore::NodeClass::Enum nodeClass, OpcUaStackCore::OpcUaNodeId& nodeId, BaseNodeClass* baseNodeClass);
 		virtual ~BaseNodeClass(void);
 
 		NodeIdAttribute& nodeId(void);
@@ -52,6 +52,9 @@ namespace OpcUaStackServer
 		DescriptionAttribute& description(void);
 		WriteMaskAttribute& writeMask(void);
 		UserWriteMaskAttribute& userWriteMask(void);
+		RolePermissionsAttribute& rolePermissions(void);
+		UserRolePermissionsAttribute& userRolePermissions(void);
+		AccessRestrictionsAttribute& accessRestrictions(void);
 
 		Attribute* nodeIdAttribute(void); 
 		Attribute* nodeClassAttribute(void); 
@@ -60,6 +63,9 @@ namespace OpcUaStackServer
 		Attribute* descriptionAttribute(void); 
 		Attribute* writeMaskAttribute(void); 
 		Attribute* userWriteMaskAttribute(void); 
+		Attribute* rolePermissionsAttribute(void);
+		Attribute* userRolePermissionsAttribute(void);
+		Attribute* accessRestrictionsAttribute(void);
 
 		ReferenceItemMap& referenceItemMap(void);
 
@@ -69,6 +75,8 @@ namespace OpcUaStackServer
 
 		void forwardNodeSync(ForwardNodeSync::SPtr forwardInfo);
 		ForwardNodeSync::SPtr forwardNodeSync(void);
+		void forwardNodeAsync(ForwardNodeAsync::SPtr forwardInfo);
+		ForwardNodeAsync::SPtr forwardNodeAsync(void);
 
 	  private:
 		NodeIdAttribute nodeId_;
@@ -78,10 +86,14 @@ namespace OpcUaStackServer
 		DescriptionAttribute description_;
 		WriteMaskAttribute writeMask_;
 		UserWriteMaskAttribute userWriteMask_;
+		RolePermissionsAttribute rolePermissionsAttribute_;
+		UserRolePermissionsAttribute userRolePermissionsAttribute_;
+		AccessRestrictionsAttribute accessRestrictionsAttribute_;
 
 		ReferenceItemMap referenceItemMap_;
 
 		ForwardNodeSync::SPtr forwardNodeSync_;
+		ForwardNodeAsync::SPtr forwardNodeAsync_;
 	};
 
 }

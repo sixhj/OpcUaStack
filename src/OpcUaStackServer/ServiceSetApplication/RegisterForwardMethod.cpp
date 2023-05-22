@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,9 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSetApplication/RegisterForwardMethod.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -55,9 +57,15 @@ namespace OpcUaStackServer
 	}
 
 	void
-	RegisterForwardMethod::setMethodCallback(Callback& callback)
+	RegisterForwardMethod::setMethodCallback(ApplicationCallback::Method callback)
 	{
 		forwardMethodSync_.methodService().setCallback(callback);
+	}
+
+	void
+	RegisterForwardMethod::applicationContext(BaseClass::SPtr& applicationContext)
+	{
+		forwardMethodSync_.methodService().applicationContext(applicationContext);
 	}
 
 	bool
@@ -66,7 +74,7 @@ namespace OpcUaStackServer
 		resultCode_ = Success;
 
 		// create response
-		auto trx = constructSPtr<ServiceTransactionRegisterForwardMethod>();
+		auto trx = boost::make_shared<ServiceTransactionRegisterForwardMethod>();
 	  	trx->request()->objectNodeId(objectNodeId_);
 	  	trx->request()->methodNodeId(methodNodeId_);
 	  	trx->request()->forwardMethodSync()->updateFrom(forwardMethodSync_);

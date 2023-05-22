@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,11 +17,13 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/VariableNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	VariableNodeClass::VariableNodeClass(void)
-	: BaseNodeClass(NodeClassType_Variable)
+	: BaseNodeClass(NodeClass::EnumVariable)
 	, value_()
 	, dataType_()
 	, valueRank_()
@@ -29,7 +31,92 @@ namespace OpcUaStackServer
 	, historizing_()
 	, arrayDimensions_()
 	, minimumSamplingInterval_()
+	, accessLevelEx_()
 	{
+	}
+
+	VariableNodeClass::VariableNodeClass(
+		OpcUaNodeId& nodeId,
+		VariableNodeClass& variableNodeClass
+	)
+	: BaseNodeClass(NodeClass::EnumVariable, nodeId, &variableNodeClass)
+	, value_()
+	, dataType_()
+	, valueRank_()
+	, accessLevel_()
+	, historizing_()
+	, arrayDimensions_()
+	, minimumSamplingInterval_()
+	, accessLevelEx_()
+	{
+		OpcUaDataValue dataValue;
+		if (variableNodeClass.getValue(dataValue)) setValue(dataValue);
+
+		OpcUaNodeId dataType;
+		if (variableNodeClass.getDataType(dataType)) setDataType(dataType);
+
+		int32_t valueRank;
+		if (variableNodeClass.getValueRank(valueRank)) setValueRank(valueRank);
+
+		OpcUaByte accessLevel;
+		if (variableNodeClass.getAccessLevel(accessLevel)) setAccessLevel(accessLevel);
+
+		OpcUaByte userAccessLevel;
+		if (variableNodeClass.getUserAccessLevel(userAccessLevel)) setUserAccessLevel(userAccessLevel);
+
+		OpcUaBoolean historizing;
+		if (variableNodeClass.getHistorizing(historizing)) setHistorizing(historizing);
+
+		OpcUaUInt32Array arrayDimensions;
+		if (variableNodeClass.getArrayDimensions(arrayDimensions)) setArrayDimensions(arrayDimensions);
+
+		OpcUaDouble minimumSamplingInterval;
+		if (variableNodeClass.getMinimumSamplingInterval(minimumSamplingInterval)) setMinimumSamplingInterval(minimumSamplingInterval);
+
+		AccessLevelExType accessLevelEx;
+		if (variableNodeClass.getAccessLevelEx(accessLevelEx)) setAccessLevelEx(accessLevelEx);
+	}
+
+	VariableNodeClass::VariableNodeClass(
+		OpcUaNodeId& nodeId,
+		VariableTypeNodeClass& variableTypeNodeClass
+	)
+	: BaseNodeClass(NodeClass::EnumVariable, nodeId, &variableTypeNodeClass)
+	, value_()
+	, dataType_()
+	, valueRank_()
+	, accessLevel_()
+	, historizing_()
+	, arrayDimensions_()
+	, minimumSamplingInterval_()
+	, accessLevelEx_()
+	{
+		OpcUaDataValue dataValue;
+		if (variableTypeNodeClass.getValue(dataValue)) setValue(dataValue);
+
+		OpcUaNodeId dataType;
+		if (variableTypeNodeClass.getDataType(dataType)) setDataType(dataType);
+
+		int32_t valueRank;
+		if (variableTypeNodeClass.getValueRank(valueRank)) setValueRank(valueRank);
+
+		OpcUaByte accessLevel = 3;
+		setAccessLevel(accessLevel);
+
+		OpcUaByte userAccessLevel = 3;
+		setUserAccessLevel(userAccessLevel);
+
+		OpcUaBoolean historizing = false;
+		setHistorizing(historizing);
+
+		OpcUaUInt32Array arrayDimensions;
+		if (variableTypeNodeClass.getArrayDimensions(arrayDimensions)) setArrayDimensions(arrayDimensions);
+
+		OpcUaDouble minimumSamplingInterval = 0;
+		setMinimumSamplingInterval(minimumSamplingInterval);
+
+		AccessLevelExType accessLevelEx = 0;
+		setAccessLevelEx(accessLevelEx);
 	}
 
 	VariableNodeClass::~VariableNodeClass(void)
@@ -84,6 +171,12 @@ namespace OpcUaStackServer
 		return minimumSamplingInterval_;
 	}
 
+	AccessLevelExAttribute&
+	VariableNodeClass::accessLevelEx()
+	{
+		return accessLevelEx_;
+	}
+
 	Attribute* 
 	VariableNodeClass::valueAttribute(void)
 	{
@@ -132,6 +225,12 @@ namespace OpcUaStackServer
 		return &minimumSamplingInterval_;
 	}
 
+	Attribute*
+	VariableNodeClass::accessLevelExAttribute(void)
+	{
+		return &accessLevelEx_;
+	}
+
 	void
 	VariableNodeClass::copyTo(VariableNodeClass::SPtr variableNodeClass)
 	{
@@ -150,12 +249,13 @@ namespace OpcUaStackServer
 		historizingAttribute()->copyTo(variableNodeClass.historizingAttribute());
 		arrayDimensionsAttribute()->copyTo(variableNodeClass.arrayDimensionsAttribute());
 		minimumSamplingIntervalAttribute()->copyTo(variableNodeClass.minimumSamplingIntervalAttribute());
+		accessLevelExAttribute()->copyTo(variableNodeClass.accessLevelExAttribute());
 	}
 
 	BaseNodeClass::SPtr
 	VariableNodeClass::clone(void)
 	{
-		VariableNodeClass::SPtr variableNodeClass = constructSPtr<VariableNodeClass>();
+		VariableNodeClass::SPtr variableNodeClass = boost::make_shared<VariableNodeClass>();
 		copyTo(variableNodeClass);
 		return variableNodeClass;
 	}

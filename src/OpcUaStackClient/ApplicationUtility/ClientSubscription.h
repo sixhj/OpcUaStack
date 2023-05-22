@@ -1,5 +1,5 @@
 /*
-   Copyright 2016-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,9 +18,6 @@
 #ifndef __OpcUaStackClient_ClientSubscription_h__
 #define __OpcUaStackClient_ClientSubscription_h__
 
-#include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/Callback.h"
 #include "OpcUaStackCore/Utility/IOThread.h"
 #include "OpcUaStackClient/ServiceSet/ServiceSetManager.h"
 #include "OpcUaStackClient/ApplicationUtility/ClientMonitoredItem.h"
@@ -28,9 +25,6 @@
 #include <set>
 #include <vector>
 #include <stdint.h>
-
-using namespace OpcUaStackCore;
-using namespace OpcUaStackClient;
 
 namespace OpcUaStackClient
 {
@@ -41,13 +35,11 @@ namespace OpcUaStackClient
 		ClientSubscriptionIf(void) {}
 		virtual ~ClientSubscriptionIf(void) {}
 
-		virtual void dataChangeNotification(ClientMonitoredItem::SPtr& clientMonitoredItem, OpcUaDataValue& dataValue) = 0;
+		virtual void dataChangeNotification(ClientMonitoredItem::SPtr& clientMonitoredItem, OpcUaStackCore::OpcUaDataValue& dataValue) = 0;
 	};
 
 
 	class DLLEXPORT ClientSubscription
-	: public SubscriptionServiceIf
-	, public MonitoredItemServiceIf
 	{
 	  public:
 		typedef boost::shared_ptr<ClientSubscription> SPtr;
@@ -66,8 +58,8 @@ namespace OpcUaStackClient
 		ClientSubscription(void);
 		~ClientSubscription(void);
 
-		void ioThread(IOThread::SPtr& ioThread);
-		IOThread::SPtr& ioThread(void);
+		void ioThread(OpcUaStackCore::IOThread::SPtr& ioThread);
+		OpcUaStackCore::IOThread::SPtr& ioThread(void);
 		std::string id(void);
 		void id(const std::string& id);
 		uint32_t publishingInterval(void);
@@ -80,7 +72,6 @@ namespace OpcUaStackClient
 		void maxNotificationsPerPublish(uint32_t maxNotificationsPerPublish);
 		void serviceSetManager(ServiceSetManager* serviceSetManager);
 		void sessionService(SessionService::SPtr& sessionService);
-		void clientSubscriptionIf(ClientSubscriptionIf* clientSubscriptionIf);
 
 		void addMonitoredItem(ClientMonitoredItem::SPtr& clientMonitoredItem);
 
@@ -91,23 +82,19 @@ namespace OpcUaStackClient
 		void close(void);
 		void error(void);
 
-		//- SubscriptionServiceIf ---------------------------------------------
-	    virtual void subscriptionServiceCreateSubscriptionResponse(ServiceTransactionCreateSubscription::SPtr serviceTransactionCreateSubscription);
-	    virtual void subscriptionServiceModifySubscriptionResponse(ServiceTransactionModifySubscription::SPtr serviceTransactionModifySubscription);
-	    virtual void subscriptionServiceTransferSubscriptionsResponse(ServiceTransactionTransferSubscriptions::SPtr serviceTransactionTransferSubscriptions);
-	    virtual void subscriptionServiceDeleteSubscriptionsResponse(ServiceTransactionDeleteSubscriptions::SPtr serviceTransactionDeleteSubscriptions);
+	    void subscriptionServiceCreateSubscriptionResponse(OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr serviceTransactionCreateSubscription);
+	    void subscriptionServiceModifySubscriptionResponse(OpcUaStackCore::ServiceTransactionModifySubscription::SPtr serviceTransactionModifySubscription);
+	    void subscriptionServiceTransferSubscriptionsResponse(OpcUaStackCore::ServiceTransactionTransferSubscriptions::SPtr serviceTransactionTransferSubscriptions);
+	    void subscriptionServiceDeleteSubscriptionsResponse(OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr serviceTransactionDeleteSubscriptions);
 
-		virtual void dataChangeNotification(const MonitoredItemNotification::SPtr& monitoredItem);
-		virtual void subscriptionStateUpdate(SubscriptionState subscriptionState, uint32_t subscriptionId);
-		//- SubscriptionServiceIf ---------------------------------------------
+		void dataChangeNotification(const OpcUaStackCore::MonitoredItemNotification::SPtr& monitoredItem);
+		void subscriptionStateUpdate(SubscriptionState subscriptionState, uint32_t subscriptionId);
 
-		//- MonitoredItemServiceIf --------------------------------------------
-	    virtual void monitoredItemServiceCreateMonitoredItemsResponse(ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems);
-	    virtual void monitoredItemServiceDeleteMonitoredItemsResponse(ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems);
-	    virtual void monitoredItemServiceModifyMonitoredItemsResponse(ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems);
-	    virtual void monitoredItemServiceSetMonitoringModeResponse(ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode);
-	    virtual void monitoredItemServiceSetTriggeringResponse(ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering);
-		//- MonitoredItemServiceIf --------------------------------------------
+	    void monitoredItemServiceCreateMonitoredItemsResponse(OpcUaStackCore::ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems);
+	    void monitoredItemServiceDeleteMonitoredItemsResponse(OpcUaStackCore::ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems);
+	    void monitoredItemServiceModifyMonitoredItemsResponse(OpcUaStackCore::ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems);
+	    void monitoredItemServiceSetMonitoringModeResponse(OpcUaStackCore::ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode);
+	    void monitoredItemServiceSetTriggeringResponse(OpcUaStackCore::ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering);
 
 	  private:
 		void init(void);
@@ -116,7 +103,7 @@ namespace OpcUaStackClient
 		void deleteMonitoredItems(void);
 
 		// configuration parameters
-		IOThread::SPtr ioThread_;
+		OpcUaStackCore::IOThread::SPtr ioThread_;
 		std::string id_;
 		uint32_t publishingInterval_;
 		uint32_t livetimeCount_;

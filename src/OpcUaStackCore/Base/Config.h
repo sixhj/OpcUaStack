@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -21,9 +21,10 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/lexical_cast.hpp>
+#include <iostream>
+#include <typeinfo>
 #include <vector>
 #include <map>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Base/ConfigIf.h"
 
 namespace OpcUaStackCore
@@ -59,13 +60,33 @@ namespace OpcUaStackCore
 		boost::optional<std::string> getValue(const std::string& path);
 		std::string getValue(const std::string& path, const std::string& defaultValue);
 		void getValues(const std::string& path, std::vector<std::string>& valueVec);
+		bool existChild(const std::string& path);
 		boost::optional<Config> getChild(const std::string& path);
 		void getChilds(const std::string& path, std::vector<Config>& configVec);
+
+		template<typename T>
+		  std::string convertToBaseType(const std::string& value) {
+				if (typeid(T) == typeid(uint8_t) || typeid(T) == typeid(uint16_t) ||
+					typeid(T) == typeid(uint32_t) || typeid(T) == typeid(uint64_t)) {
+					if (value.substr(0,2) == std::string("0x")) {
+						uint64_t val;
+						std::stringstream ss0;
+						ss0 << std::hex << value.substr(2);
+						ss0 >> val;
+
+						std::stringstream ss1;
+						ss1 << val;
+						return ss1.str();
+					}
+				}
+				return value;
+		  }
 
 		template<typename T>
 		  bool getConfigParameter(T& value)
 		  {
 			  std::string sourceValue = getValue();
+			  sourceValue = convertToBaseType<T>(sourceValue);
 			  try {
 				  value = boost::lexical_cast<T>(sourceValue);
 			  } catch(boost::bad_lexical_cast&) {
@@ -73,19 +94,24 @@ namespace OpcUaStackCore
 			  }
 			  return true;
 		  }
+		bool getConfigParameter(uint8_t& value);
+		bool getConfigParameter(int8_t& value);
 
 		template<typename T>
 		  bool getConfigParameter(const std::string& path, T& value)
 		  {
 			  boost::optional<std::string> sourceValue = getValue(path);
 			  if (!sourceValue) return false;
+			  auto sourceValueTmp = convertToBaseType<T>(*sourceValue);
 			  try {
-				  value = boost::lexical_cast<T>(*sourceValue);
+				  value = boost::lexical_cast<T>(sourceValueTmp);
 			  } catch(boost::bad_lexical_cast&) {
 				  return false;
 			  }
 			  return true;
 		  }
+		bool getConfigParameter(const std::string& path, uint8_t& value);
+		bool getConfigParameter(const std::string& path, int8_t& value);
 
 		template<typename T>
 		  bool getConfigParameter(const std::string& path, T&value, const std::string& defaultValue)
@@ -94,16 +120,17 @@ namespace OpcUaStackCore
 
 			  boost::optional<std::string> sourceValue = getValue(path);
 			  if (!sourceValue) sourceValue = defaultValue;
+			  auto sourceValueTmp = convertToBaseType<T>(*sourceValue);
 			  try {
-				  value = boost::lexical_cast<T>(*sourceValue);
+				  value = boost::lexical_cast<T>(sourceValueTmp);
 			  } catch(boost::bad_lexical_cast&) {
 				  cast = false;
 			  }
 
 			  if (cast == false) {
-				  sourceValue = defaultValue;
+				  sourceValueTmp = convertToBaseType<T>(defaultValue);
 				  try {
-				      value = boost::lexical_cast<T>(*sourceValue);
+				      value = boost::lexical_cast<T>(sourceValueTmp);
 				  } catch(boost::bad_lexical_cast&) {
 				      return false;
 			      }
@@ -111,11 +138,13 @@ namespace OpcUaStackCore
 
 			  return true;
 		  }
+		bool getConfigParameter(const std::string& path, uint8_t& value, const std::string& defaultValue);
+		bool getConfigParameter(const std::string& path, int8_t& value, const std::string& defaultValue);
 
 		template<typename T>
 		  bool isConfigParameterFromType(void)
 		  {
-			  std::string sourceValue = getValue();
+			  std::string sourceValue = convertToBaseType<T>(getValue());
 			  try {
 				  T value = boost::lexical_cast<T>(sourceValue);
 			  } catch(boost::bad_lexical_cast&) {
@@ -129,8 +158,9 @@ namespace OpcUaStackCore
 		  {
 			  boost::optional<std::string> sourceValue = getValue(path);
 			  if (!sourceValue) return false;
+			  auto sourceValueTmp = convertToBaseType<T>(*sourceValue);
 			  try {
-				  T value = boost::lexical_cast<T>(*sourceValue);
+				  T value = boost::lexical_cast<T>(sourceValueTmp);
 			  } catch(boost::bad_lexical_cast&) {
 				  return false;
 			  }
@@ -146,10 +176,15 @@ namespace OpcUaStackCore
 		bool aliasExist(const std::string& aliasName);
 		void alias(const std::string& aliasName, const std::string& aliasValue);
 		std::string alias(const std::string& aliasName);
+		void aliasMap(AliasMap& aliasMap);
+		AliasMap& aliasMap(void);
 		void out(std::ostream& os);
+		void outAliasMap(std::ostream& os);
+		void outAll(std::ostream& os);
 
 	  private:
 		void out(std::ostream& os, boost::property_tree::ptree& ptree, uint32_t depth = 0);
+		void out(std::ostream& os, AliasMap& aliasMap);
 		void getValuesFromName(const std::string& valueName, std::vector<std::string>& valueVec);
 		void getChildFromName(const std::string& valueName, std::vector<Config>& valueVec);
 		static void substAlias(std::string& value);

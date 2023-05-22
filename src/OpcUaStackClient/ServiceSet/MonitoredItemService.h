@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,50 +18,46 @@
 #ifndef __OpcUaStackClient_MonitoredItemService_h__
 #define __OpcUaStackClient_MonitoredItemService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 #include "OpcUaStackCore/ServiceSet/MonitoredItemServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/MonitoredItemServiceIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
 	class DLLEXPORT MonitoredItemService
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<MonitoredItemService> SPtr;
 
-		MonitoredItemService(IOThread* ioThread);
+		MonitoredItemService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~MonitoredItemService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			MonitoredItemServiceIf* monitoredItemServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void monitoredItemServiceIf(MonitoredItemServiceIf* monitoredItemServiceIf);
 
-		void syncSend(ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems);
-		void asyncSend(ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems);
-		void syncSend(ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems);
-		void asyncSend(ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems);
-		void syncSend(ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems);
-		void asyncSend(ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems);
-		void syncSend(ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode);
-		void asyncSend(ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode);
-		void syncSend(ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering);
-		void asyncSend(ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering);
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionCreateMonitoredItems::SPtr& serviceTransactionCreateMonitoredItems);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionCreateMonitoredItems::SPtr& serviceTransactionCreateMonitoredItems);
+		void syncSend(const OpcUaStackCore::ServiceTransactionDeleteMonitoredItems::SPtr& serviceTransactionDeleteMonitoredItems);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionDeleteMonitoredItems::SPtr& serviceTransactionDeleteMonitoredItems);
+		void syncSend(const OpcUaStackCore::ServiceTransactionModifyMonitoredItems::SPtr& serviceTransactionModifyMonitoredItems);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionModifyMonitoredItems::SPtr& serviceTransactionModifyMonitoredItems);
+		void syncSend(const OpcUaStackCore::ServiceTransactionSetMonitoringMode::SPtr& serviceTransactionSetMonitoringMode);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionSetMonitoringMode::SPtr& serviceTransactionSetMonitoringMode);
+		void syncSend(const OpcUaStackCore::ServiceTransactionSetTriggering::SPtr& serviceTransactionSetTriggering);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionSetTriggering::SPtr& serviceTransactionSetTriggering);
 
 	  private:
-		Component* componentSession_;
-
-		MonitoredItemServiceIf* monitoredItemServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

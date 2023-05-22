@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,8 +15,12 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/lexical_cast.hpp>
+#include <string>
+#include "OpcUaStackCore/Base/ThreadStorage.h"
 #include "OpcUaStackCore/Base/IOService.h"
 #include "OpcUaStackCore/Base/Log.h"
+#include "OpcUaStackCore/Utility/UniqueId.h"
 
 namespace OpcUaStackCore
 {
@@ -30,6 +34,20 @@ namespace OpcUaStackCore
 	, startCondition_()
 	, stopMutex_()
 	, stopCondition_()
+	{
+		name_ = UniqueId::createStringUniqueId();
+	}
+
+	IOService::IOService(const std::string& name)
+	: io_service_()
+	, work_(0)
+	, numberThreads_(0)
+	, runningThreads_(0)
+	, startMutex_()
+	, startCondition_()
+	, stopMutex_()
+	, stopCondition_()
+	, name_(name)
 	{
 	}
 
@@ -49,9 +67,19 @@ namespace OpcUaStackCore
 		boost::this_thread::sleep(boost::posix_time::milliseconds(msec));
 	}
 
+	void
+	IOService::name(const std::string& name)
+	{
+		name_ = name;
+	}
+
 	void 
 	IOService::start(uint32_t numberThreads)
 	{
+		Log(Debug, "ioservice threads starting")
+			.parameter("Name", name_)
+			.parameter("NumberThreads", numberThreads);
+
 		numberThreads_ = numberThreads;
 		work_ = new boost::asio::io_service::work(io_service_);
 
@@ -64,12 +92,27 @@ namespace OpcUaStackCore
 		// wait until all threads have been started
 		startMutex_.lock();
 		while (runningThreads_ != numberThreads_) startCondition_.wait(startMutex_);
+
+		ThreadVec::iterator it;
+		for (it = threadVec_.begin(); it != threadVec_.end(); it++) {
+			std::string threadId = boost::lexical_cast<std::string>((*it)->get_id());
+			threadIdVec_.push_back(threadId);
+		}
+
 		startMutex_.unlock();
+
+		Log(Debug, "io service threads started")
+		    .parameter("Name", name_)
+			.parameter("NumberThreads", numberThreads);
 	}
 
 	void 
 	IOService::stop(void)
 	{
+		Log(Debug, "ioservice threads stopping")
+			.parameter("Name", name_)
+			.parameter("NumberThreads", runningThreads_);
+
 		if (work_) {
 			delete work_;
 			work_ = NULL;
@@ -91,8 +134,18 @@ namespace OpcUaStackCore
 			delete *it;
 		}
 		threadVec_.clear();
+		threadIdVec_.clear();
 
 		io_service_.reset();
+
+		Log(Debug, "ioservice threads stoped")
+			.parameter("Name", name_);
+	}
+
+	void
+	IOService::threadIdVec(std::vector<std::string>& threadIdVec)
+	{
+		threadIdVec = threadIdVec_;
 	}
 
 	boost::asio::io_service& 
@@ -109,13 +162,22 @@ namespace OpcUaStackCore
 		if (runningThreads_ == numberThreads_) {
 			startCondition_.notify_one();
 		}
-		Log(Debug, "start thread").parameter("ThreadId", boost::this_thread::get_id());
+
+		// set thread specific data
+		std::string name = name_ + "_" + std::to_string(runningThreads_);
+		ThreadStorage::getInstance()->name(name);
+
+		Log(Debug, "start thread")
+			.parameter("Name", name_)
+			.parameter("ThreadId", boost::this_thread::get_id());
 		startMutex_.unlock();
 
 		io_service_.run();
 
 		stopMutex_.lock();
-		Log(Debug, "stop thread").parameter("ThreadId", boost::this_thread::get_id());
+		Log(Debug, "stop thread")
+			.parameter("Name", name_)
+			.parameter("ThreadId", boost::this_thread::get_id());
 		runningThreads_--;
 		if (runningThreads_ == 0) {
 			stopCondition_.notify_one();

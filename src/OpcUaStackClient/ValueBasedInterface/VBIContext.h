@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,11 +18,7 @@
 #ifndef __OpcUaStackClient_VBIContext_h__
 #define __OpcUaStackClient_VBIContext_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackClient/ServiceSet/ServiceSetManager.h"
-
-using namespace OpcUaStackCore;
-using namespace OpcUaStackClient;
 
 namespace OpcUaStackClient
 {
@@ -49,10 +45,17 @@ namespace OpcUaStackClient
 		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
 
 		bool secureChannelLog_;
-		std::string endpointUrl_;
+		std::string endpointUrl_;			//! direct access without get endpoint request.
+		std::string discoveryUrl_;			//! use get endpoint request to find endpoint url. If an
+											//! endpoint url exists, it will be ignored.
+		std::string applicationUri_;		//! needed to detect right certificate, if get endpoint request
+											//! is not used
+		OpcUaStackCore::MessageSecurityMode::Enum securityMode_;
+		OpcUaStackCore::SecurityPolicy::Enum securityPolicy_;
 		std::string sessionName_;
-		ApplicationCertificate::SPtr applicationCertificate_;
-		CryptoManager::SPtr cryptoManager_;
+		OpcUaStackCore::CryptoManager::SPtr cryptoManager_;
+
+		bool deleteEndpointDescriptionCache_;
 	};
 
 
@@ -65,9 +68,8 @@ namespace OpcUaStackClient
 		void reset(void);
 		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
 
-		OpcUaInt32 attributeId_;
+		OpcUaStackCore::OpcUaInt32 attributeId_;
 	};
-
 
 	class DLLEXPORT WriteContext
 	{
@@ -78,7 +80,21 @@ namespace OpcUaStackClient
 		void reset(void);
 		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
 
-		OpcUaInt32 attributeId_;
+		OpcUaStackCore::OpcUaInt32 attributeId_;
+	};
+
+	class DLLEXPORT HistoryReadContext
+	{
+	  public:
+		HistoryReadContext(void);
+		~HistoryReadContext(void);
+
+		void reset(void);
+		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
+
+		OpcUaStackCore::TimestampsToReturn timestampToReturn_;
+		uint32_t maxNumResultValuesPerNode_;
+		uint32_t maxNumResultValuesPerRequest_;
 	};
 
 	class DLLEXPORT CreateSubscriptionContext
@@ -90,12 +106,12 @@ namespace OpcUaStackClient
 		void reset(void);
 		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
 
-		OpcUaDouble requestedPublishingInterval_;
-		OpcUaUInt32 requestedLifetimeCount_;
-		OpcUaUInt32 requestedMaxKeepAliveCount_;
-		OpcUaUInt32 maxNotificationsPerPublish_;
-		OpcUaBoolean publishingEnabled_;
-		OpcUaByte priority_;
+		OpcUaStackCore::OpcUaDouble requestedPublishingInterval_;
+		OpcUaStackCore::OpcUaUInt32 requestedLifetimeCount_;
+		OpcUaStackCore::OpcUaUInt32 requestedMaxKeepAliveCount_;
+		OpcUaStackCore::OpcUaUInt32 maxNotificationsPerPublish_;
+		OpcUaStackCore::OpcUaBoolean publishingEnabled_;
+		OpcUaStackCore::OpcUaByte priority_;
 	};
 
 	class DLLEXPORT DeleteSubscriptionContext
@@ -117,11 +133,11 @@ namespace OpcUaStackClient
 		void reset(void);
 		bool setContextParameter(ContextParameter::Vec& contextParameterVec);
 
-		OpcUaDouble samplingInterval_;
-		ExtensibleParameter filter_;
-		OpcUaUInt32 queueSize_;
-		OpcUaBoolean discardOldest_;
-		OpcUaUInt32 attributeId_;
+		OpcUaStackCore::OpcUaDouble samplingInterval_;
+		OpcUaStackCore::OpcUaExtensibleParameter filter_;
+		OpcUaStackCore::OpcUaUInt32 queueSize_;
+		OpcUaStackCore::OpcUaBoolean discardOldest_;
+		OpcUaStackCore::OpcUaUInt32 attributeId_;
 	};
 
 	class DLLEXPORT DeleteMonitoredItemContext

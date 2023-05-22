@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,37 +18,89 @@
 #ifndef __OpcUaStackServer_MethodService_h__
 #define __OpcUaStackServer_MethodService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/ServiceSet/MethodServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSet/ServiceSetBase.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/ServiceSet/ServerServiceBase.h"
+#include "OpcUaStackServer/Forward/ForwardManager.h"
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT MethodService 
 	: public ServiceSetBase
-	, public Object
+	, public OpcUaStackCore::Object
+	, public OpcUaStackServer::ServerServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<MethodService> SPtr;
 
-		MethodService(void);
+		MethodService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread::SPtr& ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~MethodService(void);
 
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
-
 	  private:
-		void receiveCallRequest(ServiceTransaction::SPtr serviceTransaction);
-		OpcUaStatusCode forwardAuthorizationMethod(
-			UserContext::SPtr& userContext,
-			OpcUaNodeId& objectNodeId,
-			OpcUaNodeId& funcNodeId
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
 		);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackServer::ForwardTransaction::SPtr& forwardTransaction
+		);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr& message
+		);
+		void sendAnswer(
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// The following functions are used for asynchronously communication
+		// with the application.
+		//
+		// --------------------------------------------------------------------
+		void sendTrxForwardAsync(
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		void recvTrxForwardAsync(
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		void finishTrxForwardAsync(
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// read service
+		//
+		// --------------------------------------------------------------------
+		void receiveCallRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		OpcUaStackCore::OpcUaStatusCode forwardAuthorizationMethod(
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			OpcUaStackCore::OpcUaNodeId& funcNodeId
+		);
+		void forwardCallAsyncResponse(
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		bool forwardCallAsync(
+			ForwardJob::SPtr& forwardJob,
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			BaseNodeClass::SPtr baseNodeClass,
+			uint32_t idx,
+			OpcUaStackCore::ServiceTransactionCall::SPtr& readTrx
+		);
+
+		ForwardManager::SPtr forwardManager_;
 	};
 
 }

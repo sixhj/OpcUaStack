@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,9 +18,8 @@
 #ifndef __OpcUaStackServer_VariableNodeClass_h__
 #define __OpcUaStackServer_VariableNodeClass_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
+#include "OpcUaStackServer/AddressSpaceModel/VariableTypeNodeClass.h"
 
 namespace OpcUaStackServer
 {
@@ -32,6 +31,8 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<VariableNodeClass> SPtr;
 
 		VariableNodeClass(void);
+		VariableNodeClass(OpcUaStackCore::OpcUaNodeId& nodeId, VariableNodeClass& variableNodeClass);
+		VariableNodeClass(OpcUaStackCore::OpcUaNodeId& nodeId, VariableTypeNodeClass& variableTypeNodeClass);
 		~VariableNodeClass(void);
 
 		ValueAttribute& value(void);
@@ -42,6 +43,7 @@ namespace OpcUaStackServer
 		HistorizingAttribute& historizing(void);
 		ArrayDimensionsAttribute& arrayDimensions(void);
 		MinimumSamplingIntervalAttribute& minimumSamplingInterval(void);
+		AccessLevelExAttribute& accessLevelEx();
 
 		Attribute* valueAttribute(void);
 		Attribute* dataTypeAttribute(void);
@@ -51,6 +53,7 @@ namespace OpcUaStackServer
 		Attribute* historizingAttribute(void);
 		Attribute* arrayDimensionsAttribute(void);
 		Attribute* minimumSamplingIntervalAttribute(void);
+		Attribute* accessLevelExAttribute(void);
 
 		void copyTo(VariableNodeClass::SPtr variableNodeClass);
 		void copyTo(VariableNodeClass& variableNodeClass);
@@ -64,18 +67,11 @@ namespace OpcUaStackServer
 		AccessLevelAttribute accessLevel_;
 		UserAccessLevelAttribute userAccessLevel_;
 		HistorizingAttribute historizing_;
+		AccessLevelExAttribute accessLevelEx_;
 
 		// attributes optional
 		ArrayDimensionsAttribute arrayDimensions_;
 		MinimumSamplingIntervalAttribute minimumSamplingInterval_;
-
-		// standard properties - all optional
-		OpcUaString nodeVersion_;  
-		//TimeZoneDataType localTime_;
-		OpcUaString dataTypeVersion_;
-		OpcUaByteString dictionaryFragment_;
-		OpcUaBoolean allowNulls_;
-
 	};
 
 }

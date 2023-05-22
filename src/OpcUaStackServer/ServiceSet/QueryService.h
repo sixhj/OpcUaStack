@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,33 +18,36 @@
 #ifndef __OpcUaStackServer_QueryService_h__
 #define __OpcUaStackServer_QueryService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/ServiceSet/QueryServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSet/ServiceSetBase.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/ServiceSet/ServerServiceBase.h"
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT QueryService 
 	: public ServiceSetBase
-	, public Object
+	, public OpcUaStackCore::Object
+	, public OpcUaStackServer::ServerServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<QueryService> SPtr;
 
-		QueryService(void);
+		QueryService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread::SPtr& ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~QueryService(void);
 
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
-
 	  private:
-		void receiveQueryFirstRequest(ServiceTransaction::SPtr serviceTransaction);
-		void receiveQueryNextRequest(ServiceTransaction::SPtr serviceTransaction);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr& message
+		);
+		void sendAnswer(OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction);
+		void receiveQueryFirstRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		void receiveQueryNextRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
 	};
 
 }

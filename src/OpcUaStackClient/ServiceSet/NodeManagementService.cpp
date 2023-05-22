@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,112 +23,105 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	NodeManagementService::NodeManagementService(IOThread* ioThread)
-	: Component()
-	, componentSession_(nullptr)
-	, nodeManagementServiceIf_(nullptr)
+	NodeManagementService::NodeManagementService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	NodeManagementService::~NodeManagementService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	NodeManagementService::setConfiguration(
-		Component* componentSession,
-		NodeManagementServiceIf* nodeManagementServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		nodeManagementServiceIf_ = nodeManagementServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	NodeManagementService::componentSession(Component* componentSession)
+	NodeManagementService::syncSend(const ServiceTransactionAddNodes::SPtr& serviceTransactionAddNodes)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionAddNodes);
 	}
 
 	void 
-	NodeManagementService::nodeManagementServiceIf(NodeManagementServiceIf* nodeManagementServiceIf)
+	NodeManagementService::asyncSend(const ServiceTransactionAddNodes::SPtr& serviceTransactionAddNodes)
 	{
-		nodeManagementServiceIf_ = nodeManagementServiceIf;
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionAddNodes);
 	}
 
 	void 
-	NodeManagementService::syncSend(ServiceTransactionAddNodes::SPtr serviceTransactionAddNodes)
+	NodeManagementService::syncSend(const ServiceTransactionAddReferences::SPtr& serviceTransactionAddReferences)
 	{
-		serviceTransactionAddNodes->sync(true);
-		serviceTransactionAddNodes->conditionBool().conditionInit();
-		asyncSend(serviceTransactionAddNodes);
-		serviceTransactionAddNodes->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionAddReferences);
 	}
 
 	void 
-	NodeManagementService::asyncSend(ServiceTransactionAddNodes::SPtr serviceTransactionAddNodes)
+	NodeManagementService::asyncSend(const ServiceTransactionAddReferences::SPtr& serviceTransactionAddReferences)
 	{
-		serviceTransactionAddNodes->componentService(this);
-		componentSession_->sendAsync(serviceTransactionAddNodes);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionAddReferences);
 	}
 
 	void 
-	NodeManagementService::syncSend(ServiceTransactionAddReferences::SPtr serviceTransactionAddReferences)
+	NodeManagementService::syncSend(const ServiceTransactionDeleteNodes::SPtr& serviceTransactionDeleteNodes)
 	{
-		serviceTransactionAddReferences->sync(true);
-		serviceTransactionAddReferences->conditionBool().conditionInit();
-		asyncSend(serviceTransactionAddReferences);
-		serviceTransactionAddReferences->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionDeleteNodes);
 	}
 
 	void 
-	NodeManagementService::asyncSend(ServiceTransactionAddReferences::SPtr serviceTransactionAddReferences)
+	NodeManagementService::asyncSend(const ServiceTransactionDeleteNodes::SPtr& serviceTransactionDeleteNodes)
 	{
-		serviceTransactionAddReferences->componentService(this);
-		componentSession_->sendAsync(serviceTransactionAddReferences);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionDeleteNodes);
 	}
 
-	void 
-	NodeManagementService::syncSend(ServiceTransactionDeleteNodes::SPtr serviceTransactionDeleteNodes)
+	void
+	NodeManagementService::syncSend(const ServiceTransactionDeleteReferences::SPtr& serviceTransactionDeleteReferences)
 	{
-		serviceTransactionDeleteNodes->sync(true);
-		serviceTransactionDeleteNodes->conditionBool().conditionInit();
-		asyncSend(serviceTransactionDeleteNodes);
-		serviceTransactionDeleteNodes->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionDeleteReferences);
 	}
 
 	void 
-	NodeManagementService::asyncSend(ServiceTransactionDeleteNodes::SPtr serviceTransactionDeleteNodes)
+	NodeManagementService::asyncSend(const ServiceTransactionDeleteReferences::SPtr& serviceTransactionDeleteReferences)
 	{
-		serviceTransactionDeleteNodes->componentService(this);
-		componentSession_->sendAsync(serviceTransactionDeleteNodes);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionDeleteReferences);
 	}
 
 	void 
-	NodeManagementService::syncSend(ServiceTransactionDeleteReferences::SPtr serviceTransactionDeleteReferences)
-	{
-		serviceTransactionDeleteReferences->sync(true);
-		serviceTransactionDeleteReferences->conditionBool().conditionInit();
-		asyncSend(serviceTransactionDeleteReferences);
-		serviceTransactionDeleteReferences->conditionBool().waitForCondition();
-	}
-
-	void 
-	NodeManagementService::asyncSend(ServiceTransactionDeleteReferences::SPtr serviceTransactionDeleteReferences)
-	{
-		serviceTransactionDeleteReferences->componentService(this);
-		componentSession_->sendAsync(serviceTransactionDeleteReferences);
-	}
-
-	void 
-	NodeManagementService::receive(Message::SPtr message)
+	NodeManagementService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
 		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 		
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 		
@@ -136,37 +129,77 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_AddNodesResponse_Encoding_DefaultBinary:
 			{
-				if (nodeManagementServiceIf_ != nullptr) {
-					nodeManagementServiceIf_->nodeManagementServiceAddNodesResponse(
-						boost::static_pointer_cast<ServiceTransactionAddNodes>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionAddNodes>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_AddReferencesResponse_Encoding_DefaultBinary:
 			{
-				if (nodeManagementServiceIf_ != nullptr) {
-					nodeManagementServiceIf_->nodeManagementServiceAddReferencesResponse(
-						boost::static_pointer_cast<ServiceTransactionAddReferences>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionAddReferences>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_DeleteNodesResponse_Encoding_DefaultBinary:
 			{
-				if (nodeManagementServiceIf_ != nullptr) {
-					nodeManagementServiceIf_->nodeManagementServiceDeleteNodesResponse(
-						boost::static_pointer_cast<ServiceTransactionDeleteNodes>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionDeleteNodes>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_DeleteReferencesResponse_Encoding_DefaultBinary:
-				{
-				if (nodeManagementServiceIf_ != nullptr) {
-					nodeManagementServiceIf_->nodeManagementServiceDeleteReferencesResponse(
-						boost::static_pointer_cast<ServiceTransactionDeleteReferences>(serviceTransaction)
-					);
+			{
+				auto trx = boost::static_pointer_cast<ServiceTransactionDeleteReferences>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,6 +16,7 @@
  */
 
 #include "OpcUaStackCore/ServiceSet/WriteValue.h"
+#include "OpcUaStackCore/BuildInTypes/OpcUaAttributeId.h"
 
 namespace OpcUaStackCore
 {
@@ -35,7 +36,7 @@ namespace OpcUaStackCore
 	, indexRange_()
 	, dataValue_()
 	{
-		nodeIdSPtr_ = constructSPtr<OpcUaNodeId>();
+		nodeIdSPtr_ = boost::make_shared<OpcUaNodeId>();
 	}
 
 	WriteValue::~WriteValue(void)
@@ -99,21 +100,51 @@ namespace OpcUaStackCore
 		nodeIdSPtr_->nodeId(identifier);
 	}
 
-	void 
+	bool
 	WriteValue::opcUaBinaryEncode(std::ostream& os) const
 	{
-		nodeIdSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, attributeId_);
-		indexRange_.opcUaBinaryEncode(os);
-		dataValue_.opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= nodeIdSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, attributeId_);
+		rc &= indexRange_.opcUaBinaryEncode(os);
+		rc &= dataValue_.opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	WriteValue::opcUaBinaryDecode(std::istream& is)
 	{
-		nodeIdSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, attributeId_);
-		indexRange_.opcUaBinaryDecode(is);
-		dataValue_.opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= nodeIdSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, attributeId_);
+		rc &= indexRange_.opcUaBinaryDecode(is);
+		rc &= dataValue_.opcUaBinaryDecode(is);
+
+		return rc;
+	}
+
+	bool
+	WriteValue::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrEncode(pt, nodeIdSPtr_, "NodeId");
+		rc = rc & jsonNumberEncode(pt, attributeId_, "AttributeId", true, (OpcUaInt32)AttributeId_Value);
+		rc = rc & jsonObjectEncode(pt, indexRange_, "IndexRange", true);
+		rc = rc & jsonObjectEncode(pt, dataValue_, "Value");
+		return rc;
+	}
+
+	bool
+	WriteValue::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrDecode(pt, nodeIdSPtr_, "NodeId");
+		rc = rc & jsonNumberDecode(pt, attributeId_, "AttributeId", true, (OpcUaInt32)AttributeId_Value);
+		rc = rc & jsonObjectDecode(pt, indexRange_, "IndexRange", true);
+		rc = rc & jsonObjectDecode(pt, dataValue_, "Value");
+		return rc;
 	}
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -42,6 +42,24 @@ namespace OpcUaStackServer
 		ioThread_ = ioThread;
 	}
 
+	void
+	SubscriptionManager::messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus)
+	{
+		messageBus_ = messageBus;
+	}
+
+	void
+	SubscriptionManager::messageBusMember(OpcUaStackCore::MessageBusMember::WPtr& messageBusMember)
+	{
+		messageBusMember_ = messageBusMember;
+	}
+
+	void
+	SubscriptionManager::strand(boost::shared_ptr<boost::asio::io_service::strand>& strand)
+	{
+		strand_ = strand;
+	}
+
 	void 
 	SubscriptionManager::informationModel(InformationModel::SPtr informationModel)
 	{
@@ -67,13 +85,14 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	SubscriptionManager::receive(ServiceTransactionCreateSubscription::SPtr trx)
+	SubscriptionManager::receive(ServiceTransactionCreateSubscription::SPtr& trx)
 	{
-		CreateSubscriptionRequest::SPtr createSubscriptionRequest = trx->request();
-		CreateSubscriptionResponse::SPtr createSubscriptionResponse = trx->response();
+		auto createSubscriptionRequest = trx->request();
+		auto createSubscriptionResponse = trx->response();
 
-		Subscription::SPtr subscription = constructSPtr<Subscription>();
+		auto subscription = boost::make_shared<Subscription>();
 		subscription->ioThread(ioThread_);
+		subscription->strand(strand_);
 		subscription->informationModel(informationModel_);
 		subscription->forwardGlobalSync(forwardGlobalSync_);
 		subscriptionMap_.insert(std::make_pair(subscription->subscriptionId(), subscription));
@@ -94,9 +113,14 @@ namespace OpcUaStackServer
 		subscription->maxKeepAliveCount(maxKeepAliveCount);
 
 		// start subscription timer
-		SlotTimerElement::SPtr slotTimerElement = subscription->slotTimerElement();
+		auto slotTimerElement = subscription->slotTimerElement();
 		slotTimerElement->interval((uint32_t)publishingInterval);
-		slotTimerElement->callback().reset(boost::bind(&SubscriptionManager::subscriptionPublishTimeout, this, subscription));
+		slotTimerElement->timeoutCallback(
+			strand_,
+			[this, subscription](void) {
+				subscriptionPublishTimeout(subscription);
+			}
+		);
 		ioThread_->slotTimer()->start(slotTimerElement);
 
 		// send create subscription response
@@ -114,20 +138,20 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	SubscriptionManager::receive(ServiceTransactionDeleteSubscriptions::SPtr trx)
+	SubscriptionManager::receive(ServiceTransactionDeleteSubscriptions::SPtr& trx)
 	{
-		DeleteSubscriptionsRequest::SPtr deleteSubscriptionsRequest = trx->request();
-		DeleteSubscriptionsResponse::SPtr deleteSubscriptionsResponse = trx->response();
+		auto deleteSubscriptionsRequest = trx->request();
+		auto deleteSubscriptionsResponse = trx->response();
 
 		OpcUaUInt32 id;
 		deleteSubscriptionsResponse->results()->resize(deleteSubscriptionsRequest->subscriptionIds()->size());
 		for (uint32_t idx = 0; idx < deleteSubscriptionsRequest->subscriptionIds()->size(); idx++) {
 			if (deleteSubscriptionsRequest->subscriptionIds()->get(idx, id)) {
-				SubscriptionMap::iterator it = subscriptionMap_.find((uint32_t)id);
+				auto it = subscriptionMap_.find((uint32_t)id);
 				if (it != subscriptionMap_.end()) {
 					// stop subscription timer
 					ioThread_->slotTimer()->stop(it->second->slotTimerElement());
-					it->second->slotTimerElement()->callback().reset();
+					it->second->slotTimerElement()->timeoutCallback(nullptr);
 				}
 
 				subscriptionMap_.erase((uint32_t)id);
@@ -144,13 +168,13 @@ namespace OpcUaStackServer
 			// answer all open publish requests with status code BadNoSubscriptions
 
 			while (serviceTransactionPublishList_.size() != 0) {
-				ServiceTransactionPublish::SPtr trx = serviceTransactionPublishList_.front();
+				auto trx = serviceTransactionPublishList_.front();
 				serviceTransactionPublishList_.pop_front();
 
 				OpcUaNodeId typeId;
 				typeId.set(OpcUaId_PublishResponse_Encoding_DefaultBinary);
 				trx->statusCode(BadNoSubscription);
-				trx->componentSession()->send(trx);
+				sendAnswer(trx);
 			}
 		}
 	
@@ -158,10 +182,10 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	SubscriptionManager::receive(ServiceTransactionPublish::SPtr trx)
+	SubscriptionManager::receive(ServiceTransactionPublish::SPtr& trx)
 	{
 		// get publish request
-		PublishRequest::SPtr publishRequest = trx->request();
+		auto publishRequest = trx->request();
 
 		// check acknowledgement list
 		if (trx->request()->subscriptionAcknowledgements()->size() > 0) {
@@ -222,7 +246,7 @@ namespace OpcUaStackServer
 				OpcUaNodeId typeId;
 				typeId.set(OpcUaId_PublishResponse_Encoding_DefaultBinary);
 				trx->statusCode(Success);
-				trx->componentSession()->send(trx);
+				sendAnswer(trx);
 				break;
 			}
 			case SubscriptionTimeout:
@@ -232,7 +256,7 @@ namespace OpcUaStackServer
 					.parameter("Subscription", subscription->subscriptionId());
 
 				ioThread_->slotTimer()->stop(subscription->slotTimerElement());
-				subscription->slotTimerElement()->callback().reset();
+				subscription->slotTimerElement()->timeoutCallback(nullptr);
 
 				subscriptionMap_.erase(subscription->subscriptionId());
 				break;
@@ -302,6 +326,16 @@ namespace OpcUaStackServer
 		it = subscriptionMap_.find(subscriptionId);
 		if (it == subscriptionMap_.end()) return BadNotFound;
 		return it->second->receiveAcknowledgement(acknowledgmentNumber);
+	}
+
+	void
+	SubscriptionManager::sendAnswer(const ServiceTransaction::SPtr& serviceTransaction)
+	{
+		messageBus_->messageSend(
+			messageBusMember_,
+			serviceTransaction->memberServiceSession(),
+			serviceTransaction
+		);
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,7 +15,6 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackCore/Base/ConfigXml.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaAttributeId.h"
@@ -33,6 +32,8 @@
 #include "OpcUaClient/ClientService/ClientServiceNodeSetServer.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
+using namespace OpcUaStackServer;
 
 namespace OpcUaClient
 {
@@ -45,7 +46,7 @@ namespace OpcUaClient
 	, attributeService_()
 	, baseNodeClass_()
 	, readNodeId_()
-	, informationModel_(constructSPtr<InformationModel>())
+	, informationModel_(boost::make_shared<InformationModel>())
 	, nodeSetNamespace_()
 	, browseStatusCode_(Success)
 	, readStatusCode_(Success)
@@ -60,19 +61,20 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceNodeSetServer::createClientService(void)
 	{
-		return constructSPtr<ClientServiceNodeSetServer>();
+		return boost::make_shared<ClientServiceNodeSetServer>();
 	}
 
 	bool
 	ClientServiceNodeSetServer::run(ClientServiceManager& clientServiceManager, CommandBase::SPtr& commandBase)
 	{
 		OpcUaStatusCode statusCode;
-		CommandNodeSetServer::SPtr commandNodeSetServer = boost::static_pointer_cast<CommandNodeSetServer>(commandBase);
+		auto commandNodeSetServer = boost::static_pointer_cast<CommandNodeSetServer>(commandBase);
+
+		auto future = browseCompleted_.get_future();
 
 		// create new or get existing client object
-		ClientAccessObject::SPtr clientAccessObject;
-		clientAccessObject = clientServiceManager.getClientAccessObject(commandNodeSetServer->session());
-		if (clientAccessObject.get() == nullptr) {
+		auto clientAccessObject = clientServiceManager.getClientAccessObject(commandNodeSetServer->session());
+		if (!clientAccessObject) {
 			std::stringstream ss;
 			ss << "get client access object failed:"
 			   << " Session=" << commandNodeSetServer->session();
@@ -81,7 +83,7 @@ namespace OpcUaClient
 		}
 
 		// check session
-		if (clientAccessObject->sessionService_.get() == nullptr) {
+		if (!clientAccessObject->sessionService_) {
 			std::stringstream ss;
 			ss << "session object not exist: "
 			   << " Session=" << commandNodeSetServer->session();
@@ -90,7 +92,7 @@ namespace OpcUaClient
 
 		// get or create attribute service
 		attributeService_ = clientAccessObject->getOrCreateAttributeService();
-		if (attributeService_.get() == nullptr) {
+		if (!attributeService_) {
 			std::stringstream ss;
 			ss << "get client attribute service failed"
 			   << " Session=" << commandNodeSetServer->session();
@@ -99,9 +101,8 @@ namespace OpcUaClient
 		}
 
 		// get or create view service
-		ViewService::SPtr viewService;
-		viewService = clientAccessObject->createViewService();
-		if (viewService.get() == nullptr) {
+		auto viewService = clientAccessObject->createViewService();
+		if (!viewService) {
 			std::stringstream ss;
 			ss << "get client view service failed"
 			   << " Session=" << commandNodeSetServer->session();
@@ -136,7 +137,7 @@ namespace OpcUaClient
 
 		// browse opc ua server information model
 		OpcUaNodeId::Vec nodeIdVec;
-		OpcUaNodeId::SPtr nodeId = constructSPtr<OpcUaNodeId>();
+		auto nodeId = boost::make_shared<OpcUaNodeId>();
 		nodeId->copyFrom(rootNodeId);
 		nodeIdVec.push_back(nodeId);
 		commandNodeSetServer->validateCommand();
@@ -149,7 +150,7 @@ namespace OpcUaClient
 		viewServiceBrowse.asyncBrowse();
 
 		// wait for the end of the browse request
-		browseCompleted_.waitForCondition();
+		future.wait();
 		if (browseStatusCode_ != Success) {
 			std::stringstream ss;
 			ss << "browse error"
@@ -204,7 +205,7 @@ namespace OpcUaClient
 		    .parameter("StatusCode", OpcUaStatusCodeMap::shortString(statusCode));
 
 		browseStatusCode_ = statusCode;
-		browseCompleted_.conditionTrue();
+		browseCompleted_.set_value(true);
 
 	}
 
@@ -224,9 +225,8 @@ namespace OpcUaClient
 		}
 
 		// get node from information model
-		BaseNodeClass::SPtr baseNodeClass;
-		baseNodeClass = informationModel_->find(nodeId);
-		if (baseNodeClass.get() == nullptr) {
+		auto baseNodeClass = informationModel_->find(nodeId);
+		if (!baseNodeClass) {
 			Log(Error, "node id not exist in browse request")
 				.parameter("NodeId", nodeId->toString());
 			return;
@@ -249,7 +249,7 @@ namespace OpcUaClient
 			}
 
 			// add reference to node
-			ReferenceItem::SPtr referenceItem = constructSPtr<ReferenceItem>();
+			auto referenceItem = boost::make_shared<ReferenceItem>();
 
 			referenceItem->nodeId_.nodeIdValue(referenceDescription->expandedNodeId()->nodeIdValue());
 			referenceItem->nodeId_.namespaceIndex(referenceDescription->expandedNodeId()->namespaceIndex());
@@ -270,53 +270,53 @@ namespace OpcUaClient
 	OpcUaStatusCode
 	ClientServiceNodeSetServer::readNodeAttributes(
 		OpcUaNodeId::SPtr& parentNodeId,
-		NodeClassType nodeClassType
+		NodeClass::Enum nodeClassType
 	)
 	{
 		// check if node already exist
-		BaseNodeClass::SPtr baseNodeClass = informationModel_->find(readNodeId_);
-		if (baseNodeClass.get() != nullptr) return BadNodeIdExists;
+		auto baseNodeClass = informationModel_->find(readNodeId_);
+		if (baseNodeClass) return BadNodeIdExists;
 
 		switch (nodeClassType)
 		{
-			case NodeClassType_Object:
+			case NodeClass::EnumObject:
 			{
-				baseNodeClass_ = constructSPtr<ObjectNodeClass>();
+				baseNodeClass_ = boost::make_shared<ObjectNodeClass>();
 				break;
 			}
-			case NodeClassType_Variable:
+			case NodeClass::EnumVariable:
 			{
-				baseNodeClass_ = constructSPtr<VariableNodeClass>();
+				baseNodeClass_ = boost::make_shared<VariableNodeClass>();
 				break;
 			}
-			case NodeClassType_Method:
+			case NodeClass::EnumMethod:
 			{
-				baseNodeClass_ = constructSPtr<MethodNodeClass>();
+				baseNodeClass_ = boost::make_shared<MethodNodeClass>();
 				break;
 			}
-			case NodeClassType_ObjectType:
+			case NodeClass::EnumObjectType:
 			{
-				baseNodeClass_ = constructSPtr<ObjectTypeNodeClass>();
+				baseNodeClass_ = boost::make_shared<ObjectTypeNodeClass>();
 				break;
 			}
-			case NodeClassType_VariableType:
+			case NodeClass::EnumVariableType:
 			{
-				baseNodeClass_ = constructSPtr<VariableTypeNodeClass>();
+				baseNodeClass_ = boost::make_shared<VariableTypeNodeClass>();
 				break;
 			}
-			case NodeClassType_ReferenceType:
+			case NodeClass::EnumReferenceType:
 			{
-				baseNodeClass_ = constructSPtr<ReferenceTypeNodeClass>();
+				baseNodeClass_ = boost::make_shared<ReferenceTypeNodeClass>();
 				break;
 			}
-			case NodeClassType_DataType:
+			case NodeClass::EnumDataType:
 			{
-				baseNodeClass_ = constructSPtr<DataTypeNodeClass>();
+				baseNodeClass_ = boost::make_shared<DataTypeNodeClass>();
 				break;
 			}
-			case NodeClassType_View:
+			case NodeClass::EnumView:
 			{
-				baseNodeClass_ = constructSPtr<ViewNodeClass>();
+				baseNodeClass_ = boost::make_shared<ViewNodeClass>();
 				break;
 			}
 			default:
@@ -337,11 +337,7 @@ namespace OpcUaClient
 		attributeServiceNode.attributeServiceNodeIf(this);
 
 		// send read node request
-		readCompleted_.conditionInit();
-		attributeServiceNode.asyncReadNode();
-
-		// wait for the end of the read node request
-		readCompleted_.waitForCondition();
+		attributeServiceNode.syncReadNode();
 
 		// insert new node
 		if (readStatusCode_ == Success) {
@@ -381,11 +377,9 @@ namespace OpcUaClient
 		attributeServiceNode.attributeServiceNodeIf(this);
 
 		// send read node request
-		readCompleted_.conditionInit();
-		attributeServiceNode.asyncReadNode();
+		attributeServiceNode.syncReadNode();
 
 		// wait for the end of the read node request
-		readCompleted_.waitForCondition();
 		if (readStatusCode_ != Success) return readStatusCode_;
 		return readNamespaceArrayStatusCode_;
 	}
@@ -399,7 +393,6 @@ namespace OpcUaClient
 				.parameter("StatusCode", OpcUaStatusCodeMap::shortString(statusCode));
 		}
 		readStatusCode_ = statusCode;
-		readCompleted_.conditionTrue();
 	}
 
 	void
@@ -456,7 +449,7 @@ namespace OpcUaClient
 	bool
 	ClientServiceNodeSetServer::createRootNode(OpcUaNodeId& rootNodeId)
 	{
-		baseNodeClass_ = constructSPtr<ObjectNodeClass>();
+		baseNodeClass_ = boost::make_shared<ObjectNodeClass>();
 
 		baseNodeClass_->setNodeId(rootNodeId);
 		OpcUaQualifiedName browseName("Root");

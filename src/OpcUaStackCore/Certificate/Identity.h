@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -20,7 +20,6 @@
 
 #include <openssl/x509.h>
 #include <string>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Certificate/OpenSSLError.h"
 
 namespace OpcUaStackCore
@@ -48,16 +47,28 @@ namespace OpcUaStackCore
 		void domainComponent(const std::string& domainComponent);
 		std::string& domainComponent(void);
 
+		Identity& operator=(const Identity& value);
 	    bool operator==(const Identity &identity) const;
 	    bool operator!=(const Identity &identity) const;
 	    bool isEmpty(void) const;
+	    void log(const std::string& message);
 
 	    X509_NAME* encodeX509(void);
 	    bool decodeX509(X509_NAME* name);
 
 	  private:
-	    int32_t encodeX509(X509_NAME* name, const std::string& key, const std::string& value);
-	    bool decodeX509(X509_NAME* name, int32_t id, std::string& value);
+	    int32_t encodeX509(
+	    	X509_NAME* name,
+			const std::string& key,
+			const std::string& value,
+			bool optional = false
+		);
+	    bool decodeX509(
+	    	X509_NAME* name,
+			int32_t id,
+			std::string& value,
+			bool optional = false
+		);
 
 	    std::string organization_;
 	    std::string organizationUnit_;

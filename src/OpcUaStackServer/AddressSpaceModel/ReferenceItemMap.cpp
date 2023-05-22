@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2023 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,8 @@
 #include <boost/make_shared.hpp>
 #include <numeric>
 #include "OpcUaStackServer/AddressSpaceModel/ReferenceItemMap.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -52,10 +54,23 @@ namespace OpcUaStackServer
 		return add(*referenceTypeNodeId, isForward, nodeId);
 	}
 
+	bool
+	ReferenceItemMap::add(ReferenceType referenceType, bool isForward, std::vector<OpcUaNodeId>& nodes)
+	{
+		for (auto& node : nodes) {
+			if (!add(referenceType, isForward, node)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	bool 
 	ReferenceItemMap::add(const OpcUaNodeId& referenceTypeNodeId, ReferenceItem::SPtr& referenceItem)
 	{
-		if (referenceItem.get() == nullptr) return false;
+		if (!referenceItem) {
+			return false;
+		}
 
 		referenceItem->typeId_ = referenceTypeNodeId;
 		auto result = referenceItemMultiMap_[referenceTypeNodeId].insert(std::make_pair(referenceItem->nodeId_, referenceItem));
@@ -66,29 +81,124 @@ namespace OpcUaStackServer
 	bool
 	ReferenceItemMap::add(const OpcUaNodeId& referenceTypeNodeId, bool isForward, const OpcUaNodeId& nodeId)
 	{
-		ReferenceItem::SPtr referenceItem;
-		referenceItem = boost::make_shared<ReferenceItem>();
-		referenceItem->isForward_ = isForward;
-		referenceItem->nodeId_ = nodeId;
+		auto referenceItem = boost::make_shared<ReferenceItem>(
+			referenceTypeNodeId, isForward, nodeId
+		);
 		return add(referenceTypeNodeId, referenceItem);
+	}
+
+	bool
+	ReferenceItemMap::add(const OpcUaNodeId& referenceTypeNodeId, bool isForward, std::vector<OpcUaNodeId>& nodes)
+	{
+		for (auto& node : nodes) {
+			if (!add(referenceTypeNodeId, isForward, node)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool
+	ReferenceItemMap::exist(OpcUaNodeId& referenceTypeNodeId, bool isForward, OpcUaNodeId& nodeId)
+	{
+		auto it1 = equal_range(referenceTypeNodeId);
+		for (auto it2 = it1.first; it2 != it1.second; it2++) {
+			auto referenceItem = it2->second;
+			if (referenceItem->isForward_ == isForward && referenceItem->nodeId_ == nodeId) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void
+	ReferenceItemMap::get(ReferenceType referenceType, std::vector<bool>& isForwards, std::vector<OpcUaNodeId>& nodes)
+	{
+		auto referenceTypeNodeId = ReferenceTypeMap::typeNodeId(referenceType);
+		auto it1 = equal_range(*referenceTypeNodeId);
+		for (auto it2 = it1.first; it2 != it1.second; it2++) {
+			auto referenceItem = it2->second;
+			isForwards.push_back(referenceItem->isForward_);
+			nodes.push_back(referenceItem->nodeId_);
+		}
+	}
+
+	bool
+	ReferenceItemMap::getHasTypeDefinition(OpcUaNodeId& node)
+	{
+		std::vector<bool> isForwards;
+		std::vector<OpcUaNodeId> nodes;
+		get(ReferenceType_HasTypeDefinition, isForwards, nodes);
+		if (nodes.size() != 1) return false;
+		node = nodes[0];
+		return true;
+	}
+
+	bool
+	ReferenceItemMap::getHasModellingRule(OpcUaNodeId& node)
+	{
+		std::vector<bool> isForwards;
+		std::vector<OpcUaNodeId> nodes;
+		get(ReferenceType_HasModellingRule, isForwards, nodes);
+		if (nodes.size() != 1) return false;
+		node = nodes[0];
+		return true;
 	}
 
 	bool
 	ReferenceItemMap::remove(const OpcUaNodeId& referenceTypeNodeId, ReferenceItem::SPtr& referenceItem)
 	{
-		if (referenceItem.get() == nullptr) return false;
+		if (!referenceItem) return false;
 		return remove(referenceTypeNodeId, referenceItem->nodeId_);
 	}
 
 	bool
 	ReferenceItemMap::remove(const OpcUaNodeId& referenceTypeNodeId, const OpcUaNodeId& nodeId)
 	{
+		// Remove references from reference item table
 		size_t result = referenceItemMultiMap_[referenceTypeNodeId].erase(nodeId);
+
+		// Check number of elements in reference item table
 		if (referenceItemMultiMap_[referenceTypeNodeId].size() == 0) {
 			referenceItemMultiMap_.erase(referenceTypeNodeId);
 		}
 
 		return result == 1;
+	}
+
+	bool
+	ReferenceItemMap::remove(
+		const OpcUaStackCore::OpcUaNodeId& referenceTypeNodeId,
+		bool isForward,
+		const OpcUaStackCore::OpcUaNodeId& nodeId
+	)
+	{
+		bool remove = false;
+
+ 		// Get reference item table
+		auto referenceItemTable = referenceItemMultiMap_.find(referenceTypeNodeId);
+		if (referenceItemTable == referenceItemMultiMap_.end()) return true;
+
+		// Remove references
+		auto it = referenceItemTable->second.begin();
+		while (it != referenceItemTable->second.end()) {
+			auto referenceItem = it->second;
+
+			if (referenceItem->isForward_ == isForward && referenceItem->nodeId_ == nodeId) {
+				remove = true;
+				it = referenceItemTable->second.erase(it);
+			}
+			else {
+				++it;
+			}
+		}
+
+		// Check number of elements in reference item table
+		if (referenceItemTable->second.size() == 0) {
+			referenceItemMultiMap_.erase(referenceItemTable);
+		}
+
+		return remove;
 	}
 
 	void
@@ -101,7 +211,7 @@ namespace OpcUaStackServer
 	ReferenceItemMap::copyTo(ReferenceItemMap& referenceItemMap) const
 	{
 		for (const auto& referenceItem : *this) {
-			ReferenceItem::SPtr newReferenceItem = boost::make_shared<ReferenceItem>();
+			auto newReferenceItem = boost::make_shared<ReferenceItem>();
 			referenceItem->copyTo(newReferenceItem);
 
 			referenceItemMap.referenceItemMultiMap_[referenceItem->typeId_].insert(
@@ -137,10 +247,11 @@ namespace OpcUaStackServer
 	}
 
 	bool
-	ReferenceItemMap::erase(const_iterator it)
+	ReferenceItemMap::erase(const_iterator& it)
 	{
 		auto referenceTypeNode = it.refTypeIt_->first;
 		auto referenceItem = it.refItemIt_->second;
+		++it;
 		return remove(referenceTypeNode, referenceItem);
 	}
 
@@ -161,10 +272,12 @@ namespace OpcUaStackServer
 
 	size_t
 	ReferenceItemMap::size() const {
-		return std::accumulate(referenceItemMultiMap_.begin(), referenceItemMultiMap_.end(), 0,
-				[](size_t accum, const ReferenceItemMultiMap::value_type& table) {
-			return accum + table.second.size();
-		});
+		return std::accumulate(
+			referenceItemMultiMap_.begin(), referenceItemMultiMap_.end(), 0,
+			[](size_t accum, const ReferenceItemMultiMap::value_type& table) {
+				return accum + table.second.size();
+			}
+		);
 	}
 
 	ReferenceItemMap::const_iterator::const_iterator()

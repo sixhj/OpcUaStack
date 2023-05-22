@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -152,21 +152,36 @@ namespace OpcUaStackCore
 	bool
 	CertificateExtension::encodeX509(X509 *cert, X509V3_CTX& ctx)
 	{
-		if (useCACert_) {
-			if (!encodeX509Extension(cert, ctx, "basicConstraints", basicConstraints_)) return false;
-			if (!encodeX509Extension(cert, ctx, "nsComment", nsComment_)) return false;
-			if (!encodeX509Extension(cert, ctx, "keyUsage", keyUsage_)) return false;
-			if (!encodeX509Extension(cert, ctx, "extendedKeyUsage", extendedKeyUsage_)) return false;
-			if (!encodeX509Extension(cert, ctx, "subjectKeyIdentifier", subjectKeyIdentifier_)) return false;
+		if (!encodeX509Extension(cert, ctx, "basicConstraints", basicConstraints_)) {
+			addError("encode NID_basic_constraints error");
+			return false;
 		}
-		else {
-			if (!encodeX509Extension(cert, ctx, "basicConstraints", basicConstraints_)) return false;
-			if (!encodeX509Extension(cert, ctx, "nsComment", nsComment_)) return false;
-			if (!encodeX509Extension(cert, ctx, "subjectKeyIdentifier", subjectKeyIdentifier_)) return false;
-			if (!encodeX509Extension(cert, ctx, "authorityKeyIdentifier", authorityKeyIdentifier_)) return false;
-			if (!encodeX509Extension(cert, ctx, "keyUsage", keyUsage_)) return false;
-			if (!encodeX509Extension(cert, ctx, "extendedKeyUsage", extendedKeyUsage_)) return false;
-			if (!encodeX509Extension(cert, ctx, "subjectAltName", subjectAltName_)) return false;
+		if (!encodeX509Extension(cert, ctx, "nsComment", nsComment_)) {
+			addError("encode NID_netscape_comment error");
+			return false;
+		}
+		if (!encodeX509Extension(cert, ctx, "keyUsage", keyUsage_)) {
+			addError("encode NID_key_usage error");
+			return false;
+		}
+		if (!encodeX509Extension(cert, ctx, "subjectKeyIdentifier", subjectKeyIdentifier_)) {
+			addError("encode NID_subject_key_identifier error");
+			return false;
+		}
+
+		if (!useCACert_) {
+			if (!encodeX509Extension(cert, ctx, "extendedKeyUsage", extendedKeyUsage_)) {
+				addError("encode NID_ext_key_usage error");
+				return false;
+			}
+			if (!encodeX509Extension(cert, ctx, "authorityKeyIdentifier", authorityKeyIdentifier_)) {
+				addError("encode NID_authority_key_identifier error");
+				return false;
+			}
+			if (!encodeX509Extension(cert, ctx, "subjectAltName", subjectAltName_)) {
+				addError("encode NID_subject_alt_name error");
+				return false;
+			}
 		}
 
 		return true;
@@ -176,22 +191,39 @@ namespace OpcUaStackCore
 	CertificateExtension::decodeX509(X509 *cert)
 	{
 		clear();
-		if (useCACert_) {
-			if (!decodeX509Extension(cert, NID_basic_constraints, basicConstraints_)) return false;
-			if (!decodeX509Extension(cert, NID_netscape_comment, nsComment_)) return false;
-			if (!decodeX509Extension(cert, NID_key_usage, keyUsage_)) return false;
-			if (!decodeX509Extension(cert, NID_ext_key_usage, extendedKeyUsage_)) return false;
-			if (!decodeX509Extension(cert, NID_subject_key_identifier, subjectKeyIdentifier_)) return false;
+
+		if (!decodeX509Extension(cert, NID_basic_constraints, basicConstraints_)) {
+			addError("decode NID_basic_constraints error");
+			return false;
 		}
-		else {
-			if (!decodeX509Extension(cert, NID_basic_constraints, basicConstraints_)) return false;
-			if (!decodeX509Extension(cert, NID_netscape_comment, nsComment_)) return false;
-			if (!decodeX509Extension(cert, NID_subject_key_identifier, subjectKeyIdentifier_)) return false;
-			if (!decodeX509Extension(cert, NID_authority_key_identifier, authorityKeyIdentifier_)) return false;
-			if (!decodeX509Extension(cert, NID_key_usage, keyUsage_)) return false;
-			if (!decodeX509Extension(cert, NID_ext_key_usage, extendedKeyUsage_)) return false;
-			if (!decodeX509Extension(cert, NID_subject_alt_name, subjectAltName_)) return false;
+		if (!decodeX509Extension(cert, NID_netscape_comment, nsComment_, false)) {
+			addError("decode NID_netscape_comment error");
+			return false;
 		}
+		if (!decodeX509Extension(cert, NID_key_usage, keyUsage_)) {
+			addError("decode NID_key_usage error");
+			return false;
+		}
+		if (!decodeX509Extension(cert, NID_subject_key_identifier, subjectKeyIdentifier_)) {
+			addError("decode NID_subject_key_identifier error");
+			return false;
+		}
+
+		if (!useCACert_) {
+			if (!decodeX509Extension(cert, NID_ext_key_usage, extendedKeyUsage_)) {
+				addError("decode NID_ext_key_usage error");
+				return false;
+			}
+			if (!decodeX509Extension(cert, NID_authority_key_identifier, authorityKeyIdentifier_)) {
+				addError("decode NID_authority_key_identifier error");
+				return false;
+			}
+			if (!decodeX509Extension(cert, NID_subject_alt_name, subjectAltName_)) {
+				addError("decode NID_subject_alt_name error");
+				return false;
+			}
+		}
+
 		return true;
 	}
 
@@ -219,10 +251,14 @@ namespace OpcUaStackCore
 	}
 
 	bool
-	CertificateExtension::decodeX509Extension(X509 *cert, int32_t key, std::string& value)
+	CertificateExtension::decodeX509Extension(X509 *cert, int32_t key, std::string& value, bool mandatory)
 	{
 	    int32_t pos = X509_get_ext_by_NID(cert, key, -1);
 		if (pos < 0) {
+			if (!mandatory) {
+				value = "";
+				return true;
+			}
 			addOpenSSLError();
 			return false;
 		}
@@ -244,6 +280,20 @@ namespace OpcUaStackCore
 
 		BIO_free(bio);
 		return true;
+	}
+
+	void
+	CertificateExtension::logContent(const std::string& message)
+	{
+		Log(Debug, message)
+			.parameter("UseCACert", useCACert_)
+			.parameter("BasicContrains", basicConstraints_)
+			.parameter("NsComment", nsComment_)
+			.parameter("SubjectKeyIdentifier", subjectKeyIdentifier_)
+			.parameter("AuthorityKeyIdentifier", authorityKeyIdentifier_)
+			.parameter("KeyUsage", keyUsage_)
+			.parameter("ExtendedKeyUsage", extendedKeyUsage_)
+			.parameter("SubjectAltName", subjectAltName_);
 	}
 
 }

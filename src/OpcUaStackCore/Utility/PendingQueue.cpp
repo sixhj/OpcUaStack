@@ -1,4 +1,21 @@
-#include "OpcUaStackCore/Base/ObjectPool.h"
+/*
+   Copyright 2019-2020 Kai Huebl (kai@huebl-sgh.de)
+
+   Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
+   Datei nur in Übereinstimmung mit der Lizenz erlaubt.
+   Eine Kopie der Lizenz erhalten Sie auf http://www.apache.org/licenses/LICENSE-2.0.
+
+   Sofern nicht gemäß geltendem Recht vorgeschrieben oder schriftlich vereinbart,
+   erfolgt die Bereitstellung der im Rahmen der Lizenz verbreiteten Software OHNE
+   GEWÄHR ODER VORBEHALTE – ganz gleich, ob ausdrücklich oder stillschweigend.
+
+   Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
+   im Rahmen der Lizenz finden Sie in der Lizenz.
+
+   Autor: Kai Huebl (kai@huebl-sgh.de)
+ */
+
+#include <boost/make_shared.hpp>
 #include "OpcUaStackCore/Utility/PendingQueue.h"
 
 namespace OpcUaStackCore
@@ -12,7 +29,7 @@ namespace OpcUaStackCore
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	PendingQueueElement::PendingQueueElement(IOService& ioService)
-	: timer_(constructSPtr<Timer>(ioService))
+	: timer_(boost::make_shared<Timer>(ioService))
 	{
 	}
 	
@@ -59,6 +76,11 @@ namespace OpcUaStackCore
 	//
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
+	PendingQueue::PendingQueue(void)
+	: ioService_(nullptr)
+	{
+	}
+
 	PendingQueue::PendingQueue(IOService& ioService)
 	: ioService_(&ioService)
 	{
@@ -66,14 +88,20 @@ namespace OpcUaStackCore
 
 	PendingQueue::~PendingQueue(void)
 	{
-		timeoutCallback_.reset();
+		timeoutCallback_ = nullptr;
 		pendingQueueMap_.clear();
 	}
 
-	Callback& 
-	PendingQueue::timeoutCallback(void)
+	void
+	PendingQueue::ioService(IOService& ioService)
 	{
-		return timeoutCallback_;
+		ioService_ = &ioService;
+	}
+
+	void
+	PendingQueue::timeoutCallback(PendingQueue::TimeoutCallback timeoutCallback)
+	{
+		timeoutCallback_ = timeoutCallback;
 	}
 
 	bool 
@@ -85,10 +113,11 @@ namespace OpcUaStackCore
 			return false;
 		}
 
-		PendingQueueElement::SPtr pendingQueueElement = constructSPtr<PendingQueueElement>(*ioService_);
+		Timer::TimerCallback timerCallback = boost::bind(&PendingQueue::onTimeout, this, key);
+		PendingQueueElement::SPtr pendingQueueElement = boost::make_shared<PendingQueueElement>(*ioService_);
 		pendingQueueElement->key(key);
 		pendingQueueElement->element(object);
-		pendingQueueElement->timer()->callback().reset(boost::bind(&PendingQueue::onTimeout, this, key));
+		pendingQueueElement->timer()->timerCallback(timerCallback);
 		pendingQueueMap_.insert(std::make_pair(key, pendingQueueElement));
 
 		pendingQueueElement->timer()->start(pendingQueueElement->timer(), timeoutMSec);
@@ -123,8 +152,7 @@ namespace OpcUaStackCore
 	void 
 	PendingQueue::onTimeout(uint32_t key)
 	{
-		PendingQueueMap::iterator it;
-		it = pendingQueueMap_.find(key);
+		auto it = pendingQueueMap_.find(key);
 		if (it == pendingQueueMap_.end()) {
 			return;
 		}

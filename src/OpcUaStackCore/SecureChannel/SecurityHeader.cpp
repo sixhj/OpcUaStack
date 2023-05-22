@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,126 +16,44 @@
  */
 
 #include "OpcUaStackCore/SecureChannel/SecurityHeader.h"
-#include "OpcUaStackCore/SecureChannel/MessageDefaults.h"
 
 namespace OpcUaStackCore
 {
 
-	SecurityHeader::SecurityHeader(void)
-	: securityPolicyUri_()
-	, senderCertificate_()
-	, receiverCertificateThumbprint_()
-	, certificateChain_()
+	bool
+	SecurityHeader::opcUaBinaryEncode(
+		std::ostream& os,
+		const OpcUaByteString& securityPolicyUri,
+		CertificateChain& certificateChain,
+		OpcUaByteString& receiverCertificateThumbprint
+	)
 	{
-	}
-		
-	SecurityHeader::~SecurityHeader(void)
-	{
-	}
+		bool rc = true;
 
-	void 
-	SecurityHeader::securityPolicyUri(OpcUaByte *buf, OpcUaInt32 bufLen)
-	{
-		securityPolicyUri_.value(buf, bufLen);
-	}
+		// encode security header
+		rc &= securityPolicyUri.opcUaBinaryEncode(os);
+		rc &= certificateChain.opcUaBinaryEncode(os);
+		rc &= receiverCertificateThumbprint.opcUaBinaryEncode(os);
 
-	void 
-	SecurityHeader::securityPolicyUri(OpcUaByte **buf, OpcUaInt32* bufLen) const
-	{
-		securityPolicyUri_.value(buf, bufLen);
-	}
-
-	OpcUaByteString&
-	SecurityHeader::securityPolicyUri(void)
-	{
-		return securityPolicyUri_;
-	}
-
-	void 
-	SecurityHeader::senderCertificate(OpcUaByte *buf, OpcUaInt32 bufLen)
-	{
-		senderCertificate_.value(buf, bufLen);
-	}
-
-	void 
-	SecurityHeader::senderCertificate(OpcUaByte **buf, OpcUaInt32* bufLen) const
-	{
-		senderCertificate_.value(buf, bufLen);
-	}
-
-	OpcUaByteString&
-	SecurityHeader::senderCertificate(void)
-	{
-		return senderCertificate_;
-	}
-
-	void 
-	SecurityHeader::receiverCertificateThumbprint(OpcUaByte *buf, OpcUaInt32 bufLen)
-	{
-		receiverCertificateThumbprint_.value(buf, bufLen);
-	}
-
-	void 
-	SecurityHeader::receiverCertificateThumbprint(OpcUaByte **buf, OpcUaInt32* bufLen) const
-	{
-		receiverCertificateThumbprint_.value(buf, bufLen);
-	}
-
-	void
-	SecurityHeader::receiverCertificateThumbprint(OpcUaByteString& receiverCertificateThumbprint)
-	{
-		receiverCertificateThumbprint_ = receiverCertificateThumbprint;
-	}
-
-	OpcUaByteString&
-	SecurityHeader::receiverCertificateThumbprint(void)
-	{
-		return receiverCertificateThumbprint_;
-	}
-
-	CertificateChain&
-	SecurityHeader::certificateChain(void)
-	{
-		return certificateChain_;
+		return rc;
 	}
 
 	bool
-	SecurityHeader::isEncryptionEnabled(void)
+	SecurityHeader::opcUaBinaryDecode(
+		std::istream& is,
+		OpcUaByteString& securityPolicyUri,
+		CertificateChain& certificateChain,
+		OpcUaByteString& receiverCertificateThumbprint
+	)
 	{
-		return senderCertificate_.exist();
-	}
+		bool rc = true;
 
-	bool
-	SecurityHeader::isSignatureEnabled(void)
-	{
-		return receiverCertificateThumbprint_.exist();
-	}
-
-	bool
-	SecurityHeader::opcUaBinaryEncode(std::ostream& os) const
-	{
-		securityPolicyUri_.opcUaBinaryEncode(os);
-		senderCertificate_.opcUaBinaryEncode(os);
-		receiverCertificateThumbprint_.opcUaBinaryEncode(os);
-		return true;
-	}
-
-	bool
-	SecurityHeader::opcUaBinaryDecode(std::istream& is)
-	{
 		// decode
-		securityPolicyUri_.opcUaBinaryDecode(is);
-		senderCertificate_.opcUaBinaryDecode(is);
-		receiverCertificateThumbprint_.opcUaBinaryDecode(is);
+		rc &= securityPolicyUri.opcUaBinaryDecode(is);
+		rc &= certificateChain.opcUaBinaryDecode(is);
+		rc &= receiverCertificateThumbprint.opcUaBinaryDecode(is);
 
-		// create certificate chain
-		if (senderCertificate_.exist()) {
-			if (!certificateChain_.fromByteString(senderCertificate_)) {
-				return false;
-			}
-		}
-
-		return true;
+		return rc;
 	}
 
 }	

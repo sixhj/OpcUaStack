@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,12 +23,10 @@
 #include "OpcUaStackCore/BuildInTypes/OpcUaQualifiedName.h"
 #include "OpcUaClient/ClientCommand/CommandBase.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaClient
 {
 
-	class CommandBrowsePathToNodeId
+	class DLLEXPORT CommandBrowsePathToNodeId
 	: public CommandBase
 	{
 	  public:
@@ -44,12 +42,12 @@ namespace OpcUaClient
 		virtual std::string help(void);
 		//- CommandBrowsePathToNodeId interface ---------------------------------------------
 
-		OpcUaNodeId::SPtr& nodeId(void);
-		std::vector<OpcUaQualifiedName>& browseNameVec(void);
+		OpcUaStackCore::OpcUaNodeId::SPtr& nodeId(void);
+		std::vector<OpcUaStackCore::OpcUaQualifiedName>& browseNameVec(void);
 
 	  private:
-		OpcUaNodeId::SPtr nodeId_;
-		std::vector<OpcUaQualifiedName> browseNameVec_;
+		OpcUaStackCore::OpcUaNodeId::SPtr nodeId_;
+		std::vector<OpcUaStackCore::OpcUaQualifiedName> browseNameVec_;
 	};
 
 }

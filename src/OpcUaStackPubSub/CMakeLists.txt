@@ -24,9 +24,13 @@ add_library(
 
 target_link_libraries(
     OpcUaStackPubSub
+    OpcUaStackCore
+	OpcUaStackServer
     ${CMAKE_DL_LIBS}
     ${Boost_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${OPENSSL_LIBRARIES}
+    ${MOSQUITTO_LIBRARIES}
 )
 
 set_target_properties(
@@ -72,7 +76,9 @@ message(STATUS "  library name: ${OPCUASTACK_PUBSUB_LIB_NAME}")
 # 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
-file(GLOB INC_OpcUaStackPubSub_Base OpcUaStackPubSub/Base/*.h OpcUaStackPubSub/Base/*.txx)
+file(GLOB INC_OpcUaStackPubSub_Base OpcUaStackPubSub/Base/*.h)
+file(GLOB INC_OpcUaStackPubSub_Events OpcUaStackPubSub/Events/*.h)
+file(GLOB INC_OpcUaStackPubSub_Connection OpcUaStackPubSub/Connection/*.h)
 
 install(
     TARGETS OpcUaStackPubSub 
@@ -87,3 +93,14 @@ install(
 )
 
 
+install(
+    FILES ${INC_OpcUaStackPubSub_Events} 
+    DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackPubSub/Events
+    COMPONENT headers
+)
+
+install(
+    FILES ${INC_OpcUaStackPubSub_Connection} 
+    DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackPubSub/Connection
+    COMPONENT headers
+)

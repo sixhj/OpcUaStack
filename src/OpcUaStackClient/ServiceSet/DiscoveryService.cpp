@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,96 +23,93 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	DiscoveryService::DiscoveryService(IOThread* ioThread)
-	: Component()
-	, componentSession_(nullptr)
-	, discoveryServiceIf_(nullptr)
+	DiscoveryService::DiscoveryService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		OpcUaStackCore::MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	DiscoveryService::~DiscoveryService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	DiscoveryService::setConfiguration(
-		Component* componentSession,
-		DiscoveryServiceIf* discoveryServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		discoveryServiceIf_ = discoveryServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	DiscoveryService::componentSession(Component* componentSession)
+	DiscoveryService::syncSend(const ServiceTransactionFindServers::SPtr& serviceTransactionFindServers)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionFindServers);
 	}
 
 	void 
-	DiscoveryService::discoveryServiceIf(DiscoveryServiceIf* discoveryServiceIf)
+	DiscoveryService::asyncSend(const ServiceTransactionFindServers::SPtr& serviceTransactionFindServers)
 	{
-		discoveryServiceIf_ = discoveryServiceIf;
-	}
-
-	void 
-	DiscoveryService::syncSend(ServiceTransactionFindServers::SPtr serviceTransactionFindServers)
-	{
-		serviceTransactionFindServers->sync(true);
-		serviceTransactionFindServers->conditionBool().conditionInit();
-		asyncSend(serviceTransactionFindServers);
-		serviceTransactionFindServers->conditionBool().waitForCondition();
-	}
-
-	void 
-	DiscoveryService::asyncSend(ServiceTransactionFindServers::SPtr serviceTransactionFindServers)
-	{
-		serviceTransactionFindServers->componentService(this);
-		componentSession_->sendAsync(serviceTransactionFindServers);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionFindServers);
 	}
 
 	void
-	DiscoveryService::syncSend(ServiceTransactionGetEndpoints::SPtr serviceTransactionGetEndpoints)
+	DiscoveryService::syncSend(const ServiceTransactionGetEndpoints::SPtr& serviceTransactionGetEndpoints)
 	{
-		serviceTransactionGetEndpoints->sync(true);
-		serviceTransactionGetEndpoints->conditionBool().conditionInit();
-		asyncSend(serviceTransactionGetEndpoints);
-		serviceTransactionGetEndpoints->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionGetEndpoints);
 	}
 
 	void
-	DiscoveryService::asyncSend(ServiceTransactionGetEndpoints::SPtr serviceTransactionGetEndpoints)
+	DiscoveryService::asyncSend(const ServiceTransactionGetEndpoints::SPtr& serviceTransactionGetEndpoints)
 	{
-		serviceTransactionGetEndpoints->componentService(this);
-		componentSession_->sendAsync(serviceTransactionGetEndpoints);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionGetEndpoints);
 	}
 
 	void
-	DiscoveryService::syncSend(ServiceTransactionRegisterServer::SPtr serviceTransactionRegisterServer)
+	DiscoveryService::syncSend(const ServiceTransactionRegisterServer::SPtr& serviceTransactionRegisterServer)
 	{
-		serviceTransactionRegisterServer->sync(true);
-		serviceTransactionRegisterServer->conditionBool().conditionInit();
-		asyncSend(serviceTransactionRegisterServer);
-		serviceTransactionRegisterServer->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionRegisterServer);
 	}
 
 	void
-	DiscoveryService::asyncSend(ServiceTransactionRegisterServer::SPtr serviceTransactionRegisterServer)
+	DiscoveryService::asyncSend(const ServiceTransactionRegisterServer::SPtr& serviceTransactionRegisterServer)
 	{
-		serviceTransactionRegisterServer->componentService(this);
-		componentSession_->sendAsync(serviceTransactionRegisterServer);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionRegisterServer);
 	}
 
 	void 
-	DiscoveryService::receive(Message::SPtr message)
+	DiscoveryService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 		
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 		
@@ -120,30 +117,60 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_FindServersResponse_Encoding_DefaultBinary:
 			{
-				if (discoveryServiceIf_ != nullptr) {
-					discoveryServiceIf_->discoveryServiceFindServersResponse(
-						boost::static_pointer_cast<ServiceTransactionFindServers>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionFindServers>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_GetEndpointsResponse_Encoding_DefaultBinary:
 			{
-				if (discoveryServiceIf_ != nullptr) {
-					discoveryServiceIf_->discoveryServiceGetEndpointsResponse(
-						boost::static_pointer_cast<ServiceTransactionGetEndpoints>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionGetEndpoints>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_RegisterServerResponse_Encoding_DefaultBinary:
 			{
-				if (discoveryServiceIf_ != nullptr) {
-					discoveryServiceIf_->discoveryServiceRegisterServerResponse(
-						boost::static_pointer_cast<ServiceTransactionRegisterServer>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionRegisterServer>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

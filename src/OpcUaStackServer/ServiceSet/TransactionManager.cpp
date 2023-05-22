@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,6 +17,8 @@
 
 #include "OpcUaStackServer/ServiceSet/TransactionManager.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
@@ -29,41 +31,57 @@ namespace OpcUaStackServer
 	{
 	}
 
+	void
+	TransactionManager::clear(void)
+	{
+		serviceTransactionMap_.clear();
+	}
+
 	bool 
 	TransactionManager::registerTransaction(ServiceTransaction::SPtr serviceTransactionSPtr)
 	{
-		ServiceTransactionMap::iterator it;
-		OpcUaNodeId typeIdRequest = serviceTransactionSPtr->nodeTypeRequest();
-		OpcUaNodeId typeIdResponse = serviceTransactionSPtr->nodeTypeResponse();
+		auto typeIdRequest = serviceTransactionSPtr->nodeTypeRequest();
+		auto typeIdResponse = serviceTransactionSPtr->nodeTypeResponse();
 
-		it = serviceTransactionMap_.find(typeIdRequest);
+		auto it = serviceTransactionMap_.find(typeIdRequest);
 		if (it != serviceTransactionMap_.end()) {
+			Log(Error, "register transaction error, because request type already exist")
+				.parameter("TypeIdRequest", typeIdRequest);
 			return false;
 		}
 
 		it = serviceTransactionMap_.find(typeIdResponse);
 		if (it != serviceTransactionMap_.end()) {
+			Log(Error, "register transaction error, because response type already exist")
+				.parameter("TypeIdResponse", typeIdResponse);
 			return false;
 		}
 
 		serviceTransactionMap_.insert(std::make_pair(typeIdRequest, serviceTransactionSPtr));
 		serviceTransactionMap_.insert(std::make_pair(typeIdResponse, serviceTransactionSPtr));
-		return false;
+		return true;
+	}
+
+	OpcUaStackCore::ServiceTransaction::SPtr
+	TransactionManager::getTransaction(uint32_t typeId)
+	{
+		return getTransaction(OpcUaNodeId(typeId));
 	}
 		
 	ServiceTransaction::SPtr 
-	TransactionManager::getTransaction(OpcUaNodeId& typeId)
+	TransactionManager::getTransaction(const OpcUaNodeId& typeId)
 	{
 		ServiceTransaction::SPtr serviceTransactionSPtr;
 
-		ServiceTransactionMap::iterator it;
-		it = serviceTransactionMap_.find(typeId);
+		auto it = serviceTransactionMap_.find(typeId);
 		if (it == serviceTransactionMap_.end()) {
+			Log(Error, "get transaction error, because no transaction exist")
+				.parameter("TypeId", typeId);
 			return serviceTransactionSPtr;
 		}
 
 		serviceTransactionSPtr = it->second->constructTransaction();
-		serviceTransactionSPtr->componentService(it->second->componentService());
+		serviceTransactionSPtr->memberService(it->second->memberService());
 		return serviceTransactionSPtr;
 	}
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,10 @@
 #ifndef __OpcUaStackServer_EndpointDescriptionConfig_h__
 #define __OpcUaStackServer_EndpointDescriptionConfig_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/Config.h"
-#include "OpcUaStackCore/ServiceSet/EndpointDescription.h"
 #include <string>
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackCore/Base/Config.h"
+#include "OpcUaStackCore/StandardDataTypes/EndpointDescription.h"
+#include "OpcUaStackCore/ServiceSet/EndpointDescriptionSet.h"
 
 namespace OpcUaStackServer
 {
@@ -32,21 +30,21 @@ namespace OpcUaStackServer
 	{
 	  public:
 		static bool endpointDescriptions(
-			EndpointDescriptionSet::SPtr endpointDescriptionSet,
-			const std::string& configPrefix, Config* childConfig,
+			OpcUaStackCore::EndpointDescriptionSet::SPtr endpointDescriptionSet,
+			const std::string& configPrefix, OpcUaStackCore::Config* childConfig,
 			const std::string& configurationFileName
 		);
 		static bool securitySetting(
-			EndpointDescription::SPtr endpointDescription,
+			OpcUaStackCore::EndpointDescription::SPtr endpointDescription,
 			const std::string& configPrefix,
-			Config* config,
+			OpcUaStackCore::Config* config,
 			const std::string& configurationFileName,
-			EndpointDescription::Vec& endpointDescriptionVec
+			OpcUaStackCore::EndpointDescription::Vec& endpointDescriptionVec
 		);
 		static bool userTokenPolicy(
-			EndpointDescription::SPtr endpointDescription,
+			OpcUaStackCore::EndpointDescription::SPtr endpointDescription,
 			const std::string& configPrefix,
-			Config* config,
+			OpcUaStackCore::Config* config,
 			const std::string& configurationFileName
 		);
 	};

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -21,10 +21,9 @@
 #include <vector>
 #include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
-#include "OpcUaStackCore/ServiceSet/NodeClass.h"
+#include "OpcUaStackCore/StandardDataTypes/NodeClass.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
 
 namespace OpcUaStackServer
 {
@@ -32,44 +31,47 @@ namespace OpcUaStackServer
 	class DLLEXPORT CreateNodeInstance
 	{
 	  public:
-		typedef boost::shared_ptr<CreateNodeInstance> SPtr;
+		using SPtr = boost::shared_ptr<CreateNodeInstance>;
 
 		CreateNodeInstance(void);
 		CreateNodeInstance(
 			const std::string& name,
-			const NodeClassType nodeClassType,
-			const OpcUaNodeId& parentNodeId,
-			const OpcUaNodeId& nodeId,
-			const OpcUaLocalizedText& displayName,
-			const OpcUaQualifiedName& browseName,
-			const OpcUaNodeId& referenceNodeId,
-			const OpcUaNodeId& typeNodeId
+			const OpcUaStackCore::NodeClass::Enum nodeClassType,
+			const OpcUaStackCore::OpcUaNodeId& parentNodeId,
+			const OpcUaStackCore::OpcUaNodeId& nodeId,
+			const OpcUaStackCore::OpcUaLocalizedText& displayName,
+			const OpcUaStackCore::OpcUaQualifiedName& browseName,
+			const OpcUaStackCore::OpcUaNodeId& referenceNodeId,
+			const OpcUaStackCore::OpcUaNodeId& typeNodeId
 		);
 		virtual ~CreateNodeInstance(void);
 
 		void name(const std::string& name);
-		void nodeClassType(NodeClassType nodeClassType);
-		void parentNodeId(const OpcUaNodeId& parentNodeId);
-		void nodeId(const OpcUaNodeId& nodeId);
-		void displayName(const OpcUaLocalizedText& displayName);
-		void browseName(const OpcUaQualifiedName& browseName);
-		void referenceNodeId(const OpcUaNodeId& referenceNodeId);
-		void typeNodeId(const OpcUaNodeId& typeNodeId);
+		void nodeClassType(OpcUaStackCore::NodeClass::Enum nodeClassType);
+		void parentNodeId(const OpcUaStackCore::OpcUaNodeId& parentNodeId);
+		void nodeId(const OpcUaStackCore::OpcUaNodeId& nodeId);
+		void displayName(const OpcUaStackCore::OpcUaLocalizedText& displayName);
+		void browseName(const OpcUaStackCore::OpcUaQualifiedName& browseName);
+		void referenceNodeId(const OpcUaStackCore::OpcUaNodeId& referenceNodeId);
+		void typeNodeId(const OpcUaStackCore::OpcUaNodeId& typeNodeId);
 
 		bool query(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
+		OpcUaStackServer::BaseNodeClass::WPtr& baseNodeClass(void);
 
 	  private:
 		std::string name_;
-		NodeClassType nodeClassType_;
-		OpcUaNodeId parentNodeId_;
-		OpcUaNodeId nodeId_;
-		OpcUaLocalizedText displayName_;
-		OpcUaQualifiedName browseName_;
-		OpcUaNodeId referenceNodeId_;
-		OpcUaNodeId typeNodeId_;			// optional
+		OpcUaStackCore::NodeClass::Enum nodeClass_;
+		OpcUaStackCore::OpcUaNodeId parentNodeId_;
+		OpcUaStackCore::OpcUaNodeId nodeId_;
+		OpcUaStackCore::OpcUaLocalizedText displayName_;
+		OpcUaStackCore::OpcUaQualifiedName browseName_;
+		OpcUaStackCore::OpcUaNodeId referenceNodeId_;
+		OpcUaStackCore::OpcUaNodeId typeNodeId_;			// optional
 
-		OpcUaStatusCode resultCode_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_ = OpcUaStackCore::Success;	// result code of the operation
+		OpcUaStackServer::BaseNodeClass::WPtr baseNodeClass_;// base class reference of the created node
 	};
 
 }

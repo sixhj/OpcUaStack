@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,24 +19,20 @@
 #define __OpcUaStackServer_Subscription_h__
 
 #include <boost/thread/mutex.hpp>
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaStatusCode.h"
 #include "OpcUaStackCore/Utility/SlotTimer.h"
-#include "OpcUaStackCore/ServiceSetApplication/ForwardGlobalSync.h"
 #include "OpcUaStackCore/ServiceSet/SubscriptionServiceTransaction.h"
 #include "OpcUaStackCore/ServiceSet/MonitoredItemServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardGlobalSync.h"
 #include "OpcUaStackServer/ServiceSet/MonitorManager.h"
 #include "OpcUaStackServer/ServiceSet/AcknowledgementManager.h"
 #include "OpcUaStackServer/InformationModel/InformationModel.h"
 #include <map>
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackServer
 {
 
-	typedef std::map<uint32_t, PublishResponse::SPtr> RetransmissionQueue; 
+	typedef std::map<uint32_t, OpcUaStackCore::PublishResponse::SPtr> RetransmissionQueue;
 	typedef enum
 	{
 		NothingTodo,
@@ -47,7 +43,7 @@ namespace OpcUaStackServer
 	} PublishResult;
 
 	class DLLEXPORT Subscription
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
 		typedef boost::shared_ptr<Subscription> SPtr;
@@ -59,28 +55,29 @@ namespace OpcUaStackServer
 		void publishingInterval(double publishingInterval);	
 		void lifetimeCount(uint32_t lifetimeCount);
 		void maxKeepAliveCount(uint32_t maxKeepAliveCount);
-		void ioThread(IOThread* ioThread);
-		void informationModel(InformationModel::SPtr informationModel);
+		void ioThread(OpcUaStackCore::IOThread* ioThread);
+		void strand(boost::shared_ptr<boost::asio::io_service::strand>& strand);
+		void informationModel(InformationModel::SPtr& informationModel);
 		void forwardGlobalSync(ForwardGlobalSync::SPtr& forwardGlobalSync);
-		OpcUaStatusCode receiveAcknowledgement(uint32_t acknowledgmentNumber);
+		OpcUaStackCore::OpcUaStatusCode receiveAcknowledgement(uint32_t acknowledgmentNumber);
 
-		void retransmissionQueue(SubscriptionAcknowledgement::SPtr subscriptionAcknowledgement);
-		void retransmissionQueue(PublishResponse::SPtr publishResponse);
+		void retransmissionQueue(OpcUaStackCore::SubscriptionAcknowledgement::SPtr& subscriptionAcknowledgement);
+		void retransmissionQueue(OpcUaStackCore::PublishResponse::SPtr& publishResponse);
 
-		PublishResult publish(ServiceTransactionPublish::SPtr trx);
+		PublishResult publish(OpcUaStackCore::ServiceTransactionPublish::SPtr& trx);
 		uint32_t publishPre(void);
 
 		// monitored item
-		OpcUaStatusCode receive(ServiceTransactionCreateMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionDeleteMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionModifyMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionSetMonitoringMode::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionSetTriggering::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionCreateMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionDeleteMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionModifyMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionSetMonitoringMode::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionSetTriggering::SPtr trx);
 
-		SlotTimerElement::SPtr slotTimerElement(void);
+		OpcUaStackCore::SlotTimerElement::SPtr slotTimerElement(void);
 
 	  private:
-		void createKeepalive(ServiceTransactionPublish::SPtr trx);
+		void createKeepalive(OpcUaStackCore::ServiceTransactionPublish::SPtr& trx);
 
 		static uint32_t uniqueSubscriptionId(void);
 		static boost::mutex mutex_;
@@ -93,10 +90,11 @@ namespace OpcUaStackServer
 		uint32_t actLifetimeCount_;
 		uint32_t maxKeepAliveCount_;
 		uint32_t actMaxKeepAliveCount_;
-		SlotTimerElement::SPtr slotTimerElement_;
+		OpcUaStackCore::SlotTimerElement::SPtr slotTimerElement_;
 		RetransmissionQueue retransmissionQueue_;
 
-		IOThread* ioThread_;
+		OpcUaStackCore::IOThread* ioThread_;
+		boost::shared_ptr<boost::asio::io_service::strand> strand_ = nullptr;
 		MonitorManager monitorManager_;
 	};
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,6 +17,8 @@
 
 #include "OpcUaStackServer/Application/ApplicationIf.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 	// ------------------------------------------------------------------------
@@ -30,7 +32,6 @@ namespace OpcUaStackServer
 	: applicationServiceIf_(nullptr)
 	, config_(nullptr)
 	, applicationInfo_(nullptr)
-	, applicationCertificate_()
 	, cryptoManager_()
 	{
 	}
@@ -76,18 +77,6 @@ namespace OpcUaStackServer
 	}
 
 	void
-	ApplicationData::applicationCertificate(const ApplicationCertificate::SPtr& applicationCertificate)
-	{
-		applicationCertificate_ = applicationCertificate;
-	}
-
-	ApplicationCertificate::SPtr&
-	ApplicationData::applicationCertificate(void)
-	{
-		return applicationCertificate_;
-	}
-
-	void
 	ApplicationData::cryptoManager(const CryptoManager::SPtr& cryptoManager)
 	{
 		cryptoManager_ = cryptoManager;
@@ -99,6 +88,42 @@ namespace OpcUaStackServer
 		return cryptoManager_;
 	}
 
+	void
+	ApplicationData::applicationThreadPool(const IOThread::SPtr& applicationThreadPool)
+	{
+		applicationThreadPool_ = applicationThreadPool;
+	}
+
+	IOThread::SPtr&
+	ApplicationData::applicationThreadPool(void)
+	{
+		return applicationThreadPool_;
+	}
+
+	void
+	ApplicationData::messageBusThreadPool(const OpcUaStackCore::IOThread::SPtr& messageBusThreadPool)
+	{
+		messageBusThreadPool_ = messageBusThreadPool;
+	}
+
+	OpcUaStackCore::IOThread::SPtr&
+	ApplicationData::messageBusThreadPool(void)
+	{
+		return messageBusThreadPool_;
+	}
+
+	void
+	ApplicationData::messageBusStrand(boost::shared_ptr<boost::asio::io_service::strand>& messageBusStrand)
+	{
+		messageBusStrand_ = messageBusStrand;
+	}
+
+	boost::shared_ptr<boost::asio::io_service::strand>&
+	ApplicationData::messageBusStrand(void)
+	{
+		return messageBusStrand_;
+	}
+
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	//
@@ -107,7 +132,7 @@ namespace OpcUaStackServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	ApplicationIf::ApplicationIf(void)
-	: applicationData_(constructSPtr<ApplicationData>())
+	: applicationData_(boost::make_shared<ApplicationData>())
 	{
 	}
 
@@ -120,10 +145,27 @@ namespace OpcUaStackServer
 	{
 	}
 
+	void
+	ApplicationIf::receiveForwardTrx(ForwardTransaction::SPtr forwardTransaction)
+	{
+	}
+
 	std::string
 	ApplicationIf::version(void)
 	{
 		return "0.0.0";
+	}
+
+	std::string
+	ApplicationIf::gitCommit(void)
+	{
+		return "Unknown";
+	}
+
+	std::string
+	ApplicationIf::gitBranch(void)
+	{
+		return "Unknown";
 	}
 
 	void
@@ -163,18 +205,6 @@ namespace OpcUaStackServer
 	}
 
 	void
-	ApplicationIf::applicationCertificate(ApplicationCertificate::SPtr& applicationCertificate)
-	{
-		applicationData_->applicationCertificate(applicationCertificate);
-	}
-
-	ApplicationCertificate::SPtr&
-	ApplicationIf::applicationCertificate(void)
-	{
-		return applicationData_->applicationCertificate();
-	}
-
-	void
 	ApplicationIf::cryptoManager(CryptoManager::SPtr cryptoManager)
 	{
 		applicationData_->cryptoManager(cryptoManager);
@@ -184,6 +214,18 @@ namespace OpcUaStackServer
 	ApplicationIf::cryptoManager(void)
 	{
 		return applicationData_->cryptoManager();
+	}
+
+	void
+	ApplicationIf::applicationThreadPool(const IOThread::SPtr& applicationThreadPool)
+	{
+		applicationData_->applicationThreadPool(applicationThreadPool);
+	}
+
+	IOThread::SPtr&
+	ApplicationIf::applicationThreadPool(void)
+	{
+		return applicationData_->applicationThreadPool();
 	}
 
 	void

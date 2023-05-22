@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,44 +19,42 @@
 #define __OpcUaServer_ApplicationLibrary_h__
 
 #include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
 #include "OpcUaStackServer/Application/ApplicationInfo.h"
 #include "OpcUaServer/ApplicationLibrary/DynamicLibrary.h"
 
 #include <map>
 
-using namespace OpcUaStackCore;
-using namespace OpcUaStackServer;
-
 namespace OpcUaServer
 {
 
-	class ApplicationLibrary
-	: public  Object
+	class DLLEXPORT ApplicationLibrary
+	: public  OpcUaStackCore::Object
 	{
 	  public:
 		typedef boost::shared_ptr<ApplicationLibrary> SPtr;
 		typedef std::map<std::string, ApplicationLibrary::SPtr> Map;
-		typedef void InitFunction(ApplicationIf**);
+		typedef void InitFunction(OpcUaStackServer::ApplicationIf**);
 
 		ApplicationLibrary(void);
 		~ApplicationLibrary(void);
 
-		void applicationInfo(const ApplicationInfo& applicationInfo);
-		ApplicationInfo& applicationInfo(void);
+		void applicationInfo(const OpcUaStackServer::ApplicationInfo& applicationInfo);
+		OpcUaStackServer::ApplicationInfo& applicationInfo(void);
 		InitFunction* initFunction(void);
-		ApplicationIf* applicationIf(void);
+		OpcUaStackServer::ApplicationIf* applicationIf(void);
 		std::string version(void);
+		std::string gitCommit(void);
+		std::string gitBranch(void);
 
 		bool startup(void);
 		bool shutdown(void);
 
 	  private:
-		ApplicationInfo applicationInfo_;
+		OpcUaStackServer::ApplicationInfo applicationInfo_;
 		InitFunction* initFunction_;
 		DynamicLibrary dynamicLibrary_;
-		ApplicationIf* applicationIf_;
+		OpcUaStackServer::ApplicationIf* applicationIf_;
 	};
 
 }

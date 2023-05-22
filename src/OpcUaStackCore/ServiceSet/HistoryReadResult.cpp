@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -32,7 +32,7 @@ namespace OpcUaStackCore
 	: Object()
 	, statusCode_()
 	, continuationPoint_()
-	, historyData_(constructSPtr<ExtensibleParameter>())
+	, historyData_(boost::make_shared<OpcUaExtensibleParameter>())
 	{
 	}
 
@@ -66,33 +66,61 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	HistoryReadResult::historyData(const ExtensibleParameter::SPtr historyData)
+	HistoryReadResult::historyData(const OpcUaExtensibleParameter::SPtr historyData)
 	{
 		historyData_ = historyData;
 	}
 	
-	ExtensibleParameter::SPtr 
+	OpcUaExtensibleParameter::SPtr
 	HistoryReadResult::historyData(void) const
 	{
 		return historyData_;
 	}
 
-	void 
+	bool
 	HistoryReadResult::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)statusCode_);
-		continuationPoint_.opcUaBinaryEncode(os);
-		historyData_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)statusCode_);
+		rc &= continuationPoint_.opcUaBinaryEncode(os);
+		rc &= historyData_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	HistoryReadResult::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaUInt32 tmp;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
 		statusCode_ = (OpcUaStatusCode)tmp;
-		continuationPoint_.opcUaBinaryDecode(is);
-		historyData_->opcUaBinaryDecode(is);
+		rc &= continuationPoint_.opcUaBinaryDecode(is);
+		rc &= historyData_->opcUaBinaryDecode(is);
+
+		return true;
+	}
+
+	bool
+	HistoryReadResult::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonNumberEncode(pt, statusCode_, "StatusCode");
+		rc = rc & jsonObjectEncode(pt, continuationPoint_, "ContinuationPoint", true);
+		rc = rc & jsonObjectSPtrEncode(pt, historyData_, "HistoryData", true);
+		return rc;
+	}
+
+	bool
+	HistoryReadResult::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonNumberDecode(pt, *(uint32_t*)&statusCode_, "StatusCode");
+		rc = rc & jsonObjectDecode(pt, continuationPoint_, "ContinuationPoint", true);
+		rc = rc & jsonObjectSPtrDecode(pt, historyData_, "HistoryData", true);
+		return rc;
 	}
 
 }

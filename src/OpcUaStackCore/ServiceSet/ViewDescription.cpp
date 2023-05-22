@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,7 +12,7 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include "OpcUaStackCore/ServiceSet/ViewDescription.h"
@@ -30,7 +30,7 @@ namespace OpcUaStackCore
 
 	ViewDescription::ViewDescription(void)
 	: Object()
-	, viewIdSPtr_(constructSPtr<OpcUaNodeId>())
+	, viewIdSPtr_(boost::make_shared<OpcUaNodeId>())
 	, timestamp_()
 	, viewVersion_()
 	{
@@ -53,7 +53,7 @@ namespace OpcUaStackCore
 	}
 	
 	void 
-	ViewDescription::timestamp(const UtcTime& timestamp)
+	ViewDescription::timestamp(const OpcUaUtcTime& timestamp)
 	{
 		timestamp_ = timestamp;
 	}
@@ -64,7 +64,7 @@ namespace OpcUaStackCore
 		timestamp_.dateTime(timestamp);
 	}
 	
-	UtcTime& 
+	OpcUaUtcTime&
 	ViewDescription::timestamp(void)
 	{
 		return timestamp_;
@@ -82,20 +82,54 @@ namespace OpcUaStackCore
 		return viewVersion_;
 	}
 
-	void 
+	void
+	ViewDescription::copyTo(ViewDescription& viewDescription)
+	{
+		viewIdSPtr_->copyTo(*viewDescription.viewId().get());
+		timestamp_.copyTo(viewDescription.timestamp());
+		viewDescription.viewVersion(viewVersion_);
+	}
+
+	bool
 	ViewDescription::opcUaBinaryEncode(std::ostream& os) const
 	{
-		viewIdSPtr_->opcUaBinaryEncode(os);
-		timestamp_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, viewVersion_);
+		bool rc = true;
+
+		rc &= viewIdSPtr_->opcUaBinaryEncode(os);
+		rc &= timestamp_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, viewVersion_);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	ViewDescription::opcUaBinaryDecode(std::istream& is)
 	{
-		viewIdSPtr_->opcUaBinaryDecode(is);
-		timestamp_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, viewVersion_);
+		bool rc = true;
+
+		rc &= viewIdSPtr_->opcUaBinaryDecode(is);
+		rc &= timestamp_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, viewVersion_);
+
+		return rc;
+	}
+
+	bool
+	ViewDescription::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = jsonObjectSPtrEncode(pt, viewIdSPtr_, "ViewId", true);
+		rc &= jsonObjectEncode(pt, timestamp_, "Timestamp", true);
+		rc &= jsonNumberEncode(pt, viewVersion_, "ViewVersion", true, OpcUaUInt32(0));
+		return rc;
+	}
+
+	bool
+	ViewDescription::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = jsonObjectSPtrDecode(pt, viewIdSPtr_, "ViewId", true);
+		rc &= jsonObjectDecode(pt, timestamp_, "Timestamp", true);
+		rc &= jsonNumberDecode(pt, viewVersion_, "ViewVersion", true, OpcUaUInt32(0));
+		return rc;
 	}
 
 }

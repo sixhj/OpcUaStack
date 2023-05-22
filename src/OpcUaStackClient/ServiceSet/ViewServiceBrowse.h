@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,11 +18,8 @@
 #ifndef __OpcUaStackClient_ViewServiceBrowse_h__
 #define __OpcUaStackClient_ViewServiceBrowse_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackClient/ServiceSet/ViewService.h"
 #include <set>
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
@@ -33,17 +30,16 @@ namespace OpcUaStackClient
 		ViewServiceBrowseIf(void) {}
 		virtual ~ViewServiceBrowseIf(void) {}
 
-		virtual void viewServiceBrowseDone(OpcUaStatusCode statusCode) = 0;
+		virtual void viewServiceBrowseDone(OpcUaStackCore::OpcUaStatusCode statusCode) = 0;
 		virtual void viewServiceBrowseResult(
-			OpcUaStatusCode statusCode,
-			OpcUaNodeId::SPtr& nodeId,
-			ReferenceDescription::Vec& referenceDescriptionVec
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::OpcUaNodeId::SPtr& nodeId,
+			OpcUaStackCore::ReferenceDescription::Vec& referenceDescriptionVec
 		) = 0;
 	};
 
 
 	class DLLEXPORT ViewServiceBrowse
-	: public ViewServiceIf
 	{
 	  public:
 		typedef boost::shared_ptr<ViewServiceBrowse> SPtr;
@@ -53,39 +49,37 @@ namespace OpcUaStackClient
 
 		void maxNodesInBrowse(uint32_t maxNodesInBrowse);
 		void viewService(ViewService::SPtr& viewService);
-		void nodeIdVec(OpcUaNodeId::Vec& nodeIdVec);
-		void direction(BrowseDirectionEnum direction);
+		void nodeIdVec(OpcUaStackCore::OpcUaNodeId::Vec& nodeIdVec);
+		void direction(OpcUaStackCore::BrowseDirectionEnum direction);
 		void recursive(bool recursive);
 		void viewServiceBrowseIf(ViewServiceBrowseIf* viewServiceBrowseIf);
 
 		void asyncBrowse(void);
 
-		//- ViewServiceIf -----------------------------------------------------
-	    virtual void viewServiceBrowseResponse(ServiceTransactionBrowse::SPtr serviceTransactionBrowse);
-	    virtual void viewServiceBrowseNextResponse(ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext);
-	    //- ViewServiceIf -----------------------------------------------------
-
 	  private:
+	    void viewServiceBrowseResponse(OpcUaStackCore::ServiceTransactionBrowse::SPtr serviceTransactionBrowse);
+	    void viewServiceBrowseNextResponse(OpcUaStackCore::ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext);
+
 	    void asyncBrowseNext(void);
-		void done(OpcUaStatusCode statusCode);
+		void done(OpcUaStackCore::OpcUaStatusCode statusCode);
 		void browseResult(
-			OpcUaStatusCode statusCode,
-			OpcUaNodeId::SPtr& nodeId,
-			ReferenceDescription::Vec& referenceDescriptionVec
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::OpcUaNodeId::SPtr& nodeId,
+			OpcUaStackCore::ReferenceDescription::Vec& referenceDescriptionVec
 		);
 
 		ViewService::SPtr viewService_;
 		ViewServiceBrowseIf* viewServiceBrowseIf_;
 
 		uint32_t maxNodesInBrowse_;
-		OpcUaNodeId::Vec nodeIdVec_;
-		BrowseDirectionEnum direction_;
+		OpcUaStackCore::OpcUaNodeId::Vec nodeIdVec_;
+		OpcUaStackCore::BrowseDirectionEnum direction_;
 		bool recursive_;
-		std::vector<ReferenceDescription::Vec> referenceDescriptionVecVec_;
+		std::vector<OpcUaStackCore::ReferenceDescription::Vec> referenceDescriptionVecVec_;
 		std::vector<std::string> continuationPointVec_;
 
-		std::set<OpcUaNodeId> nodeIdToReadSet_;
-		std::set<OpcUaNodeId> nodeIdProcessedSet_;
+		std::set<OpcUaStackCore::OpcUaNodeId> nodeIdToReadSet_;
+		std::set<OpcUaStackCore::OpcUaNodeId> nodeIdProcessedSet_;
 
 	};
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,10 +19,10 @@
 #ifndef __OpcUaStackCore_SecureChannelCrypto_h__
 #define __OpcUaStackCore_SecureChannelCrypto_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Certificate/CryptoManager.h"
 #include "OpcUaStackCore/Certificate/ApplicationCertificate.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannel.h"
+#include "OpcUaStackCore/SecureChannel/SecureChannelKeys.h"
 
 namespace OpcUaStackCore
 {
@@ -35,8 +35,6 @@ namespace OpcUaStackCore
 
 		void cryptoManager(CryptoManager::SPtr& cryptoManager);
 		CryptoManager::SPtr& cryptoManager(void);
-		void applicationCertificate(ApplicationCertificate::SPtr& applicationCertificate);
-		ApplicationCertificate::SPtr& applicationCertificate(void);
 
 		//
 		// receive open secure channel request
@@ -104,13 +102,16 @@ namespace OpcUaStackCore
 		// receive message request
 		//
 		OpcUaStatusCode secureReceivedMessageRequest(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode decryptReceivedMessage(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode verifyReceivedMessage(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 
 		//
@@ -119,29 +120,35 @@ namespace OpcUaStackCore
 		OpcUaStatusCode secureSendMessageRequest(
 			MemoryBuffer& plainText,
 			MemoryBuffer& encryptedText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode signSendMessageRequest(
 			MemoryBuffer& plainText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode encryptSendMessageRequest(
 			MemoryBuffer& plainText,
 			MemoryBuffer& encryptedText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 
 		//
 		// receive message response
 		//
 		OpcUaStatusCode secureReceivedMessageResponse(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode decryptReceivedMessageResponse(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode verifyReceivedMessageResponse(
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 
 		//
@@ -150,16 +157,19 @@ namespace OpcUaStackCore
 		OpcUaStatusCode secureSendMessageResponse(
 			MemoryBuffer& plainText,
 			MemoryBuffer& encryptedText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode signSendMessageResponse(
 			MemoryBuffer& plainText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 		OpcUaStatusCode encryptSendMessageResponse(
 			MemoryBuffer& plainText,
 			MemoryBuffer& encryptedText,
-			SecureChannel* secureChannel
+			SecureChannel* secureChannel,
+			SecureChannelKey::SPtr& secureChannelKey
 		);
 
 
@@ -179,8 +189,6 @@ namespace OpcUaStackCore
 
 	  private:
 		CryptoManager::SPtr cryptoManager_;
-		ApplicationCertificate::SPtr applicationCertificate_;
-
 	};
 
 }

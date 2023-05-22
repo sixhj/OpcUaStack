@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -20,20 +20,18 @@
 #include "OpcUaStackServer/ServiceSet/MonitorItemId.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeAccess.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	MonitorItem::MonitorItem(void)
 	: monitorItemId_(MonitorItemId::monitorItemId())
-	, samplingInterval_(100)
-	, queSize_(0)
-	, discardOldest_(false)
-	, clientHandle_(0)
 	, monitorItemList_()
 	, baseNodeClass_()
 	, attribute_(nullptr)
 	, dataValue_()
-	, slotTimerElement_(constructSPtr<SlotTimerElement>())
+	, slotTimerElement_(boost::make_shared<SlotTimerElement>())
 	, userContext_()
 	{
 	}
@@ -98,7 +96,10 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	MonitorItem::receive(BaseNodeClass::SPtr baseNodeClass, MonitoredItemCreateRequest::SPtr monitoredItemCreateRequest)
+	MonitorItem::receive(
+		BaseNodeClass::SPtr& baseNodeClass,
+		MonitoredItemCreateRequest::SPtr& monitoredItemCreateRequest
+	)
 	{
 		baseNodeClass_ = baseNodeClass;
 		monitoredItemCreateRequest_ = monitoredItemCreateRequest;
@@ -123,41 +124,41 @@ namespace OpcUaStackServer
 			return BadNodeIdUnknown;
 		}
 
-		MonitoredItemNotification::SPtr monitoredItemNotification = constructSPtr<MonitoredItemNotification>();
+		auto monitoredItemNotification = boost::make_shared<MonitoredItemNotification>();
 		if (attribute_->exist() == false) {
 			Log(Debug, "read value error, because value not exist")
 				.parameter("Node", monitoredItemCreateRequest->itemToMonitor().nodeId())
 				.parameter("Attr", monitoredItemCreateRequest->itemToMonitor().attributeId());
-			monitoredItemNotification->dataValue().statusCode(BadDataUnavailable);
+			monitoredItemNotification->value().statusCode(BadDataUnavailable);
 			monitorItemListPushBack(monitoredItemNotification);
 			return Success;
 		}
 
 		// read attribute
-		if (!AttributeAccess::copy(*attribute_, monitoredItemNotification->dataValue())) {
+		if (!AttributeAccess::copy(*attribute_, monitoredItemNotification->value())) {
 			Log(Debug, "read value error, because value error")
 				.parameter("Node", monitoredItemCreateRequest->itemToMonitor().nodeId())
 				.parameter("Attr", monitoredItemCreateRequest->itemToMonitor().attributeId());
-			monitoredItemNotification->dataValue().statusCode(BadDataUnavailable);
+			monitoredItemNotification->value().statusCode(BadDataUnavailable);
 			monitorItemListPushBack(monitoredItemNotification);
 			return Success;
 		}
 
-		monitoredItemNotification->dataValue().statusCode(Success);
+		monitoredItemNotification->value().statusCode(Success);
 		monitorItemListPushBack(monitoredItemNotification);
 		return Success;
 	}
 
 	OpcUaStatusCode 
-	MonitorItem::receive(MonitoredItemNotificationArray::SPtr monitoredItemNotificationArray)
+	MonitorItem::receive(MonitoredItemNotificationArray& monitoredItemNotificationArray)
 	{
-		uint32_t freeSize = monitoredItemNotificationArray->freeSize();
+		uint32_t freeSize = monitoredItemNotificationArray.freeSize();
 		do {
 			if (monitorItemList_.size() == 0) return Success;
 			if (freeSize == 0) return BadOutOfMemory;
 			freeSize--;
 
-			monitoredItemNotificationArray->push_back(monitorItemList_.front());
+			monitoredItemNotificationArray.push_back(monitorItemList_.front());
 
 			monitorItemList_.pop_front();
 		} while (true);
@@ -168,43 +169,52 @@ namespace OpcUaStackServer
 	SampleResult 
 	MonitorItem::sample(void)
 	{
-		BaseNodeClass::SPtr baseNodeClass = baseNodeClass_.lock();
+		auto baseNodeClass = baseNodeClass_.lock();
 
 		if (baseNodeClass.get() == nullptr) {
 			// base node class no longer exist. Generate final notification if necessary
-			if (dataValue_.statusCode() == BadNodeClassInvalid) return NodeNoLongerExist;
+			if (dataValue_.statusCode() == BadNodeClassInvalid) {
+				return NodeNoLongerExist;
+			}
 
 			// insert notification into queue
-			MonitoredItemNotification::SPtr monitoredItemNotification = constructSPtr<MonitoredItemNotification>();
-			monitoredItemNotification->dataValue().statusCode(BadNodeClassInvalid);
+			auto monitoredItemNotification = boost::make_shared<MonitoredItemNotification>();
+			monitoredItemNotification->value().statusCode(BadNodeClassInvalid);
 			monitorItemListPushBack(monitoredItemNotification);
 			return NodeNoLongerExist;
 		}
 
 		boost::shared_lock<boost::shared_mutex> lock(baseNodeClass->mutex());
 
-		// check wheater an event schould be generated
-		if (!AttributeAccess::trigger(dataValue_, *attribute_)) return Ok; 
-		
-		MonitoredItemNotification::SPtr monitoredItemNotification = constructSPtr<MonitoredItemNotification>();
-		if (!AttributeAccess::copy(*attribute_, monitoredItemNotification->dataValue())) {
-			// data value is not available
-			if (dataValue_.statusCode() == BadDataUnavailable) return Ok;
-
-			// insert notification
-			monitoredItemNotification->dataValue().statusCode(BadDataUnavailable);
-			monitorItemListPushBack(monitoredItemNotification);
+		// check whether an event should be generated
+		if (!AttributeAccess::trigger(dataValue_, *attribute_)) {
 			return Ok;
 		}
 
-		// insert notification
+		auto monitoredItemNotification = boost::make_shared<MonitoredItemNotification>();
+		if (!AttributeAccess::copy(*attribute_, monitoredItemNotification->value())) {
+			// data value is not available
+			if (dataValue_.statusCode() == BadDataUnavailable) {
+				return Ok;
+			}
+
+			// insert notification
+			monitoredItemNotification->value().statusCode(BadDataUnavailable);
+			monitorItemListPushBack(monitoredItemNotification);
+			return Ok;
+		}
 		AttributeAccess::copy(*attribute_, dataValue_);
+		lock.unlock();
+
+		// insert notification
 		monitorItemListPushBack(monitoredItemNotification);
 		return Ok;
 	}
 
 	void 
-	MonitorItem::monitorItemListPushBack(MonitoredItemNotification::SPtr monitoredItemNotification)
+	MonitorItem::monitorItemListPushBack(
+		MonitoredItemNotification::SPtr& monitoredItemNotification
+	)
 	{
 		uint32_t actQueueSize = monitorItemList_.size();
 
@@ -221,7 +231,7 @@ namespace OpcUaStackServer
 		    }
 		}
 
-		monitoredItemNotification->clientHandle(clientHandle_);
+		monitoredItemNotification->clientHandle() = clientHandle_;
 		monitorItemList_.push_back(monitoredItemNotification);
 	}
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,8 +24,6 @@
 #include "OpcUaStackServer/Application/ApplicationIf.h"
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackServer
 {
 
@@ -35,27 +33,27 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<GetNodeReference> SPtr;
 
 		GetNodeReference(void);
-		GetNodeReference(const OpcUaNodeId& node);
-		GetNodeReference(const std::vector<OpcUaNodeId>& nodes);
-		GetNodeReference(std::initializer_list<OpcUaNodeId> nodes);
+		GetNodeReference(const OpcUaStackCore::OpcUaNodeId& node);
+		GetNodeReference(const std::vector<OpcUaStackCore::OpcUaNodeId>& nodes);
+		GetNodeReference(std::initializer_list<OpcUaStackCore::OpcUaNodeId> nodes);
 		virtual ~GetNodeReference(void);
 
-		void addNode(const OpcUaNodeId& node);
-		void addNodes(const std::vector<OpcUaNodeId>& nodes);
-		void node(const OpcUaNodeId& node);
-		void nodes(const std::vector<OpcUaNodeId>& nodes);
-		std::vector<OpcUaNodeId>& nodes(void);
+		void addNode(const OpcUaStackCore::OpcUaNodeId& node);
+		void addNodes(const std::vector<OpcUaStackCore::OpcUaNodeId>& nodes);
+		void node(const OpcUaStackCore::OpcUaNodeId& node);
+		void nodes(const std::vector<OpcUaStackCore::OpcUaNodeId>& nodes);
+		std::vector<OpcUaStackCore::OpcUaNodeId>& nodes(void);
 
 		bool query(ApplicationServiceIf* applicationServiceIf, bool checkStatusCodeArray = false);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
-		std::vector<OpcUaStatusCode>& statuses(void);
+		std::vector<OpcUaStackCore::OpcUaStatusCode>& statuses(void);
 		std::vector<BaseNodeClass::WPtr>& nodeReferences(void);
 
 	  private:
-		std::vector<OpcUaNodeId> nodes_;
-		OpcUaStatusCode resultCode_;
-		std::vector<OpcUaStatusCode> statuses_;
+		std::vector<OpcUaStackCore::OpcUaNodeId> nodes_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_;
+		std::vector<OpcUaStackCore::OpcUaStatusCode> statuses_;
 		std::vector<BaseNodeClass::WPtr> nodeReferences_;
 	};
 

@@ -1,6 +1,6 @@
 
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,12 +16,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/make_shared.hpp>
 #include <boost/lexical_cast.hpp>
 #include <sstream>
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaClient/ClientCommand/CommandSubscriptionStop.h"
 
-using namespace OpcUaStackCore;
+#include "OpcUaClient/ClientCommand/CommandSubscriptionStop.h"
 
 namespace OpcUaClient
 {
@@ -38,7 +37,7 @@ namespace OpcUaClient
 	CommandBase::SPtr
 	CommandSubscriptionStop::createCommand(void)
 	{
-		CommandBase::SPtr commandBase = constructSPtr<CommandSubscriptionStop>();
+		CommandBase::SPtr commandBase = boost::make_shared<CommandSubscriptionStop>();
 		return commandBase;
 	}
 

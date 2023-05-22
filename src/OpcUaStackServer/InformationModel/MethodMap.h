@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -20,11 +20,9 @@
 
 #include <map>
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/ServiceSetApplication/ForwardMethodSync.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardMethodSync.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardMethodAsync.h"
 #include "OpcUaStackServer/InformationModel/MethodId.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -33,18 +31,56 @@ namespace OpcUaStackServer
 	{
 	  public:
 		typedef std::map<MethodId, ForwardMethodSync::SPtr> ForwardMethodSyncMap;
+		typedef std::map<MethodId, ForwardMethodAsync::SPtr> ForwardMethodAsyncMap;
 
-		MethodMap(void);
-		~MethodMap(void);
+		MethodMap(
+			void
+		);
+		~MethodMap(
+			void
+		);
 
-		void clear(void);
-		bool existMethod(OpcUaNodeId& objectNodeId, OpcUaNodeId& methodNodeId);
-		bool registerMethod(OpcUaNodeId& objectNodeId, OpcUaNodeId& methodNodeId, ForwardMethodSync::SPtr& forwardMethodSync);
-		bool deregisterMethod(OpcUaNodeId& objectNodeId, OpcUaNodeId& methodNodeId);
-		ForwardMethodSync::SPtr getMethod(OpcUaNodeId& objectNodeId, OpcUaNodeId& methodNodeId);
+		void clear(
+			void
+		);
+		bool existMethodSync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
+		bool existMethodAsync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
+		bool registerMethodSync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId,
+			ForwardMethodSync::SPtr& forwardMethodSync
+		);
+		bool registerMethodAsync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId,
+			ForwardMethodAsync::SPtr& forwardMethodAsync
+		);
+		bool deregisterMethodSync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
+		bool deregisterMethodAsync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
+		ForwardMethodSync::SPtr getMethodSync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
+		ForwardMethodAsync::SPtr getMethodAsync(
+			const OpcUaStackCore::OpcUaNodeId& objectNodeId,
+			const OpcUaStackCore::OpcUaNodeId& methodNodeId
+		);
 
 	  private:
 		ForwardMethodSyncMap forwardMethodSyncMap_;
+		ForwardMethodAsyncMap forwardMethodAsyncMap_;
 	};
 
 }

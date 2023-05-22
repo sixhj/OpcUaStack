@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,49 +18,45 @@
 #ifndef __OpcUaStackClient_AttributeService_h__
 #define __OpcUaStackClient_AttributeService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 #include "OpcUaStackCore/ServiceSet/AttributeServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/AttributeServiceIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient 
 {
 
 	class DLLEXPORT AttributeService
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<AttributeService> SPtr;
 
-		AttributeService(IOThread* ioThread);
+		AttributeService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~AttributeService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			AttributeServiceIf* attributeServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void attributeServiceIf(AttributeServiceIf* attributeServiceIf);
 
-		void syncSend(ServiceTransactionRead::SPtr serviceTransactionRead);
-		void asyncSend(ServiceTransactionRead::SPtr serviceTransactionRead);
-		void syncSend(ServiceTransactionWrite::SPtr serviceTransactionWrite);
-		void asyncSend(ServiceTransactionWrite::SPtr serviceTransactionWrite);
-		void syncSend(ServiceTransactionHistoryRead::SPtr serviceTransactionHistoryRead);
-		void asyncSend(ServiceTransactionHistoryRead::SPtr serviceTransactionHistoryRead);
-		void syncSend(ServiceTransactionHistoryUpdate::SPtr serviceTransactionHistoryUpdate);
-		void asyncSend(ServiceTransactionHistoryUpdate::SPtr serviceTransactionHistoryUpdate);
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionRead::SPtr& serviceTransactionRead);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionRead::SPtr& serviceTransactionRead);
+		void syncSend(const OpcUaStackCore::ServiceTransactionWrite::SPtr& serviceTransactionWrite);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionWrite::SPtr& serviceTransactionWrite);
+		void syncSend(const OpcUaStackCore::ServiceTransactionHistoryRead::SPtr& serviceTransactionHistoryRead);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionHistoryRead::SPtr& serviceTransactionHistoryRead);
+		void syncSend(const OpcUaStackCore::ServiceTransactionHistoryUpdate::SPtr& serviceTransactionHistoryUpdate);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionHistoryUpdate::SPtr& serviceTransactionHistoryUpdate);
 
 	  private:
-		Component* componentSession_;
-
-		AttributeServiceIf* attributeServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

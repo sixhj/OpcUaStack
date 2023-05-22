@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,7 +18,6 @@
 #ifndef __OpcUaStackCore_MessageHeader_h__
 #define __OpcUaStackCore_MessageHeader_h__
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNumber.h"
 
@@ -54,10 +53,10 @@ namespace OpcUaStackCore
 		void channelId(uint32_t channelId);
 		uint32_t channelId(void);
 
-		void opcUaBinaryEncode(std::ostream& os, bool full = false) const;
-		void opcUaBinaryEncodeChannelId(std::ostream& os) const;
-		void opcUaBinaryDecode(std::istream& is, bool full = false);
-		void opcUaBinaryDecodeChannelId(std::istream& is);
+		bool opcUaBinaryEncode(std::ostream& os, bool full = false) const;
+		bool opcUaBinaryEncodeChannelId(std::ostream& os) const;
+		bool opcUaBinaryDecode(std::istream& is, bool full = false);
+		bool opcUaBinaryDecodeChannelId(std::istream& is);
 
 	  private:
 		char messageTypeString_[3];

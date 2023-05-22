@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,8 @@
 #include "OpcUaStackServer/InformationModel/InformationModel.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeAccess.h"
 #include "OpcUaStackCore/Base/Log.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -73,6 +75,15 @@ namespace OpcUaStackServer
 		std::pair<InformationModelMap::iterator, bool> insertResult;
 		insertResult = informationModelMap_.insert(std::make_pair(baseNodeClass->nodeId().data(), baseNodeClass));
 		return insertResult.second;
+	}
+
+	bool
+	InformationModel::exist(const OpcUaStackCore::OpcUaNodeId& opcUaNodeId)
+	{
+		if (find(opcUaNodeId)) {
+			return true;
+		}
+		return false;
 	}
 
 	BaseNodeClass::SPtr 
@@ -133,7 +144,7 @@ namespace OpcUaStackServer
 						continue;
 					}
 
-					ReferenceItem::SPtr referenceItemForward = constructSPtr<ReferenceItem>();
+					ReferenceItem::SPtr referenceItemForward = boost::make_shared<ReferenceItem>();
 					referenceItemForward->isForward_ = false;
 					baseNodeClass->nodeId().data().copyTo(referenceItemForward->nodeId_);
 
@@ -148,7 +159,7 @@ namespace OpcUaStackServer
 						continue;
 					}
 
-					ReferenceItem::SPtr referenceItemForward = constructSPtr<ReferenceItem>();
+					ReferenceItem::SPtr referenceItemForward = boost::make_shared<ReferenceItem>();
 					referenceItemForward->isForward_ = true;
 					baseNodeClass->nodeId().data().copyTo(referenceItemForward->nodeId_);
 

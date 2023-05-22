@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,7 +15,9 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/make_shared.hpp>
 #include "OpcUaStackCore/Base/Log.h"
+#include "OpcUaStackCore/Utility/UniqueId.h"
 #include "OpcUaStackClient/ApplicationUtility/DiscoveryClientFindServers.h"
 
 using namespace OpcUaStackCore;
@@ -25,16 +27,18 @@ namespace OpcUaStackClient
 
 	DiscoveryClientFindServers::DiscoveryClientFindServers(void)
 	: ioThread_()
+	, messageBus_()
 	, discoveryUri_("")
 	, serviceSetManager_()
 	, sessionService_()
 	, discoveryService_()
 	, serverUri_("")
-	, findResultCallback_()
+	, resultHandler_()
 	, findResults_()
 	, findStatusCode_(BadCommunicationError)
 	, shutdown_()
-	, shutdownCond_()
+	, shutdownProm_()
+	, sessionStateId_(SessionServiceStateId::Disconnected)
 	{
 	}
 
@@ -49,115 +53,167 @@ namespace OpcUaStackClient
     }
 
     void
+	DiscoveryClientFindServers::messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus)
+    {
+    	messageBus_ = messageBus;
+    }
+
+    void
     DiscoveryClientFindServers::discoveryUri(const std::string& discoveryUri)
     {
     	discoveryUri_ = discoveryUri;
     }
 
-
 	bool 
 	DiscoveryClientFindServers::startup(void)
 	{
+		shutdownContext_ = nullptr;
+
+		auto sessionStateUpdate = [this](SessionBase& session, SessionServiceStateId sessionState) {
+			assert(strand_->running_in_this_thread());
+			sessionState_ = sessionState;
+
+			// ignore some states
+			if (sessionState != SessionServiceStateId::Established &&
+				sessionState != SessionServiceStateId::Disconnected) {
+				return;
+			}
+
+			if (sessionState == SessionServiceStateId::Established) {
+			     sendFindServersRequest();
+			     return;
+			}
+
+			if (sessionState == SessionServiceStateId::Disconnected) {
+			    disconnectSession();
+			}
+		};
+
+		// register thread in service set manager. All services use the
+		// same thread pool
+		std::string id = UniqueId::createStringUniqueId();
+		threadPoolName_ = std::string("DiscoveryClientFindServers_") + id;
+		serviceSetManager_.registerIOThread(threadPoolName_, ioThread_);
+		serviceSetManager_.messageBus(messageBus_);
+
+		// create new strand
+		strand_ = ioThread_->createStrand();
+
 		// create service set manager
 		SessionServiceConfig sessionServiceConfig;
-		sessionServiceConfig.ioThreadName("DiscoveryIOThread");
-		sessionServiceConfig.sessionServiceIf_ = this;
+		sessionServiceConfig.ioThreadName(threadPoolName_);
 		sessionServiceConfig.secureChannelClient_->endpointUrl(discoveryUri_);
-		sessionServiceConfig.mode_ = SessionService::M_SecureChannel;
-		serviceSetManager_.registerIOThread("DiscoveryIOThread", ioThread_);
-		serviceSetManager_.sessionService(sessionServiceConfig);
-
-		// create session service
+		sessionServiceConfig.sessionMode_ = SessionMode::SecureChannel;
+		sessionServiceConfig.sessionServiceChangeHandler_ = sessionStateUpdate;
+		sessionServiceConfig.sessionServiceChangeHandlerStrand_ = strand_;
+		sessionServiceConfig.sessionServiceName_ = std::string("SessionService_") + id;
 		sessionService_ = serviceSetManager_.sessionService(sessionServiceConfig);
 
 		// create discovery service
 		DiscoveryServiceConfig discoveryServiceConfig;
-		discoveryServiceConfig.ioThreadName("DiscoveryIOThread");
-		discoveryServiceConfig.discoveryServiceIf_ = this;
+		discoveryServiceConfig.ioThreadName(threadPoolName_);
+		discoveryServiceConfig.discoveryServiceName_ = std::string("DiscoveryService_") + id;
 		discoveryService_ = serviceSetManager_.discoveryService(sessionService_, discoveryServiceConfig);
 
 		return true;
 	}
 
-	void 
-	DiscoveryClientFindServers::shutdown(void)
-	{
-		//
-		// The shutdown thread and the communication thread (IO Thread) may not
-		// be the same
-		//
-
-		// start shutdown task and wait for shutdown signal
-	   	shutdownCond_.condition(1,0);
-	    ioThread_->run(
-	    	boost::bind(&DiscoveryClientFindServers::shutdownTask, this)
-	    );
-	    shutdownCond_.waitForCondition(3000);
-
-    	// deregister io thread from service set manager
-    	serviceSetManager_.deregisterIOThread("DiscoveryIOThread");
-	}
-
 	void
-	DiscoveryClientFindServers::shutdownTask(void)
+	DiscoveryClientFindServers::asyncShutdown(const ShutdownCompleteCallback& shutdownCompleteCallback)
 	{
-		shutdown_ = true;
-
-		if (sessionService_->secureChannelState() != SessionService::SCS_Disconnected) {
-			sessionService_->asyncDisconnect();
+		// check if the function is called outside the strand
+		if (!strand_->running_in_this_thread()) {
+			strand_->dispatch(
+				[this, shutdownCompleteCallback]() {
+					asyncShutdown(shutdownCompleteCallback);
+			    }
+			);
 			return;
 		}
 
-		shutdownCond_.conditionValueDec();
+		// init shutdown context
+		shutdownContext_ = boost::make_shared<ShutdownContext>();
+		shutdownContext_->shutdownCompleteCallback_ = shutdownCompleteCallback;
+
+		// disconnect session
+		disconnectSession();
+
+    	// The function shutdownComplete is called asynchronously after
+    	// session shutdown.
 	}
 
 	void
-	DiscoveryClientFindServers::asyncFind(const std::string serverUri, Callback& findResultCallback)
+	DiscoveryClientFindServers::shutdownComplete(void)
+	{
+	   	// delete services
+	    discoveryService_.reset();
+	    sessionService_.reset();
+
+	    // deregister io thread from service set manager
+	    serviceSetManager_.deregisterIOThread(threadPoolName_);
+
+	    // call shutdown complete callback
+	    auto shutdownCompleteCallback = shutdownContext_->shutdownCompleteCallback_;
+	    shutdownContext_ = nullptr;
+	    shutdownCompleteCallback();
+	}
+
+	void
+	DiscoveryClientFindServers::syncShutdown(void)
+	{
+		assert(!strand_->running_in_this_thread());
+
+		std::promise<void> promise;
+		std::future<void> future = promise.get_future();
+		asyncShutdown(
+			[this, &promise](void) {
+			    promise.set_value();
+				return;
+			}
+		);
+		future.wait();
+	}
+
+	void
+	DiscoveryClientFindServers::asyncFind(
+		const std::string& serverUri,
+		const FindServerHandler& resultHandler
+	)
 	{
 		findResults_.clear();
 		findStatusCode_ = BadCommunicationError;
 
 		serverUri_ = serverUri;
-		findResultCallback_ = findResultCallback;
+		resultHandler_ = resultHandler;
 		sessionService_->asyncConnect();
-	}
-
-	void
-	DiscoveryClientFindServers::sessionStateUpdate(SessionBase& session, SessionState sessionState)
-	{
-		if (sessionState != SS_Connect) {
-
-			if (shutdown_) {
-				shutdownCond_.conditionValueDec();
-				return;
-			}
-
-			findResultCallback_(findStatusCode_, findResults_);
-			return;
-		}
-
-		sendFindServersRequest();
 	}
 
 	void
 	DiscoveryClientFindServers::sendFindServersRequest(void)
 	{
-		ServiceTransactionFindServers::SPtr trx;
-		trx = constructSPtr<ServiceTransactionFindServers>();
-		FindServersRequest::SPtr req = trx->request();
+		auto trx = boost::make_shared<ServiceTransactionFindServers>();
+		auto req = trx->request();
 
-		OpcUaStringArray::SPtr serverUris = constructSPtr<OpcUaStringArray>();
+		auto serverUris = boost::make_shared<OpcUaStringArray>();
 		serverUris->resize(1);
-		OpcUaString::SPtr serverUri = constructSPtr<OpcUaString>();
+		auto serverUri = boost::make_shared<OpcUaString>();
 		serverUri->value(serverUri_);
 		serverUris->push_back(serverUri);
 		req->serverUris(serverUris);
 
+		trx->resultHandlerStrand(strand_);
+		trx->resultHandler(
+			[this](ServiceTransactionFindServers::SPtr& trx) {
+		        discoveryServiceFindServersResponse(trx);
+			}
+		);
 		discoveryService_->asyncSend(trx);
 	}
 
     void
-    DiscoveryClientFindServers::discoveryServiceFindServersResponse(ServiceTransactionFindServers::SPtr serviceTransactionFindServers)
+    DiscoveryClientFindServers::discoveryServiceFindServersResponse(
+    	ServiceTransactionFindServers::SPtr& serviceTransactionFindServers
+	)
     {
 		if (serviceTransactionFindServers->statusCode() != Success) {
 			Log(Error, "receive find servers response error")
@@ -165,7 +221,7 @@ namespace OpcUaStackClient
 		}
 
 		else {
-			FindServersResponse::SPtr res = serviceTransactionFindServers->response();
+			auto res = serviceTransactionFindServers->response();
 
 			findStatusCode_ = Success;
 			findResults_.clear();
@@ -177,7 +233,25 @@ namespace OpcUaStackClient
 
 		}
 
-		sessionService_->asyncDisconnect();
+		disconnectSession();
     }
+
+	void
+	DiscoveryClientFindServers::disconnectSession(void)
+	{
+		if (sessionState_ != SessionServiceStateId::Disconnected) {
+			sessionService_->asyncDisconnect();
+			return;
+		}
+
+        if (resultHandler_) {
+	        resultHandler_(findStatusCode_, findResults_);
+	        resultHandler_ = nullptr;
+        }
+
+		if (shutdownContext_) {
+	        shutdownComplete();
+		}
+	}
 
 }

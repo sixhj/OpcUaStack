@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -25,12 +25,13 @@
 #include "OpcUaStackServer/ServiceSet/MonitorManager.h"
 #include "OpcUaStackServer/ServiceSet/EventItem.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	MonitorManager::MonitorManager(void)
-	: ioThread_(nullptr)
-	, monitorItemMap_()
+	: monitorItemMap_()
 	, eventItemMap_()
 	, monitoredItemIds_()
 	, subscriptionId_(0)
@@ -42,38 +43,34 @@ namespace OpcUaStackServer
 		//
 		// cleanup monitored item
 		//
-		MonitorItemMap::iterator it1;
-		for (it1=monitorItemMap_.begin(); it1!=monitorItemMap_.end(); it1++) {
-		    MonitorItem::SPtr monitorItem = it1->second;
-
+		for (auto it : monitorItemMap_ ) {
+			auto monitorItem = it.second;
 		    if (monitorItem->baseNodeClass() != nullptr) {
 		        forwardStopMonitoredItem(
 		        	monitorItem->userContext(),
 					monitorItem->baseNodeClass(),
-					it1->first
+					monitorItem->monitorItemId()
 				);
 		    }
 
 			ioThread_->slotTimer()->stop(monitorItem->slotTimerElement());
 			monitorItem->slotTimerElement().reset();
 		}
-
 		monitorItemMap_.clear();
 
 		//
 		// cleanup event item
 		//
-		EventItem::Map::iterator it2;
-		for (it2=eventItemMap_.begin(); it2!=eventItemMap_.end(); it2++) {
-		    EventItem::SPtr eventItem = it2->second;
+		for (auto it : eventItemMap_) {
+		    EventItem::SPtr eventItem = it.second;
 
 			// forward stop event item
 			if (forwardGlobalSync_.get() != nullptr) {
 				if (forwardGlobalSync_->eventItemStopService().isCallback()) {
 					ApplicationEventItemStopContext context;
 					context.applicationContext_ = forwardGlobalSync_->eventItemStopService().applicationContext();
-					context.eventItemId_ = it2->second->eventItemId();
-					context.userContext_ = it2->second->userContext();
+					context.eventItemId_ = it.second->eventItemId();
+					context.userContext_ = it.second->userContext();
 
 					forwardGlobalSync_->eventItemStopService().callback()(&context);
 				}
@@ -87,6 +84,12 @@ namespace OpcUaStackServer
 	MonitorManager::ioThread(IOThread* ioThread)
 	{
 		ioThread_ = ioThread;
+	}
+
+	void
+	MonitorManager::strand(boost::shared_ptr<boost::asio::io_service::strand>& strand)
+	{
+		strand_ = strand;
 	}
 
 	void 
@@ -117,8 +120,7 @@ namespace OpcUaStackServer
 	MonitorManager::noticicationNumber(void)
 	{
 		uint32_t notificationNumber = 0;
-		MonitorItemMap::iterator it;
-		for (it = monitorItemMap_.begin(); it != monitorItemMap_.end(); it++) {
+		for (auto it = monitorItemMap_.begin(); it != monitorItemMap_.end(); it++) {
 			notificationNumber += it->second->size();
 		}
 		return notificationNumber;
@@ -127,18 +129,17 @@ namespace OpcUaStackServer
 	bool 
 	MonitorManager::notificationAvailable(void)
 	{
-		MonitorItemMap::iterator it;
-		for (it = monitorItemMap_.begin(); it != monitorItemMap_.end(); it++) {
+		for (auto it = monitorItemMap_.begin(); it != monitorItemMap_.end(); it++) {
 			if (it->second->size() > 0) return true;
 		}
 		return false;
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(ServiceTransactionCreateMonitoredItems::SPtr trx)
+	MonitorManager::receive(ServiceTransactionCreateMonitoredItems::SPtr& trx)
 	{
-		CreateMonitoredItemsRequest::SPtr createMonitorItemRequest = trx->request();
-		CreateMonitoredItemsResponse::SPtr createMonitorItemResponse = trx->response();
+		auto createMonitorItemRequest = trx->request();
+		auto createMonitorItemResponse = trx->response();
 
 		auto size = createMonitorItemRequest->itemsToCreate()->size();
 		createMonitorItemResponse->results()->resize(size);
@@ -172,57 +173,55 @@ namespace OpcUaStackServer
 	{
 		OpcUaStatusCode statusCode;
 
-		MonitoredItemCreateResult::SPtr monitoredItemCreateResult;
-		monitoredItemCreateResult = constructSPtr<MonitoredItemCreateResult>();
+		auto monitoredItemCreateResult = boost::make_shared<MonitoredItemCreateResult>();
 		createMonitorItemResponse->results()->set(idx, monitoredItemCreateResult);
 
 		// get request parameter
 		MonitoredItemCreateRequest::SPtr monitoredItemCreateRequest;
 		if (!createMonitorItemRequest->itemsToCreate()->get(idx, monitoredItemCreateRequest)) {
-			monitoredItemCreateResult->statusCode(BadInvalidArgument);
+			monitoredItemCreateResult->statusCode().enumeration(BadInvalidArgument);
 			return;
 		}
 
 		// autorization create monitored item request
-		ServiceTransactionCreateMonitoredItems::SPtr serviceTransaction = trx;
-		ReadValueId& readValueId = monitoredItemCreateRequest->itemToMonitor();
+		auto serviceTransaction = trx;
+		auto& readValueId = monitoredItemCreateRequest->itemToMonitor();
 		statusCode = forwardAutorizationCreateMonitoredItem(serviceTransaction->userContext(), readValueId);
 		if (statusCode != Success) {
-			monitoredItemCreateResult->statusCode(statusCode);
+			monitoredItemCreateResult->statusCode().enumeration(statusCode);
 			return;
 		}
 
 		// find base node class
-		BaseNodeClass::SPtr baseNodeClass;
-		baseNodeClass = informationModel_->find(monitoredItemCreateRequest->itemToMonitor().nodeId());
+		auto baseNodeClass = informationModel_->find(monitoredItemCreateRequest->itemToMonitor().nodeId());
 		if (baseNodeClass.get() == nullptr) {
-			monitoredItemCreateResult->statusCode(BadNodeIdUnknown);
+			monitoredItemCreateResult->statusCode().enumeration(BadNodeIdUnknown);
 			return;
 		}
 
 		// check parameter
-		if (monitoredItemCreateRequest->requestedParameters().samplingInterval() < 200) {
-			monitoredItemCreateRequest->requestedParameters().samplingInterval(200);
+		if (monitoredItemCreateRequest->requestedParameters().samplingInterval() < 100) {
+			monitoredItemCreateRequest->requestedParameters().samplingInterval(100);
 		}
 		if (monitoredItemCreateRequest->requestedParameters().queueSize() < 1) {
 			monitoredItemCreateRequest->requestedParameters().queueSize(1);
 		}
 
 		// create new monitor item
-		MonitorItem::SPtr monitorItem = constructSPtr<MonitorItem>();
+		auto monitorItem = boost::make_shared<MonitorItem>();
 		monitorItem->userContext(serviceTransaction->userContext());
 		statusCode = monitorItem->receive(baseNodeClass, monitoredItemCreateRequest);
 
 		if (statusCode != Success) {
-			monitoredItemCreateResult->statusCode(statusCode);
+			monitoredItemCreateResult->statusCode().enumeration(statusCode);
 			return;
 		}
 
 		// insert monitor item into monitor item map
-		monitoredItemCreateResult->statusCode(Success);
-		monitoredItemCreateResult->monitoredItemId(monitorItem->monitorItemId());
-		monitoredItemCreateResult->revisedSamplingInterval(monitorItem->samplingInterval());
-		monitoredItemCreateResult->revisedQueueSize(monitorItem->queSize());
+		monitoredItemCreateResult->statusCode().enumeration(Success);
+		monitoredItemCreateResult->monitoredItemId() = monitorItem->monitorItemId();
+		monitoredItemCreateResult->revisedSamplingInterval() = monitorItem->samplingInterval();
+		monitoredItemCreateResult->revisedQueueSize() = monitorItem->queSize();
 		monitorItemMap_.insert(std::make_pair(monitorItem->monitorItemId(), monitorItem));
 
 		// forward start monitored item
@@ -233,9 +232,14 @@ namespace OpcUaStackServer
 		);
 
 		// start sample timer
-		SlotTimerElement::SPtr slotTimerElement = monitorItem->slotTimerElement();
+		auto slotTimerElement = monitorItem->slotTimerElement();
 		slotTimerElement->interval(monitorItem->samplingInterval());
-		slotTimerElement->callback().reset(boost::bind(&MonitorManager::sampleTimeout, this, monitorItem));
+		slotTimerElement->timeoutCallback(
+			strand_,
+			[this, monitorItem](void) {
+				sampleTimeout(monitorItem);
+		    }
+		);
 		ioThread_->slotTimer()->start(slotTimerElement);
 
 		Log(Debug, "monitor item create")
@@ -256,38 +260,36 @@ namespace OpcUaStackServer
 	{
 		OpcUaStatusCode statusCode;
 
-		MonitoredItemCreateResult::SPtr monitoredItemCreateResult;
-		monitoredItemCreateResult = constructSPtr<MonitoredItemCreateResult>();
+		auto monitoredItemCreateResult = boost::make_shared<MonitoredItemCreateResult>();
 		createMonitorItemResponse->results()->set(idx, monitoredItemCreateResult);
 
 		// get request parameter
 		MonitoredItemCreateRequest::SPtr monitoredItemCreateRequest;
 		if (!createMonitorItemRequest->itemsToCreate()->get(idx, monitoredItemCreateRequest)) {
-			monitoredItemCreateResult->statusCode(BadInvalidArgument);
+			monitoredItemCreateResult->statusCode().enumeration(BadInvalidArgument);
 			return;
 		}
 
 		// autorization create event item request
-		ServiceTransactionCreateMonitoredItems::SPtr serviceTransaction = trx;
-		ReadValueId& readValueId = monitoredItemCreateRequest->itemToMonitor();
+		auto serviceTransaction = trx;
+		auto& readValueId = monitoredItemCreateRequest->itemToMonitor();
 		statusCode = forwardAutorizationCreateEventItem(serviceTransaction->userContext(), readValueId);
 		if (statusCode != Success) {
-			monitoredItemCreateResult->statusCode(statusCode);
+			monitoredItemCreateResult->statusCode().enumeration(statusCode);
 			return;
 		}
 
 		// find base node class
-		BaseNodeClass::SPtr baseNodeClass;
-		baseNodeClass = informationModel_->find(monitoredItemCreateRequest->itemToMonitor().nodeId());
+		auto baseNodeClass = informationModel_->find(monitoredItemCreateRequest->itemToMonitor().nodeId());
 		if (baseNodeClass.get() == nullptr) {
-			monitoredItemCreateResult->statusCode(BadNodeIdUnknown);
+			monitoredItemCreateResult->statusCode().enumeration(BadNodeIdUnknown);
 			return;
 		}
 		OpcUaQualifiedName browseName;
 		baseNodeClass->getBrowseName(browseName);
 
 		// create new event item
-		EventItem::SPtr eventItem = constructSPtr<EventItem>();
+		auto eventItem = boost::make_shared<EventItem>();
 		eventItem->userContext(serviceTransaction->userContext());
 		eventItem->informationModel(informationModel_);
 		eventItem->browseName(browseName);
@@ -297,15 +299,15 @@ namespace OpcUaStackServer
 		);
 
 		if (statusCode != Success) {
-			monitoredItemCreateResult->statusCode(statusCode);
+			monitoredItemCreateResult->statusCode().enumeration(statusCode);
 			return;
 		}
 
 		// insert event item into event item map
-		monitoredItemCreateResult->statusCode(Success);
-		monitoredItemCreateResult->monitoredItemId(eventItem->eventItemId());
-		monitoredItemCreateResult->revisedSamplingInterval(0);
-		monitoredItemCreateResult->revisedQueueSize(0);
+		monitoredItemCreateResult->statusCode().enumeration(Success);
+		monitoredItemCreateResult->monitoredItemId() = eventItem->eventItemId();
+		monitoredItemCreateResult->revisedSamplingInterval() = 0;
+		monitoredItemCreateResult->revisedQueueSize() = 0;
 		eventItemMap_.insert(std::make_pair(eventItem->eventItemId(), eventItem));
 
 		// forward start event item
@@ -329,10 +331,10 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(ServiceTransactionDeleteMonitoredItems::SPtr trx)
+	MonitorManager::receive(ServiceTransactionDeleteMonitoredItems::SPtr& trx)
 	{
-		DeleteMonitoredItemsRequest::SPtr deleteMonitorItemRequest = trx->request();
-		DeleteMonitoredItemsResponse::SPtr deleteMonitorItemResponse = trx->response();
+		auto deleteMonitorItemRequest = trx->request();
+		auto deleteMonitorItemResponse = trx->response();
 
 		auto size = deleteMonitorItemRequest->monitoredItemIds()->size();
 		deleteMonitorItemResponse->results()->resize(size);
@@ -348,15 +350,14 @@ namespace OpcUaStackServer
 
 			bool monitoredItem;
 
-			// find monitor item in monitor map
-			MonitorItemMap::iterator it1;
+			// find monitor item or event item in monitor map
 			EventItem::Map::iterator it2;
-			it1 = monitorItemMap_.find(monitorItemId);
+			auto it1 = monitorItemMap_.find(monitorItemId);
 			if (it1 == monitorItemMap_.end()) {
 
 				it2 = eventItemMap_.find(monitorItemId);
 				if (it2 == eventItemMap_.end()) {
-					deleteMonitorItemResponse->results()->set(idx, Success);
+					deleteMonitorItemResponse->results()->set(idx, BadNothingToDo);
 					continue;
 				}
 				monitoredItem = false;
@@ -367,7 +368,7 @@ namespace OpcUaStackServer
 
 			if (monitoredItem) {
 				// forward stop monitored item
-				BaseNodeClass::SPtr baseNodeClass = it1->second->baseNodeClass();
+				auto baseNodeClass = it1->second->baseNodeClass();
 				if (baseNodeClass.get() != nullptr) {
 					forwardStopMonitoredItem(
 						it1->second->userContext(),
@@ -408,6 +409,7 @@ namespace OpcUaStackServer
 
 				it2->second->erase();
 				eventItemMap_.erase(it2);
+				deleteMonitorItemResponse->results()->set(idx, Success);
 			}
 		}
 
@@ -415,19 +417,19 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(ServiceTransactionModifyMonitoredItems::SPtr trx)
+	MonitorManager::receive(ServiceTransactionModifyMonitoredItems::SPtr& trx)
 	{
 		return BadNotImplemented;
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(ServiceTransactionSetMonitoringMode::SPtr trx)
+	MonitorManager::receive(ServiceTransactionSetMonitoringMode::SPtr& trx)
 	{
 		return BadNotImplemented;
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(ServiceTransactionSetTriggering::SPtr trx)
+	MonitorManager::receive(ServiceTransactionSetTriggering::SPtr& trx)
 	{
 		return BadNotImplemented;
 	}
@@ -435,7 +437,7 @@ namespace OpcUaStackServer
 	void 
 	MonitorManager::sampleTimeout(MonitorItem::SPtr monitorItem)
 	{
-		SampleResult sampleResult = monitorItem->sample();
+		auto sampleResult = monitorItem->sample();
 		switch (sampleResult)
 		{
 			case Ok:
@@ -459,7 +461,7 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode 
-	MonitorManager::receive(MonitoredItemNotificationArray::SPtr monitoredItemNotificationArray)
+	MonitorManager::receive(MonitoredItemNotificationArray& monitoredItemNotificationArray)
 	{
 		uint32_t numberNotifications = 0;
 		MonitorItemMap::iterator it;
@@ -471,7 +473,7 @@ namespace OpcUaStackServer
 			return Success;
 		}
 
-		monitoredItemNotificationArray->resize(numberNotifications);
+		monitoredItemNotificationArray.resize(numberNotifications);
 		for (it = monitorItemMap_.begin(); it != monitorItemMap_.end(); it++) {
 			OpcUaStatusCode statusCode = it->second->receive(monitoredItemNotificationArray);
 			if (statusCode == BadOutOfMemory) {
@@ -483,11 +485,10 @@ namespace OpcUaStackServer
 	}
 
 	OpcUaStatusCode
-	MonitorManager::receive(EventFieldListArray::SPtr eventFieldListArray)
+	MonitorManager::receive(EventFieldListArray& eventFieldListArray)
 	{
 		uint32_t numberNotifications = 0;
-		EventItem::Map::iterator it;
-		for (it = eventItemMap_.begin(); it != eventItemMap_.end(); it++) {
+		for (auto it = eventItemMap_.begin(); it != eventItemMap_.end(); it++) {
 			numberNotifications += it->second->size();
 		}
 
@@ -495,9 +496,9 @@ namespace OpcUaStackServer
 			return Success;
 		}
 
-		eventFieldListArray->resize(numberNotifications);
-		for (it = eventItemMap_.begin(); it != eventItemMap_.end(); it++) {
-			OpcUaStatusCode statusCode = it->second->receive(eventFieldListArray);
+		eventFieldListArray.resize(numberNotifications);
+		for (auto it = eventItemMap_.begin(); it != eventItemMap_.end(); it++) {
+			auto statusCode = it->second->receive(eventFieldListArray);
 			if (statusCode == BadOutOfMemory) {
 				return statusCode;
 			}
@@ -532,7 +533,7 @@ namespace OpcUaStackServer
 		monitoredItemIds_.insert(std::make_pair(baseNodeClass->nodeId().data(), monitoredItemIds));
 
 		// create node reference
-		NodeReferenceApplication::SPtr nodeReference = constructSPtr<NodeReferenceApplication>();
+		NodeReferenceApplication::SPtr nodeReference = boost::make_shared<NodeReferenceApplication>();
 		nodeReference->statusCode(Success);
 		nodeReference->baseNodeClass(baseNodeClass);
 
@@ -583,7 +584,7 @@ namespace OpcUaStackServer
 		}
 
 		// create node reference
-		NodeReferenceApplication::SPtr nodeReference = constructSPtr<NodeReferenceApplication>();
+		NodeReferenceApplication::SPtr nodeReference = boost::make_shared<NodeReferenceApplication>();
 		nodeReference->statusCode(Success);
 		nodeReference->baseNodeClass(baseNodeClass);
 

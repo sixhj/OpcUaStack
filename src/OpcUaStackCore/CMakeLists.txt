@@ -74,9 +74,10 @@ message(STATUS "  library name: ${OPCUASTACK_CORE_LIB_NAME}")
 # -----------------------------------------------------------------------------
 file(GLOB INC_OpcUaStackCore_Base OpcUaStackCore/Base/*.h OpcUaStackCore/Base/*.txx)
 file(GLOB INC_OpcUaStackCore_BuildInTypes OpcUaStackCore/BuildInTypes/*.h)
-file(GLOB INC_OpcUaStackCore_Component OpcUaStackCore/Component/*.h)
+file(GLOB INC_OpcUaStackCore_MessageBus OpcUaStackCore/MessageBus/*.h)
 file(GLOB INC_OpcUaStackCore_Certificate OpcUaStackCore/Certificate/*.h)
 file(GLOB INC_OpcUaStackCore_Core OpcUaStackCore/Core/*.h)
+file(GLOB INC_OpcUaStackCore_Logging OpcUaStackCore/Logging/*.h)
 file(GLOB INC_OpcUaStackCore_SecureChannel OpcUaStackCore/SecureChannel/*.h)
 file(GLOB INC_OpcUaStackCore_ServiceSet OpcUaStackCore/ServiceSet/*.h OpcUaStackCore/ServiceSet/*.txx)
 file(GLOB INC_OpcUaStackCore_ServiceSetApplication OpcUaStackCore/ServiceSetApplication/*.h)
@@ -89,8 +90,11 @@ file(GLOB INC_OpcUaStackCore_StandardDataTypes OpcUaStackCore/StandardDataTypes/
 file(GLOB INC_OpcUaStackCore_ComplexDataTypes OpcUaStackCore/ComplexDataTypes/*.h)
 file(GLOB INC_OpcUaStackCore_DataType OpcUaStackCore/DataType/*.h)
 file(GLOB INC_OpcUaStackCore_Filter OpcUaStackCore/Filter/*.h)
+file(GLOB INC_OpcUaStackCore_Network OpcUaStackCore/Network/*.h)
 file(GLOB INC_OpcUaStackCore_EventType OpcUaStackCore/EventType/*.h)
 file(GLOB INC_OpcUaStackCore_StandardEventType OpcUaStackCore/StandardEventType/*.h)
+
+
 
 install(
     TARGETS OpcUaStackCore 
@@ -111,8 +115,8 @@ install(
 )
 
 install(
-    FILES ${INC_OpcUaStackCore_Component} 
-    DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/Component
+    FILES ${INC_OpcUaStackCore_MessageBus} 
+    DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/MessageBus
     COMPONENT headers
 )
 
@@ -125,6 +129,12 @@ install(
 install(
     FILES ${INC_OpcUaStackCore_Core} 
     DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/Core
+    COMPONENT headers
+)
+
+install(
+    FILES ${INC_OpcUaStackCore_Logging} 
+    DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/Logging
     COMPONENT headers
 )
 
@@ -201,6 +211,12 @@ install(
 )
 
 install(
+    FILES ${INC_OpcUaStackCore_Network} 
+    DESTINATION /usr/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/Network
+    COMPONENT headers
+)
+
+install(
     FILES ${INC_OpcUaStackCore_EventType} 
     DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/EventType
     COMPONENT headers
@@ -211,3 +227,5 @@ install(
     DESTINATION ${INSTALL_PREFIX}/include/OpcUaStack${VERSION_MAJOR}/OpcUaStackCore/StandardEventType
     COMPONENT headers
 )
+
+

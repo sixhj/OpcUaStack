@@ -1,5 +1,5 @@
 /*
-   Copyright 2016-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2018 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,8 @@
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackClient/ApplicationUtility/ClientMonitoredItem.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackClient
 {
 
@@ -29,7 +31,7 @@ namespace OpcUaStackClient
 	, samplingInterval_(250)
 	, queueSize_(1)
 	, nodeId_()
-	, dataChangeFilter_(DCT_StatusValue)
+	, dataChangeFilter_(DataChangeTrigger::EnumStatusValue)
 	, clientHandle_(0)
 	, context_()
 	{

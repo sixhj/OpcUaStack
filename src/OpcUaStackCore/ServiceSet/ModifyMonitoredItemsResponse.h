@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,11 +19,9 @@
 #define __OpcUaStackCore_ModifyMonitoredItemsResponse_h__
 
 #include <stdint.h>
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/BuildInTypes/BuildInTypes.h"
+#include "OpcUaStackCore/BuildInTypes/OpcUaDiagnosticInfo.h"
 #include "OpcUaStackCore/SecureChannel/ResponseHeader.h"
-#include "OpcUaStackCore/ServiceSet/MonitoredItemModifyResult.h"
+#include "OpcUaStackCore/StandardDataTypes/MonitoredItemModifyResult.h"
 
 namespace OpcUaStackCore
 {
@@ -42,8 +40,8 @@ namespace OpcUaStackCore
 		void diagnosticInfos(const OpcUaDiagnosticInfoArray::SPtr diagnosticInfos);
 		OpcUaDiagnosticInfoArray::SPtr diagnosticInfos(void) const;
 
-		void opcUaBinaryEncode(std::ostream& os) const;
-		void opcUaBinaryDecode(std::istream& is);
+		bool opcUaBinaryEncode(std::ostream& os) const;
+		bool opcUaBinaryDecode(std::istream& is);
 
 	  private:
 		MonitoredItemModifyResultArray::SPtr resultArraySPtr_;

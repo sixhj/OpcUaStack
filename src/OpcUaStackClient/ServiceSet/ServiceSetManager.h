@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,7 +17,6 @@
 #ifndef __OpcUaStackClient_ServiceSetManager_h__
 #define __OpcUaStackClient_ServiceSetManager_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Utility/IOThread.h"
 #include "OpcUaStackClient/ServiceSet/SessionService.h"
 #include "OpcUaStackClient/ServiceSet/SessionServiceConfig.h"
@@ -38,8 +37,6 @@
 #include "OpcUaStackClient/ServiceSet/NodeManagementService.h"
 #include "OpcUaStackClient/ServiceSet/NodeManagementServiceConfig.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackClient
 {
 
@@ -52,8 +49,9 @@ namespace OpcUaStackClient
 		void start(void) {}
 		void stop(void) {}
 
-		void registerIOThread(const std::string ioThreadName, IOThread::SPtr ioThread);
+		void registerIOThread(const std::string ioThreadName, OpcUaStackCore::IOThread::SPtr ioThread);
 		void deregisterIOThread(const std::string ioThreadName);
+		void messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus);
 
 		// session
 		SessionService::SPtr sessionService(
@@ -137,11 +135,12 @@ namespace OpcUaStackClient
 		);
 
 	  private:
-		IOThread::SPtr getIOThread(const std::string ioThreadName);
+		OpcUaStackCore::IOThread::SPtr getIOThread(const std::string ioThreadName);
 		void createIOThread(const std::string ioThreadName);
 		void destroyIOThread(const std::string ioThreadName);
 
-		IOThread::Map ioThreadMap_;
+		OpcUaStackCore::MessageBus::SPtr messageBus_ = nullptr;
+		OpcUaStackCore::IOThread::Map ioThreadMap_;
 	};
 
 }

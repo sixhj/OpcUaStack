@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,11 @@
 #ifndef __OpcUaStackServer_Application_h__
 #define __OpcUaStackServer_Application_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include "OpcUaStackServer/ServiceSet/ServerServiceBase.h"
 #include "OpcUaStackServer/Application/ApplicationBase.h"
 #include "OpcUaStackServer/Application/ApplicationServiceIf.h"
 #include "OpcUaStackServer/Application/ReloadIf.h"
+#include "OpcUaStackServer/Forward/ForwardTransaction.h"
 #include <map>
 
 namespace OpcUaStackServer
@@ -31,8 +30,9 @@ namespace OpcUaStackServer
 
 	class DLLEXPORT Application
 	: public ApplicationBase
-	, public Object
+	, public OpcUaStackCore::Object
 	, public ApplicationServiceIf
+	, public OpcUaStackServer::ServerServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<Application> SPtr;
@@ -45,36 +45,58 @@ namespace OpcUaStackServer
 			ApplShutdown
 		} State;
 
-		Application(void);
+		Application(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread::SPtr& ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~Application(void);
 
 		void applicationIf(ApplicationIf* applicationIf);
 		ApplicationIf* applicationIf(void);
 		void reloadIf(ReloadIf* reloadIf);
 		void applicationName(const std::string& applicationName);
-		void serviceComponent(Component* serviceComponent);
 
 		bool startup(void);
 		bool shutdown(void);
 
-		//- Component -----------------------------------------------------------------
-		virtual void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
-
 		//- ApplicationServiceIf ------------------------------------------------------
-		virtual void send(ServiceTransaction::SPtr serviceTransaction);
-		virtual void sendSync(ServiceTransaction::SPtr serviceTransaction);
-		virtual void reload(void);
+		void send(
+			OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction
+		) override;
+		void sendForwardTrx(
+			OpcUaStackServer::ForwardTransaction::SPtr forwardTransaction
+		) override;
+		void sendSync(
+			OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction
+		) override;
+		void reload(
+		    void
+		) override;
 		//- ApplicationServiceIf ------------------------------------------------------
 
 	  private:
-		void updateServiceTransactionRequest(ServiceTransaction::SPtr serviceTransaction);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		void receiveServiceTrx(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		void receiveForwardTrx(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		void updateServiceTransactionRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
 
 		State state_;
 		ApplicationIf* applicationIf_;
 		ReloadIf* reloadIf_;
 		std::string applicationName_;
-		Component* serviceComponent_;
+
+		OpcUaStackCore::IOThread::SPtr ioThread_ = nullptr;
+		OpcUaStackCore::MessageBusMember::WPtr messageBusMemberApplication_;
 	};
 
 }

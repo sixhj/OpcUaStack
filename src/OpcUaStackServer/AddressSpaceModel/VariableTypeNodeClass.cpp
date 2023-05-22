@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,11 +17,13 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/VariableTypeNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	VariableTypeNodeClass::VariableTypeNodeClass(void)
-	: BaseNodeClass(NodeClassType_VariableType)
+	: BaseNodeClass(NodeClass::EnumVariableType)
 	, dataType_()
 	, valueRank_()
 	, isAbstract_()
@@ -114,7 +116,7 @@ namespace OpcUaStackServer
 	BaseNodeClass::SPtr
 	VariableTypeNodeClass::clone(void)
 	{
-		VariableTypeNodeClass::SPtr variableTypeNodeClass = constructSPtr<VariableTypeNodeClass>();
+		VariableTypeNodeClass::SPtr variableTypeNodeClass = boost::make_shared<VariableTypeNodeClass>();
 		copyTo(variableTypeNodeClass);
 		return variableTypeNodeClass;
 	}

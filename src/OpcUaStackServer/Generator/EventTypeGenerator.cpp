@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,6 +19,8 @@
 #include "BuildConfig.h"
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackServer/InformationModel/InformationModelAccess.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -328,10 +330,37 @@ namespace OpcUaStackServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	//
-	// header functions
+	// private functions
 	//
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
+	std::string
+	EventTypeGenerator::getTypeNameFromNodeId(OpcUaNodeId& typeNodeId)
+	{
+		// build in type possible
+		if (typeNodeId.namespaceIndex() == 0 && typeNodeId.nodeIdType() == OpcUaBuildInType_OpcUaUInt32) {
+			uint32_t type;
+			uint16_t namespaceIndex;
+			typeNodeId.get(type, namespaceIndex);
+			std::string buildInType = OpcUaBuildInTypeMap::buildInType2String((OpcUaBuildInType)type);
+			if (buildInType != "Unknown") return buildInType;
+		}
+
+		// get property node class
+		BaseNodeClass::SPtr nodeClass = informationModel_->find(typeNodeId);
+		if (!nodeClass) {
+			return "Unknown";
+		}
+
+		// get property class name
+		OpcUaQualifiedName browseName;
+		if (!nodeClass->getBrowseName(browseName)) {
+			return "Unknown";
+		}
+
+		return browseName.name().toStdString();
+	}
+
 	bool
 	EventTypeGenerator::createVariableElementVec(
 		const std::string& prefix,
@@ -376,9 +405,9 @@ namespace OpcUaStackServer
 			}
 
 			// use only variable class
-			NodeClassType nodeClassType;
+			NodeClass::Enum nodeClassType;
 			childNodeClass->getNodeClass(nodeClassType);
-			if (nodeClassType != NodeClassType_Variable) {
+			if (nodeClassType != NodeClass::EnumVariable) {
 				continue;
 			}
 
@@ -428,7 +457,7 @@ namespace OpcUaStackServer
 			}
 
 			// create new variable element
-			VariableElement::SPtr variableElement = constructSPtr<VariableElement>();
+			VariableElement::SPtr variableElement = boost::make_shared<VariableElement>();
 			variableElement->prefix(prefix);
 			variableElement->nodeId(*it);
 			variableElement->browseName(browseName);
@@ -437,7 +466,7 @@ namespace OpcUaStackServer
 			variableElement->localVariableName(localVariableName);
 			variableElement->functionName(functionName);
 			variableElement->dataTypeName(dataTypeName);
-			variableElement->log();
+			//variableElement->log();
 			variableElementVec_.push_back(variableElement);
 
 			if (!createVariableElementVec(fullName, *it)) {
@@ -448,6 +477,13 @@ namespace OpcUaStackServer
 		return true;
 	}
 
+	// ------------------------------------------------------------------------
+	// ------------------------------------------------------------------------
+	//
+	// header functions
+	//
+	// ------------------------------------------------------------------------
+	// ------------------------------------------------------------------------
 	bool
 	EventTypeGenerator::generateHeader(void)
 	{
@@ -585,12 +621,12 @@ namespace OpcUaStackServer
 			VariableElement::SPtr variableElement = *it;
 			std::string functionName = variableElement->functionName();
 
-			ss << prefix << "bool " << functionName << "(OpcUaVariant::SPtr& variable);" << std::endl;
+			ss << prefix << "bool " << functionName << "(OpcUaStackCore::OpcUaVariant::SPtr& variable);" << std::endl;
 			ss << prefix << "OpcUaVariant::SPtr " << functionName << "(void);" << std::endl;
 			ss << prefix << std::endl;
 		}
 
-		ss << prefix << "bool set" << eventTypeName_ << "(OpcUaVariant::SPtr& variable);" << std::endl;
+		ss << prefix << "bool set" << eventTypeName_ << "(OpcUaStackCore::OpcUaVariant::SPtr& variable);" << std::endl;
 		ss << prefix << "OpcUaVariant::SPtr get" << eventTypeName_ << "(void);" << std::endl;
 		ss << prefix << std::endl;
 
@@ -598,9 +634,9 @@ namespace OpcUaStackServer
 		ss << prefix << "//- EventBase interface" << std::endl;
 		ss << prefix << "virtual void mapNamespaceUri(void);" << std::endl;
 		ss << prefix << std::endl;
-		ss << prefix << "virtual OpcUaVariant::SPtr get(" << std::endl;
-		ss << prefix << "    OpcUaNodeId& eventType," << std::endl;
-		ss << prefix << "    std::list<OpcUaQualifiedName::SPtr>& browseNameList," << std::endl;
+		ss << prefix << "virtual OpcUaStackCore::OpcUaVariant::SPtr get(" << std::endl;
+		ss << prefix << "    OpcUaStackCore::OpcUaNodeId& eventType," << std::endl;
+		ss << prefix << "    std::list<OpcUaStackCore::OpcUaQualifiedName::SPtr>& browseNameList," << std::endl;
 		ss << prefix << "    EventResult::Code& resultCode" << std::endl;
 		ss << prefix << ");" << std::endl;
 		ss << prefix << "//- EventBase interface" << std::endl;
@@ -689,6 +725,7 @@ namespace OpcUaStackServer
 		//
 		// namespace
 		//
+		ss << "using namespace OpcUaStackCore;" << std::endl;
 		ss << std::endl;
 		ss << "namespace " <<  projectNamespace_ << std::endl;
 		ss << "{" << std::endl;
@@ -836,7 +873,7 @@ namespace OpcUaStackServer
 		ss << prefix << "    uint32_t namespaceIndex;" << std::endl;
 		ss << prefix << "    " << parentEventTypeName_ << "::mapNamespaceUri();" << std::endl;
 		ss << prefix << std::endl;
-		ss << prefix << "    OpcUaVariant::SPtr eventTypeVariable = constructSPtr<OpcUaVariant>();" << std::endl;
+		ss << prefix << "    OpcUaVariant::SPtr eventTypeVariable = boost::make_shared<OpcUaVariant>();" << std::endl;
 		ss << prefix << "    eventTypeVariable->setValue(eventVariables_.eventType());" << std::endl;
 		ss << prefix << std::endl;
 		ss << prefix << "    setNamespaceIndex(eventVariables_.namespaceUri(), namespaceIndex, eventVariables_.browseName(), eventTypeVariable);" << std::endl;
@@ -882,33 +919,6 @@ namespace OpcUaStackServer
 
 		sourceContent_ += ss.str();
 		return true;
-	}
-
-	std::string
-	EventTypeGenerator::getTypeNameFromNodeId(OpcUaNodeId& typeNodeId)
-	{
-		// build in type possible
-		if (typeNodeId.namespaceIndex() == 0 && typeNodeId.nodeIdType() == OpcUaBuildInType_OpcUaUInt32) {
-			uint32_t type;
-			uint16_t namespaceIndex;
-			typeNodeId.get(type, namespaceIndex);
-			std::string buildInType = OpcUaBuildInTypeMap::buildInType2String((OpcUaBuildInType)type);
-			if (buildInType != "Unknown") return buildInType;
-		}
-
-		// get property node class
-		BaseNodeClass::SPtr nodeClass = informationModel_->find(typeNodeId);
-		if (!nodeClass) {
-			return "Unknown";
-		}
-
-		// get property class name
-		OpcUaQualifiedName browseName;
-		if (!nodeClass->getBrowseName(browseName)) {
-			return "Unknown";
-		}
-
-		return browseName.name().toStdString();
 	}
 
 }

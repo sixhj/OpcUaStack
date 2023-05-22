@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,24 +19,21 @@
 #define __OpcUaStackServer_InformationModel_h__
 
 #include <boost/thread/mutex.hpp>
-#include <OpcUaStackServer/InformationModel/EventHandlerMap.h>
+#include <map>
 #include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
+#include "OpcUaStackServer/InformationModel/EventHandlerMap.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaAttributeId.h"
 #include "OpcUaStackCore/EventType/EventBase.h"
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
 #include "OpcUaStackServer/InformationModel/MethodMap.h"
-#include <map>
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
-	typedef std::map<OpcUaNodeId, BaseNodeClass::SPtr> InformationModelMap;
+	typedef std::map<OpcUaStackCore::OpcUaNodeId, BaseNodeClass::SPtr> InformationModelMap;
 
 	class DLLEXPORT InformationModel
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
 		typedef boost::shared_ptr<InformationModel> SPtr;
@@ -46,10 +43,11 @@ namespace OpcUaStackServer
 
 		void clear(void);
 		bool insert(BaseNodeClass::SPtr baseNodeClass);
-		BaseNodeClass::SPtr find(const OpcUaNodeId& opcUaNodeId);
-		BaseNodeClass::SPtr find(OpcUaNodeId::SPtr opcUaNodeId);
-		bool remove(const OpcUaNodeId& opcUaNodeId);
-		bool remove(OpcUaNodeId::SPtr opcUaNodeId);
+		bool exist(const OpcUaStackCore::OpcUaNodeId& opcUaNodeId);
+		BaseNodeClass::SPtr find(const OpcUaStackCore::OpcUaNodeId& opcUaNodeId);
+		BaseNodeClass::SPtr find(OpcUaStackCore::OpcUaNodeId::SPtr opcUaNodeId);
+		bool remove(const OpcUaStackCore::OpcUaNodeId& opcUaNodeId);
+		bool remove(OpcUaStackCore::OpcUaNodeId::SPtr opcUaNodeId);
 		uint32_t size(void);
 
 		InformationModelMap& informationModelMap(void);
@@ -59,15 +57,15 @@ namespace OpcUaStackServer
 
 		void checkForwardReferences(void);
 
-		bool setValue(OpcUaUInt32 nodeId, AttributeId attributeId, OpcUaDataValue& dataValue);
-		bool setValue(OpcUaUInt32 nodeId, AttributeId attributeId, OpcUaVariant& variant);
-		bool getValue(OpcUaUInt32 nodeId, AttributeId attributeId, OpcUaDataValue& dataValue);
-		bool getValue(OpcUaUInt32 nodeId, AttributeId attributeId, OpcUaVariant& variant);
+		bool setValue(OpcUaStackCore::OpcUaUInt32 nodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaDataValue& dataValue);
+		bool setValue(OpcUaStackCore::OpcUaUInt32 nodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaVariant& variant);
+		bool getValue(OpcUaStackCore::OpcUaUInt32 nodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaDataValue& dataValue);
+		bool getValue(OpcUaStackCore::OpcUaUInt32 nodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaVariant& variant);
 
-		bool setValue(OpcUaNodeId& opcUaNodeId, AttributeId attributeId, OpcUaDataValue& dataValue);
-		bool setValue(OpcUaNodeId& opcUaNodeId, AttributeId attributeId, OpcUaVariant& variant);
-		bool getValue(OpcUaNodeId& opcUaNodeId, AttributeId attributeId, OpcUaDataValue& dataValue);
-		bool getValue(OpcUaNodeId& opcUaNodeId, AttributeId attributeId, OpcUaVariant& variant);
+		bool setValue(OpcUaStackCore::OpcUaNodeId& opcUaNodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaDataValue& dataValue);
+		bool setValue(OpcUaStackCore::OpcUaNodeId& opcUaNodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaVariant& variant);
+		bool getValue(OpcUaStackCore::OpcUaNodeId& opcUaNodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaDataValue& dataValue);
+		bool getValue(OpcUaStackCore::OpcUaNodeId& opcUaNodeId, OpcUaStackCore::AttributeId attributeId, OpcUaStackCore::OpcUaVariant& variant);
 
 	  private:
 		boost::mutex mutex_;

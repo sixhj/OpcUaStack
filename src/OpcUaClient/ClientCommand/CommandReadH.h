@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,12 +24,10 @@
 #include "OpcUaStackCore/ServiceSet/TimestampsToReturn.h"
 #include "OpcUaClient/ClientCommand/CommandBase.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaClient
 {
 
-	class CommandReadH
+	class DLLEXPORT CommandReadH
 	: public CommandBase
 	{
 	  public:
@@ -50,10 +48,10 @@ namespace OpcUaClient
 		virtual std::string help(void);
 		//- CommandReadH interface ---------------------------------------------
 
-		OpcUaNodeId::Vec& nodeIdVec(void);
+		OpcUaStackCore::OpcUaNodeId::Vec& nodeIdVec(void);
 		boost::posix_time::ptime& startTime(void);
 		boost::posix_time::ptime& endTime(void);
-		TimestampsToReturn timestampsToReturn(void);
+		OpcUaStackCore::TimestampsToReturn timestampsToReturn(void);
 		uint32_t maxNumResultValuesPerNode(void);
 		uint32_t maxNumRequests(void);
 		void maxNumRequestsDec(void);
@@ -63,10 +61,10 @@ namespace OpcUaClient
 		void outputType(OutputType outputType);
 
 	  private:
-		OpcUaNodeId::Vec nodeIdVec_;
+		OpcUaStackCore::OpcUaNodeId::Vec nodeIdVec_;
 		boost::posix_time::ptime startTime_;
 		boost::posix_time::ptime endTime_;
-		TimestampsToReturn timestampsToReturn_;
+		OpcUaStackCore::TimestampsToReturn timestampsToReturn_;
 		uint32_t maxNumResultValuesPerNode_;
 		int32_t maxNumRequests_;
 

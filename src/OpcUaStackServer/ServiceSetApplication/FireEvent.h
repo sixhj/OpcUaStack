@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,13 +19,10 @@
 #define __OpcUaStackServer_FireEvent_h__
 
 #include <vector>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
 #include "OpcUaStackCore/EventType/EventBase.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -36,19 +33,19 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<FireEvent> SPtr;
 
 		FireEvent(void);
-		FireEvent(const OpcUaNodeId& node, const EventBase::SPtr& eventBase);
+		FireEvent(const OpcUaStackCore::OpcUaNodeId& node, const OpcUaStackCore::EventBase::SPtr& eventBase);
 		virtual ~FireEvent(void);
 
-		void node(const OpcUaNodeId& node);
-		void eventBase(const EventBase::SPtr& eventBase);
+		void node(const OpcUaStackCore::OpcUaNodeId& node);
+		void eventBase(const OpcUaStackCore::EventBase::SPtr& eventBase);
 
 		bool fireEvent(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
 	  private:
-		OpcUaNodeId node_;
-		EventBase::SPtr eventBase_;
-		OpcUaStatusCode resultCode_;
+		OpcUaStackCore::OpcUaNodeId node_;
+		OpcUaStackCore::EventBase::SPtr eventBase_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_;
 	};
 
 }

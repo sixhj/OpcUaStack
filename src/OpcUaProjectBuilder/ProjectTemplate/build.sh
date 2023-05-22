@@ -16,12 +16,13 @@ usage()
 {
   echo "build.sh --target(-t) TARGET [OPTIONS] ..."
    echo "--target, -t: sets one of the folowing target:"
-   echo " info  - create version and dependency files"
-   echo " local - create local build and install in local directory defined in --install-prefix" 
-   echo " deb   - create deb package"
-   echo " rpm   - create rpm package"
-   echo " tst   - build unit application"
-   echo " clean - delete all build directories"
+   echo " info   - create version and dependency files"
+   echo " local  - create local build and install in local directory defined in --install-prefix" 
+   echo " deb    - create deb package"
+   echo " rpm    - create rpm package"
+   echo " tst    - build unit application"
+   echo " docker - build docker container"
+   echo " clean  - delete all build directories"
    echo ""
    echo "--stack-prefix, -s STACK_PREFIX:  set the path to directory"
    echo "\twhere the OpcUaStack is installed (default: /)"
@@ -71,7 +72,7 @@ build_local()
     echo "build local start"
 
     # check build directoriy
-    if [ ! -d "build_local" ] ;
+    if [ ! -d "build_local_${BUILD_TYPE}" ] ;
     then
         BUILD_FIRST=1
         rm -rf build_local_${BUILD_TYPE}
@@ -89,8 +90,10 @@ build_local()
         cmake ../src \
               "${CMAKE_GENERATOR_LOCAL}" \
               -DOPCUASTACK_INSTALL_PREFIX="${STACK_PREFIX}" \
-              -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" 
-        RESULT=$?
+              -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+        	  -DGIT_COMMIT="${GIT_COMMIT}" \
+              -DGIT_BRANCH="${GIT_BRANCH}"
+        
         set +x
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -151,7 +154,7 @@ build_deb()
     fi
 
     # check build directoriy
-    if [ ! -d "build_deb" ] ;
+    if [ ! -d "build_deb_${BUILD_TYPE}" ] ;
     then
         BUILD_FIRST=1
         rm -rf build_deb_${BUILD_TYPE}
@@ -169,6 +172,8 @@ build_deb()
         cmake ../src \
             "${CMAKE_GENERATOR_LOCAL}" \
             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DGIT_COMMIT="${GIT_COMMIT}" \
+            -DGIT_BRANCH="${GIT_BRANCH}" \
             "-DCPACK_BINARY_DEB=1" \
             "-DCPACK_BINARY_RPM=0" \
 	    "-DCPACK_BINARY_STGZ=0" \
@@ -229,7 +234,7 @@ build_rpm()
     fi
     
     # build package directory
-    if [ ! -d "build_rpm" ] ;
+    if [ ! -d "build_rpm_${BUILD_TYPE}" ] ;
     then
         BUILD_FIRST=1
         rm -rf build_rpm_${BUILD_TYPE}
@@ -245,6 +250,8 @@ build_rpm()
         cmake ../src \
             "${CMAKE_GENERATOR_LOCAL}" \
             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DGIT_COMMIT="${GIT_COMMIT}" \
+            -DGIT_BRANCH="${GIT_BRANCH}" \
             "-DCPACK_BINARY_DEB=0" \
             "-DCPACK_BINARY_RPM=1" \
   	    "-DCPACK_BINARY_STGZ=0" \
@@ -296,7 +303,7 @@ build_tst()
     echo "build tst start"
 
     # build tst directory
-    if [ ! -d "build_tst" ] ;
+    if [ ! -d "build_tst_${BUILD_TYPE}" ] ;
     then
         BUILD_FIRST=1
         rm -rf build_tst_${BUILD_TYPE}
@@ -312,7 +319,9 @@ build_tst()
         cmake ../tst \
   	     "${CMAKE_GENERATOR_LOCAL}" \
 	     -DOPCUASTACK_INSTALL_PREFIX="${STACK_PREFIX}" \
-         -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+         -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+         -DGIT_COMMIT="${GIT_COMMIT}" \
+         -DGIT_BRANCH="${GIT_BRANCH}"
         RESULT=$?
         if [ ${RESULT} -ne 0 ] ;
         then
@@ -339,6 +348,23 @@ build_tst()
 
     return 0
 }
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+#
+# build docker
+#
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+build_docker()
+{    
+    echo "build docker start"
+
+    sudo docker build -t asneg/unknown:latest .
+    sudo docker push asneg/unknown:latest
+}
+
 
 
 # -----------------------------------------------------------------------------
@@ -382,6 +408,8 @@ INSTALL_PREFIX="${HOME}/.ASNeG"
 STACK_PREFIX="/"
 JOBS=1
 BUILD_TYPE="Debug"
+GIT_COMMIT=`git rev-parse HEAD`
+GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
 
 while [ $# -gt 0 ];
 do
@@ -442,6 +470,10 @@ then
 elif [ "${TARGET}" = "tst" ] ;
 then 
     build_tst
+    exit $?
+elif [ "${TARGET}" = "docker" ] ;
+then
+    build_docker
     exit $?
 else
     usage

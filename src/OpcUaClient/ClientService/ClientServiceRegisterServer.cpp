@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,11 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaClient/ClientCommand/CommandRegisterServer.h"
 #include "OpcUaClient/ClientService/ClientServiceRegisterServer.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -36,7 +36,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceRegisterServer::createClientService(void)
 	{
-		return constructSPtr<ClientServiceRegisterServer>();
+		return boost::make_shared<ClientServiceRegisterServer>();
 	}
 
 	bool
@@ -77,39 +77,37 @@ namespace OpcUaClient
 
 		// create register server request
 		ServiceTransactionRegisterServer::SPtr trx;
-		trx = constructSPtr<ServiceTransactionRegisterServer>();
+		trx = boost::make_shared<ServiceTransactionRegisterServer>();
 		RegisterServerRequest::SPtr req = trx->request();
 
 		// added request parameter
 		std::vector<std::string>::iterator it;
-		req->server().serverUri(commandRegisterServer->serverUri());
-		req->server().productUri(commandRegisterServer->productUri());
-		req->server().serverNames(constructSPtr<OpcUaLocalizedTextArray>());
-		req->server().serverNames()->resize(commandRegisterServer->serverNames().size());
+		req->server().serverUri() = commandRegisterServer->serverUri();
+		req->server().productUri() = commandRegisterServer->productUri();
+		req->server().serverNames().resize(commandRegisterServer->serverNames().size());
 		for (it=commandRegisterServer->serverNames().begin(); it!=commandRegisterServer->serverNames().end(); it++) {
-			OpcUaLocalizedText::SPtr serverName = constructSPtr<OpcUaLocalizedText>();
+			OpcUaLocalizedText::SPtr serverName = boost::make_shared<OpcUaLocalizedText>();
 			serverName->set("en", *it);
-			req->server().serverNames()->push_back(serverName);
+			req->server().serverNames().push_back(serverName);
 		}
 		if (commandRegisterServer->serverType() == "CLIENT") {
-			req->server().serverType(AT_Client);
+			req->server().serverType().enumeration(ApplicationType::EnumClient);
 		}
 		if (commandRegisterServer->serverType() == "SERVER") {
-			req->server().serverType(AT_Server);
+			req->server().serverType().enumeration(ApplicationType::EnumServer);
 		}
 		else {
-			req->server().serverType(AT_ClientAndServer);
+			req->server().serverType().enumeration(ApplicationType::EnumClientAndServer);
 		}
-		req->server().gatewayServerUri(commandRegisterServer->gatewayServerUri());
-		req->server().discoveryUrls(constructSPtr<OpcUaStringArray>());
-		req->server().discoveryUrls()->resize(commandRegisterServer->discoveryUrls().size());
+		req->server().gatewayServerUri() = commandRegisterServer->gatewayServerUri();
+		req->server().discoveryUrls().resize(commandRegisterServer->discoveryUrls().size());
 		for (it=commandRegisterServer->discoveryUrls().begin(); it!=commandRegisterServer->discoveryUrls().end(); it++) {
-			OpcUaString::SPtr discoveryUrl = constructSPtr<OpcUaString>();
+			OpcUaString::SPtr discoveryUrl = boost::make_shared<OpcUaString>();
 			discoveryUrl->value(*it);
-			req->server().discoveryUrls()->push_back(discoveryUrl);
+			req->server().discoveryUrls().push_back(discoveryUrl);
 		}
-		req->server().semaphoreFilePath(commandRegisterServer->semaphoreFilePath());
-		req->server().isOnline(commandRegisterServer->isOnline());
+		req->server().semaphoreFilePath() = commandRegisterServer->semaphoreFilePath();
+		req->server().isOnline() = commandRegisterServer->isOnline();
 
 		// send read request
 		discoveryService->syncSend(trx);

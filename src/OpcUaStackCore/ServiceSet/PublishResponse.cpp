@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -31,11 +31,11 @@ namespace OpcUaStackCore
 	PublishResponse::PublishResponse(void)
 	: Object()
 	, subscriptionId_()
-	, availableSequenceNumberArraySPtr_(constructSPtr<OpcUaUInt32Array>())
+	, availableSequenceNumberArraySPtr_(boost::make_shared<OpcUaUInt32Array>())
 	, moreNotifications_()
-	, notficiationMessageSPtr_(constructSPtr<NotificationMessage>())
-	, statusCodeArraySPtr_(constructSPtr<OpcUaStatusCodeArray>())
-	, diagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
+	, notficiationMessageSPtr_(boost::make_shared<NotificationMessage>())
+	, statusCodeArraySPtr_(boost::make_shared<OpcUaStatusCodeArray>())
+	, diagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
 	{
 	}
 
@@ -115,25 +115,33 @@ namespace OpcUaStackCore
 		return diagnosticInfoArraySPtr_;
 	}
 
-	void 
+	bool
 	PublishResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
-		availableSequenceNumberArraySPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, moreNotifications_);
-		notficiationMessageSPtr_->opcUaBinaryEncode(os);
-		statusCodeArraySPtr_->opcUaBinaryEncode(os);
-		diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
+		rc &= availableSequenceNumberArraySPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, moreNotifications_);
+		rc &= notficiationMessageSPtr_->opcUaBinaryEncode(os);
+		rc &= statusCodeArraySPtr_->opcUaBinaryEncode(os);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	PublishResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
-		availableSequenceNumberArraySPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, moreNotifications_);
-		notficiationMessageSPtr_->opcUaBinaryDecode(is);
-		statusCodeArraySPtr_->opcUaBinaryDecode(is);
-		diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
+		rc &= availableSequenceNumberArraySPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, moreNotifications_);
+		rc &= notficiationMessageSPtr_->opcUaBinaryDecode(is);
+		rc &= statusCodeArraySPtr_->opcUaBinaryDecode(is);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
 }

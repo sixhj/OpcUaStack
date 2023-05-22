@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,96 +23,93 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	ViewService::ViewService(IOThread* ioThread)
-	: componentSession_(nullptr)
-	, viewServiceIf_(nullptr)
+	ViewService::ViewService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	ViewService::~ViewService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	ViewService::setConfiguration(
-		Component* componentSession,
-		ViewServiceIf* viewServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		viewServiceIf_ = viewServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	ViewService::componentSession(Component* componentSession)
+	ViewService::syncSend(const ServiceTransactionBrowse::SPtr& serviceTransactionBrowse)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionBrowse);
 	}
 
 	void 
-	ViewService::viewServiceIf(ViewServiceIf* viewServiceIf)
+	ViewService::asyncSend(const ServiceTransactionBrowse::SPtr& serviceTransactionBrowse)
 	{
-		viewServiceIf_ = viewServiceIf;
-	}
-
-	void 
-	ViewService::syncSend(ServiceTransactionBrowse::SPtr serviceTransactionBrowse)
-	{
-		serviceTransactionBrowse->sync(true);
-		serviceTransactionBrowse->conditionBool().conditionInit();
-		asyncSend(serviceTransactionBrowse);
-		serviceTransactionBrowse->conditionBool().waitForCondition();
-	}
-
-	void 
-	ViewService::asyncSend(ServiceTransactionBrowse::SPtr serviceTransactionBrowse)
-	{
-		serviceTransactionBrowse->componentService(this); 
-		OpcUaNodeId nodeId;
-		componentSession_->send(serviceTransactionBrowse);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionBrowse);
 	}
 
 	void
-	ViewService::syncSend(ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext)
+	ViewService::syncSend(const ServiceTransactionBrowseNext::SPtr& serviceTransactionBrowseNext)
 	{
-		serviceTransactionBrowseNext->sync(true);
-		serviceTransactionBrowseNext->conditionBool().conditionInit();
-		asyncSend(serviceTransactionBrowseNext);
-		serviceTransactionBrowseNext->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionBrowseNext);
 	}
 
 	void
-	ViewService::asyncSend(ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext)
+	ViewService::asyncSend(const ServiceTransactionBrowseNext::SPtr& serviceTransactionBrowseNext)
 	{
-		serviceTransactionBrowseNext->componentService(this);
-		componentSession_->send(serviceTransactionBrowseNext);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionBrowseNext);
 	}
 
 	void
-	ViewService::syncSend(ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr serviceTransactionTranslateBrowsePathsToNodeIds)
+	ViewService::syncSend(const ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr& serviceTransactionTranslateBrowsePathsToNodeIds)
 	{
-		serviceTransactionTranslateBrowsePathsToNodeIds->sync(true);
-		serviceTransactionTranslateBrowsePathsToNodeIds->conditionBool().conditionInit();
-		asyncSend(serviceTransactionTranslateBrowsePathsToNodeIds);
-		serviceTransactionTranslateBrowsePathsToNodeIds->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionTranslateBrowsePathsToNodeIds);
 	}
 
 	void
-	ViewService::asyncSend(ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr serviceTransactionTranslateBrowsePathsToNodeIds)
+	ViewService::asyncSend(const ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr& serviceTransactionTranslateBrowsePathsToNodeIds)
 	{
-		serviceTransactionTranslateBrowsePathsToNodeIds->componentService(this);
-		componentSession_->send(serviceTransactionTranslateBrowsePathsToNodeIds);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionTranslateBrowsePathsToNodeIds);
 	}
 
 	void 
-	ViewService::receive(Message::SPtr message)
+	ViewService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
 		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 
@@ -120,28 +117,58 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_BrowseResponse_Encoding_DefaultBinary:
 			{
-				if (viewServiceIf_ != nullptr) {
-					viewServiceIf_->viewServiceBrowseResponse(
-						boost::static_pointer_cast<ServiceTransactionBrowse>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionBrowse>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_BrowseNextResponse_Encoding_DefaultBinary:
 			{
-				if (viewServiceIf_ != nullptr) {
-					viewServiceIf_->viewServiceBrowseNextResponse(
-						boost::static_pointer_cast<ServiceTransactionBrowseNext>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionBrowseNext>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_TranslateBrowsePathsToNodeIdsResponse_Encoding_DefaultBinary:
 			{
-				if (viewServiceIf_ != nullptr) {
-					viewServiceIf_->viewServiceTranslateBrowsePathsToNodeIdsResponse(
-						boost::static_pointer_cast<ServiceTransactionTranslateBrowsePathsToNodeIds>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionTranslateBrowsePathsToNodeIds>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

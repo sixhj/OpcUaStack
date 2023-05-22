@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,9 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSetApplication/CreateNodeInstance.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -25,7 +27,7 @@ namespace OpcUaStackServer
 	CreateNodeInstance::CreateNodeInstance(void)
 	: resultCode_(Success)
 	, name_("")
-	, nodeClassType_()
+	, nodeClass_()
 	, parentNodeId_()
 	, nodeId_()
 	, displayName_()
@@ -37,7 +39,7 @@ namespace OpcUaStackServer
 
 	CreateNodeInstance::CreateNodeInstance(
 		const std::string& name,
-		const NodeClassType nodeClassType,
+		const NodeClass::Enum nodeClass,
 		const OpcUaNodeId& parentNodeId,
 		const OpcUaNodeId& nodeId,
 		const OpcUaLocalizedText& displayName,
@@ -47,7 +49,7 @@ namespace OpcUaStackServer
 	)
 	: resultCode_(Success)
 	, name_(name)
-	, nodeClassType_(nodeClassType)
+	, nodeClass_(nodeClass)
 	, parentNodeId_(parentNodeId)
 	, nodeId_(nodeId)
 	, displayName_(displayName)
@@ -68,9 +70,9 @@ namespace OpcUaStackServer
 	}
 
 	void
-	CreateNodeInstance::nodeClassType(NodeClassType nodeClassType)
+	CreateNodeInstance::nodeClassType(NodeClass::Enum nodeClass)
 	{
-		nodeClassType_ = nodeClassType;
+		nodeClass_ = nodeClass;
 	}
 
 	void
@@ -115,9 +117,9 @@ namespace OpcUaStackServer
 		resultCode_ = Success;
 
 		// create response
-		auto trx = constructSPtr<ServiceTransactionCreateNodeInstance>();
+		auto trx = boost::make_shared<ServiceTransactionCreateNodeInstance>();
 		trx->request()->name() = name_;
-		trx->request()->nodeClassType() = nodeClassType_;
+		trx->request()->nodeClassType() = nodeClass_;
 		trx->request()->parentNodeId() = parentNodeId_;
 	  	trx->request()->nodeId() = nodeId_;
 	  	trx->request()->displayName() = displayName_;
@@ -128,9 +130,13 @@ namespace OpcUaStackServer
 		// send query to application service
 		applicationServiceIf->sendSync(trx);
 		resultCode_ = trx->statusCode();
-	  	if (resultCode_ != Success) {
-	  		return false;
-	  	}
+		if (resultCode_ == Success) {
+			baseNodeClass_ = trx->response()->baseNodeClass();
+		}
+		else {
+			baseNodeClass_.reset();
+			return false;
+		}
 		return true;
 	}
 
@@ -138,6 +144,12 @@ namespace OpcUaStackServer
 	CreateNodeInstance::resultCode(void)
 	{
 		return resultCode_;
+	}
+
+	BaseNodeClass::WPtr&
+	CreateNodeInstance::baseNodeClass(void)
+	{
+		return baseNodeClass_;
 	}
 
 }

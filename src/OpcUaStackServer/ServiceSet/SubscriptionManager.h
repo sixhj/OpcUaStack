@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,29 +18,26 @@
 #ifndef __OpcUaStackServer_SubscriptionManager_h__
 #define __OpcUaStackServer_SubscriptionManager_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/Base/IOService.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaStatusCode.h"
 #include "OpcUaStackCore/Utility/SlotTimer.h"
-#include "OpcUaStackCore/ServiceSetApplication/ForwardGlobalSync.h"
+#include "OpcUaStackCore/MessageBus/MessageBus.h"
 #include "OpcUaStackCore/ServiceSet/SubscriptionServiceTransaction.h"
 #include "OpcUaStackCore/ServiceSet/MonitoredItemServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ForwardGlobalSync.h"
 #include "OpcUaStackServer/ServiceSet/Subscription.h"
 #include "OpcUaStackServer/InformationModel/InformationModel.h"
 
 #include <set>
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaStackServer
 {
 
-	typedef std::list<ServiceTransactionPublish::SPtr> ServiceTransactionPublishList; 
+	typedef std::list<OpcUaStackCore::ServiceTransactionPublish::SPtr> ServiceTransactionPublishList;
 	typedef std::list<uint32_t> SubscriptionIdList;
 
 	class DLLEXPORT SubscriptionManager
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
 		typedef boost::shared_ptr<SubscriptionManager> SPtr;
@@ -48,28 +45,35 @@ namespace OpcUaStackServer
 		SubscriptionManager(void);
 		~SubscriptionManager(void);
 
-		void ioThread(IOThread* ioThread);
+		void ioThread(OpcUaStackCore::IOThread* ioThread);
+		void messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus);
+		void messageBusMember(OpcUaStackCore::MessageBusMember::WPtr& messageBusMember);
+		void strand(boost::shared_ptr<boost::asio::io_service::strand>& strand);
 		void informationModel(InformationModel::SPtr informationModel);
 		void forwardGlobalSync(ForwardGlobalSync::SPtr& forwardGlobalSync);
 		void sessionId(uint32_t sessionId);
 
-		OpcUaStatusCode receive(ServiceTransactionCreateSubscription::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionDeleteSubscriptions::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionPublish::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr& trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionPublish::SPtr& trx);
 
-		OpcUaStatusCode receive(ServiceTransactionCreateMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionDeleteMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionModifyMonitoredItems::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionSetMonitoringMode::SPtr trx);
-		OpcUaStatusCode receive(ServiceTransactionSetTriggering::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionCreateMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionDeleteMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionModifyMonitoredItems::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionSetMonitoringMode::SPtr trx);
+		OpcUaStackCore::OpcUaStatusCode receive(OpcUaStackCore::ServiceTransactionSetTriggering::SPtr trx);
 
 		size_t size(void);
 
 	  private:
+		void sendAnswer(const OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction);
 		void subscriptionPublishTimeout(Subscription::SPtr subscription);
-		OpcUaStatusCode receiveAcknowledgement(uint32_t subscriptionId, uint32_t acknowledgmentNumber);
+		OpcUaStackCore::OpcUaStatusCode receiveAcknowledgement(uint32_t subscriptionId, uint32_t acknowledgmentNumber);
 
-		IOThread* ioThread_;
+		OpcUaStackCore::IOThread* ioThread_;
+		OpcUaStackCore::MessageBus::SPtr messageBus_ = nullptr;
+		boost::shared_ptr<boost::asio::io_service::strand> strand_ = nullptr;
+		OpcUaStackCore::MessageBusMember::WPtr messageBusMember_;
 		InformationModel::SPtr informationModel_;
 		ForwardGlobalSync::SPtr forwardGlobalSync_;
 		SubscriptionMap subscriptionMap_;

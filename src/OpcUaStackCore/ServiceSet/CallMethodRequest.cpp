@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -30,9 +30,9 @@ namespace OpcUaStackCore
 
 	CallMethodRequest::CallMethodRequest(void)
 	: Object()
-	, objectIdSPtr_(constructSPtr<OpcUaNodeId>())
-	, methodIdSPtr_(constructSPtr<OpcUaNodeId>())
-	, inputArgumentArraySPtr_(constructSPtr<OpcUaVariantArray>())
+	, objectIdSPtr_(boost::make_shared<OpcUaNodeId>())
+	, methodIdSPtr_(boost::make_shared<OpcUaNodeId>())
+	, inputArgumentArraySPtr_(boost::make_shared<OpcUaVariantArray>())
 	{
 	}
 
@@ -76,19 +76,55 @@ namespace OpcUaStackCore
 		return inputArgumentArraySPtr_;
 	}
 
-	void 
+	void
+	CallMethodRequest::copyTo(CallMethodRequest& callMethodRequest)
+	{
+		objectIdSPtr_->copyTo(*callMethodRequest.objectId().get());
+		methodIdSPtr_->copyTo(*callMethodRequest.methodId().get());
+		inputArgumentArraySPtr_->copyTo(*callMethodRequest.inputArguments().get());
+	}
+
+	bool
 	CallMethodRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		objectIdSPtr_->opcUaBinaryEncode(os);
-		methodIdSPtr_->opcUaBinaryEncode(os);
-		inputArgumentArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= objectIdSPtr_->opcUaBinaryEncode(os);
+		rc &= methodIdSPtr_->opcUaBinaryEncode(os);
+		rc &= inputArgumentArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	CallMethodRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		objectIdSPtr_->opcUaBinaryDecode(is);
-		methodIdSPtr_->opcUaBinaryDecode(is);
-		inputArgumentArraySPtr_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= objectIdSPtr_->opcUaBinaryDecode(is);
+		rc &= methodIdSPtr_->opcUaBinaryDecode(is);
+		rc &= inputArgumentArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
+	}
+
+	bool
+	CallMethodRequest::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrEncode(pt, objectIdSPtr_, "ObjectId");
+        rc = rc & jsonObjectSPtrEncode(pt, methodIdSPtr_, "MethodId");
+        rc = rc & jsonArraySPtrEncode(pt, inputArgumentArraySPtr_, "InputArguments", true);
+		return rc;
+	}
+
+	bool
+	CallMethodRequest::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrDecode(pt, objectIdSPtr_, "ObjectId");
+		rc = rc & jsonObjectSPtrDecode(pt, methodIdSPtr_, "MethodId");
+		rc = rc & jsonArraySPtrDecode(pt, inputArgumentArraySPtr_, "InputArguments", true);
+		return rc;
 	}
 }

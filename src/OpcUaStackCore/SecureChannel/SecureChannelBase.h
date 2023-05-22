@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,7 +19,6 @@
 #ifndef __OpUaStackCore_SecureChannelBase_h__
 #define __OpUaStackCore_SecureChannelBase_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelCrypto.h"
 #include "OpcUaStackCore/SecureChannel/HelloMessage.h"
 #include "OpcUaStackCore/SecureChannel/AcknowledgeMessage.h"
@@ -70,11 +69,18 @@ namespace OpcUaStackCore
 		void asyncWriteCloseSecureChannelRequest(
 			SecureChannel* secureChannel
 		);
+		void asyncWriteMessageError(
+			SecureChannel* secureChannel,
+			OpcUaUInt32 error,
+			const std::string& reason
+		);
 		void asyncWriteMessageRequest(
 			SecureChannel* secureChannel,
 			SecureChannelTransaction::SPtr secureChannelTransaction
 		);
-		void asyncWriteMessageRequest(SecureChannel* secureChannel);
+		void asyncWriteMessageRequest(
+			SecureChannel* secureChannel
+		);
 		void asyncWriteMessageResponse(
 			SecureChannel* secureChannel,
 			SecureChannelTransaction::SPtr secureChannelTransaction
@@ -96,6 +102,9 @@ namespace OpcUaStackCore
 			SecureChannel* secureChannel,
 			AcknowledgeMessage& acknowledge
 		);
+		virtual bool findEndpoint(
+			SecureChannel* secureChannel
+		);
 		virtual void handleRecvOpenSecureChannelRequest(
 			SecureChannel* secureChannel,
 			OpcUaUInt32 channelId,
@@ -109,10 +118,17 @@ namespace OpcUaStackCore
 			SecureChannel* secureChannel,
 			uint32_t channelId
 		);
-		virtual void handleRecvMessageRequest(SecureChannel* secureChannel);
-		virtual void handleRecvMessageResponse(SecureChannel* secureChannel);
+		virtual void handleRecvMessageRequest(
+			SecureChannel* secureChannel
+		);
+		virtual void handleRecvMessageResponse(
+			SecureChannel* secureChannel
+		);
 
 		void asyncRead(SecureChannel* secureChannel);
+
+	  protected:
+		boost::shared_ptr<boost::asio::io_service::strand> strand_;
 
 	  private:
 

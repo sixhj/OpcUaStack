@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,8 +18,6 @@
 #ifndef __OpcUaStackCore_EventHandler_h__
 #define __OpcUaStackCore_EventHandler_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/Callback.h"
 #include "OpcUaStackCore/EventType/EventHandlerBase.h"
 
 namespace OpcUaStackCore
@@ -29,20 +27,21 @@ namespace OpcUaStackCore
 	: public EventHandlerBase
 	{
 	  public:
-		typedef boost::shared_ptr<EventHandler> SPtr;
+		using SPtr = boost::shared_ptr<EventHandler>;
+		using EventCallback = std::function<void (EventBase::SPtr& eventBase)>;
 
 		EventHandler(void);
 		virtual ~EventHandler(void);
 
-		void callback(Callback& callback);
-		Callback& callback(void);
+		void eventCallback(EventCallback& eventCallback);
+		EventCallback eventCallback(void);
 
 		// - interface EventHandlerBase
 		virtual bool fireEvent(OpcUaNodeId& nodeId, EventBase::SPtr& eventBase);
 		// - interface EventHandlerBase
 
 	  private:
-		Callback callback_;
+		EventCallback eventCallback_ = nullptr;
 	};
 
 

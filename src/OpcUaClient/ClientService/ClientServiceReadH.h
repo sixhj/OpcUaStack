@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,8 +23,6 @@
 #include "OpcUaClient/ClientService/ClientServiceBase.h"
 #include "OpcUaClient/ClientService/ClientServiceManager.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaClient
 {
 
@@ -35,7 +33,7 @@ namespace OpcUaClient
 	//
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
-	class ReadNextNode
+	class DLLEXPORT ReadNextNode
 	{
 	  public:
 		typedef std::vector<ReadNextNode> Vec;
@@ -43,7 +41,7 @@ namespace OpcUaClient
 		ReadNextNode(void) {}
 		~ReadNextNode(void) {}
 
-		OpcUaNodeId nodeId_;
+		OpcUaStackCore::OpcUaNodeId nodeId_;
 		std::string continousPoint_;
 	};
 
@@ -55,7 +53,7 @@ namespace OpcUaClient
 	//
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
-	class ClientServiceReadH
+	class DLLEXPORT ClientServiceReadH
 	: public ClientServiceBase
 	{
 	  public:
@@ -71,29 +69,29 @@ namespace OpcUaClient
 
       private:
 		bool hRead(
-			AttributeService::SPtr& attributeService,
+			OpcUaStackClient::AttributeService::SPtr& attributeService,
 			CommandReadH::SPtr& commandReadH
 		);
 		bool hReadNext(
-			AttributeService::SPtr& attributeService,
+			OpcUaStackClient::AttributeService::SPtr& attributeService,
 			CommandReadH::SPtr& commandReadH,
 			ReadNextNode::Vec& readNextNodeVec
 		);
 		bool hDelete(
-			AttributeService::SPtr& attributeService,
+			OpcUaStackClient::AttributeService::SPtr& attributeService,
 			CommandReadH::SPtr& commandReadH,
 			ReadNextNode::Vec& readNextNodeVec
 		);
 		bool output(
-			OpcUaDataValue& dataValue,
+			OpcUaStackCore::OpcUaDataValue& dataValue,
 			CommandReadH::SPtr& commandReadH
 		);
 		bool outputCSV(
-			OpcUaDataValue& dataValue,
+			OpcUaStackCore::OpcUaDataValue& dataValue,
 			CommandReadH::SPtr& commandReadH
 		);
 
-		CSV::SPtr csv_;
+		OpcUaStackCore::CSV::SPtr csv_;
 	};
 
 }

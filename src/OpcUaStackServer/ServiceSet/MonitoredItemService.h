@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,36 +18,39 @@
 #ifndef __OpcUaStackServer_MonitoredItemService_h__
 #define __OpcUaStackServer_MonitoredItemService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/ServiceSet/MonitoredItemServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSet/ServiceSetBase.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/ServiceSet/ServerServiceBase.h"
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT MonitoredItemService 
 	: public ServiceSetBase
-	, public Object
+	, public OpcUaStackCore::Object
+	, public OpcUaStackServer::ServerServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<MonitoredItemService> SPtr;
 
-		MonitoredItemService(void);
+		MonitoredItemService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread::SPtr& ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~MonitoredItemService(void);
 
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
-
 	  private:
-		void receiveCreateMonitoredItemsRequest(ServiceTransaction::SPtr serviceTransaction);
-		void receiveDeleteMonitoredItemsRequest(ServiceTransaction::SPtr serviceTransaction);
-		void receiveModifyMonitoredItemsRequest(ServiceTransaction::SPtr serviceTransaction);
-		void receiveSetmonitoringModeRequest(ServiceTransaction::SPtr serviceTransaction);
-		void receiveSetTriggeringRequest(ServiceTransaction::SPtr serviceTransaction);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr& message
+		);
+		void sendAnswer(OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction);
+		void receiveCreateMonitoredItemsRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		void receiveDeleteMonitoredItemsRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		void receiveModifyMonitoredItemsRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		void receiveSetmonitoringModeRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		void receiveSetTriggeringRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
 
 	};
 

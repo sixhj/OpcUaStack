@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -33,7 +33,7 @@ namespace OpcUaClient
 	//
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
-	class ClientServiceWriteH
+	class DLLEXPORT ClientServiceWriteH
 	: public ClientServiceBase
 	{
 	  public:
@@ -49,18 +49,22 @@ namespace OpcUaClient
 
       private:
 		bool write(
-			AttributeService::SPtr& attributeService,
+			OpcUaStackClient::AttributeService::SPtr& attributeService,
 			CommandWriteH::SPtr& commandWriteH
 		);
 		bool writeCSV(
-			AttributeService::SPtr& attributeService,
+			OpcUaStackClient::AttributeService::SPtr& attributeService,
 			CommandWriteH::SPtr& commandWriteH
 		);
 		bool openCSVFile(const std::string& fileName);
 		bool closeCSVFile(void);
-		bool readCSVLines(const std::string& fileName, OpcUaBuildInType valueType, OpcUaDataValue::Vec& dataValueVec);
+		bool readCSVLines(
+			const std::string& fileName,
+			OpcUaStackCore::OpcUaBuildInType valueType,
+			OpcUaStackCore::OpcUaDataValue::Vec& dataValueVec
+		);
 
-		CSV::SPtr csv_;
+		OpcUaStackCore::CSV::SPtr csv_;
 	};
 
 }

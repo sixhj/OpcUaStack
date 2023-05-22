@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,11 +18,10 @@
 #ifndef __OpcUaStackCore_ServiceTransaction_h__
 #define __OpcUaStackCore_ServiceTransaction_h__
 
+#include <future>
 #include <boost/thread/mutex.hpp>
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ConditionBool.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/Base/UserContext.h"
-#include "OpcUaStackCore/Component/Component.h"
 #include "OpcUaStackCore/SecureChannel/RequestHeader.h"
 #include "OpcUaStackCore/SecureChannel/ResponseHeader.h"
 
@@ -30,8 +29,7 @@ namespace OpcUaStackCore
 {
 
 	class DLLEXPORT ServiceTransaction
-	: public Object
-	, public Message
+	: public Message
 	{
 	  public:
 		typedef boost::shared_ptr<ServiceTransaction> SPtr;
@@ -55,25 +53,25 @@ namespace OpcUaStackCore
 
 		void sync(bool sync);
 		bool sync(void);
-		ConditionBool& conditionBool(void);
+		std::promise<bool>& promise(void);
 
 		void requestHeader(RequestHeader::SPtr requestHeader);
 		RequestHeader::SPtr requestHeader(void);
 		void responseHeader(ResponseHeader::SPtr responseHeader);
 		ResponseHeader::SPtr responseHeader(void);
 
-		Component* componentService(void);
-		void componentService(Component* componentService);
-		Component* componentSession(void);
-		void componentSession(Component* componentSession);
+		void memberService(const MessageBusMember::WPtr& memberService);
+		MessageBusMember::WPtr& memberService(void);
+		void memberServiceSession(const MessageBusMember::WPtr& memberServiceSession);
+		MessageBusMember::WPtr& memberServiceSession(void);
 
 		void userContext(UserContext::SPtr& userContext);
 		UserContext::SPtr& userContext(void);
 
-		virtual void opcUaBinaryEncodeRequest(std::ostream& os) const = 0;
-		virtual void opcUaBinaryEncodeResponse(std::ostream& os) const = 0;
-		virtual void opcUaBinaryDecodeRequest(std::istream& is) = 0;
-		virtual void opcUaBinaryDecodeResponse(std::istream& is) = 0;
+		virtual bool opcUaBinaryEncodeRequest(std::ostream& os) const = 0;
+		virtual bool opcUaBinaryEncodeResponse(std::ostream& os) const = 0;
+		virtual bool opcUaBinaryDecodeRequest(std::istream& is) = 0;
+		virtual bool opcUaBinaryDecodeResponse(std::istream& is) = 0;
 
 		void statusCode(OpcUaStatusCode statusCode);
 		OpcUaStatusCode statusCode(void);
@@ -95,7 +93,7 @@ namespace OpcUaStackCore
 		uint32_t requestTimeout_;
 
 		bool sync_;
-		ConditionBool conditionBool_;
+		std::promise<bool> promise_;
 
 		OpcUaUInt32 channelId_;
 		OpcUaUInt32 sessionId_;
@@ -106,8 +104,8 @@ namespace OpcUaStackCore
 		RequestHeader::SPtr requestHeader_;
 		ResponseHeader::SPtr responseHeader_;
 
-		Component* componentService_;
-		Component* componentSession_;
+		MessageBusMember::WPtr memberService_;
+		MessageBusMember::WPtr memberServiceSession_;
 
 		UserContext::SPtr userContext_;
 		OpcUaStatusCode statusCode_;

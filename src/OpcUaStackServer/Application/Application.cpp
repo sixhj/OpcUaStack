@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,7 +17,7 @@
 
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/Application/Application.h"
 
 using namespace OpcUaStackCore;
@@ -25,17 +25,42 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackServer
 {
 
-	Application::Application(void)
-	: applicationIf_(nullptr)
+	Application::Application(
+		const std::string& serviceName,
+		OpcUaStackCore::IOThread::SPtr& ioThread,
+		OpcUaStackCore::MessageBus::SPtr& messageBus
+	)
+	: ServerServiceBase()
+	, applicationIf_(nullptr)
 	, reloadIf_(nullptr)
 	, state_(ApplConstruct)
 	, applicationName_("")
-	, serviceComponent_(nullptr)
 	{
+		// set parameter in server service base
+		serviceName_ = serviceName;
+		ServerServiceBase::ioThread_ = ioThread.get();
+		ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	Application::~Application(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
+		messageBus_->deregisterMember(messageBusMember_);
 	}
 
 	void
@@ -43,6 +68,9 @@ namespace OpcUaStackServer
 	{
 		applicationIf_ = applicationIf;
 		applicationIf_->service(this);
+
+		applicationIf_->applicationData()->messageBusThreadPool(ioThread_);
+		applicationIf_->applicationData()->messageBusStrand(strand_);
 	}
 
 	ApplicationIf*
@@ -63,15 +91,17 @@ namespace OpcUaStackServer
 		applicationName_ = applicationName;
 	}
 
-	void
-	Application::serviceComponent(Component* serviceComponent)
-	{
-		serviceComponent_ = serviceComponent;
-	}
-
 	bool
 	Application::startup(void)
 	{
+		// get application service member
+		messageBusMemberApplication_ = messageBus_->getMember("ApplicationServiceServer");
+		if (!messageBusMemberApplication_.lock()) {
+			Log(Error, "application service member do not exist")
+				.parameter("Member", "ApplicationServiceServer");
+			return false;
+		}
+
 		if (state_ != ApplConstruct) {
 			Log(Error, "cannot startup application, because application is in invalid state")
 			    .parameter("ApplicationName", applicationName_)
@@ -113,17 +143,49 @@ namespace OpcUaStackServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void
-	Application::receive(Message::SPtr message)
+	Application::receiveServiceTrx(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		// We have to remember the sender of the message. This enables us to
+		// send a reply for the received message later
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		serviceTransaction->memberServiceSession(handleFrom);
 
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 
 		applicationIf_->receive(serviceTransaction);
+	}
+
+	void
+	Application::receiveForwardTrx(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
+	{
+		auto forwardTransaction = boost::static_pointer_cast<ForwardTransaction>(message);
+		forwardTransaction->messageBusMemberSource(handleFrom);
+
+		applicationIf_->receiveForwardTrx(forwardTransaction);
+	}
+
+	void
+	Application::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
+	{
+		if (message->type_ == Message::ServiceTransaction) {
+			receiveServiceTrx(handleFrom, message);
+		}
+		else {
+			receiveForwardTrx(handleFrom, message);
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -134,23 +196,43 @@ namespace OpcUaStackServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void
-	Application::send(ServiceTransaction::SPtr serviceTransaction)
+	Application::send(
+		ServiceTransaction::SPtr serviceTransaction
+	)
 	{
 		updateServiceTransactionRequest(serviceTransaction);
 		serviceTransaction->sync(false);
-		serviceComponent_->send(serviceTransaction);
+		messageBus_->messageSend(
+			messageBusMember_,
+			messageBusMemberApplication_,
+			serviceTransaction
+		);
 	}
 
 	void
-	Application::sendSync(ServiceTransaction::SPtr serviceTransaction)
+	Application::sendForwardTrx(
+		OpcUaStackServer::ForwardTransaction::SPtr forwardTransaction
+	)
+	{
+		messageBus_->messageSend(
+			messageBusMember_,
+			forwardTransaction->messageBusMemberSource(),
+			forwardTransaction
+		);
+	}
+
+	void
+	Application::sendSync(
+		ServiceTransaction::SPtr serviceTransaction
+	)
 	{
 
 		updateServiceTransactionRequest(serviceTransaction);
 		serviceTransaction->sync(true);
 
-		serviceTransaction->conditionBool().conditionInit();
-		serviceComponent_->send(serviceTransaction);
-		serviceTransaction->conditionBool().waitForCondition();
+		auto future = serviceTransaction->promise().get_future();
+		messageBus_->messageSend(messageBusMember_, messageBusMemberApplication_, serviceTransaction);
+		future.wait();
 	}
 
 	void
@@ -174,7 +256,9 @@ namespace OpcUaStackServer
 		switch (serviceTransaction->nodeTypeRequest().nodeId<uint32_t>())
 		{
 			case OpcUaId_RegisterForwardNodeRequest_Encoding_DefaultBinary:
+			case OpcUaId_RegisterForwardNodeAsyncRequest_Encoding_DefaultBinary:
 			case OpcUaId_RegisterForwardMethodRequest_Encoding_DefaultBinary:
+			case OpcUaId_RegisterForwardMethodAsyncRequest_Encoding_DefaultBinary:
 			case OpcUaId_RegisterForwardGlobalRequest_Encoding_DefaultBinary:
 			case OpcUaId_GetNodeReferenceRequest_Encoding_DefaultBinary:
 			case OpcUaId_NamespaceInfoRequest_Encoding_DefaultBinary:
@@ -182,14 +266,16 @@ namespace OpcUaStackServer
 			case OpcUaId_BrowsePathToNodeIdRequest_Encoding_DefaultBinary:
 			case OpcUaId_CreateNodeInstanceRequest_Encoding_DefaultBinary:
 			case OpcUaId_DelNodeInstanceRequest_Encoding_DefaultBinary:
+			case OpcUaId_CreateVariableRequest_Encoding_DefaultBinary:
+			case OpcUaId_CreateObjectRequest_Encoding_DefaultBinary:
 			{
-				serviceTransaction->componentSession(this);
+				serviceTransaction->memberServiceSession(messageBusMember_);
 				break;
 			}
 			default:
 			{
 				// nothing to do
-				Log(Warning, "receive invalid messsage type")
+				Log(Warning, "application interface receive invalid messsage type")
 				    .parameter("MessageType", serviceTransaction->nodeTypeRequest().nodeId<uint32_t>());
 			}
 		}

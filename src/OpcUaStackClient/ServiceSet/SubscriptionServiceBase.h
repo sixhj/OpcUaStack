@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,8 @@
 #ifndef __OpcUaStackClient_SubscriptionService_h__
 #define __OpcUaStackClient_SubscriptionService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
 #include "OpcUaStackCore/ServiceSet/SubscriptionServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/SubscriptionServiceIf.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 
 namespace OpcUaStackClient
 {
@@ -32,13 +28,13 @@ namespace OpcUaStackClient
 	{
 	  public:
 		virtual ~SubscriptionServicePublishIf(void) {}
-		virtual void subscriptionServiceSetPublishingModeResponse(ServiceTransactionSetPublishingMode::SPtr serviceTransactionSetPublishingMode) {};
-		virtual void subscriptionServicePublishResponse(ServiceTransactionPublish::SPtr serviceTransactionPublish) {};
-		virtual void subscriptionServiceRepublishResponse(ServiceTransactionRepublish::SPtr serviceTransactionRepublish) {};
+		virtual void subscriptionServiceSetPublishingModeResponse(OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr serviceTransactionSetPublishingMode) {};
+		virtual void subscriptionServicePublishResponse(OpcUaStackCore::ServiceTransactionPublish::SPtr serviceTransactionPublish) {};
+		virtual void subscriptionServiceRepublishResponse(OpcUaStackCore::ServiceTransactionRepublish::SPtr serviceTransactionRepublish) {};
 	};
 
 	class DLLEXPORT SubscriptionServiceBase
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		boost::shared_ptr<SubscriptionServiceBase> SPtr;
@@ -46,34 +42,31 @@ namespace OpcUaStackClient
 		SubscriptionServiceBase(void);
 		~SubscriptionServiceBase(void);
 
-		virtual void componentSession(Component* componentSession);
-		virtual void subscriptionServiceIf(SubscriptionServiceIf* subscriptionServiceIf);
 		void subscriptionServicePublishIf(SubscriptionServicePublishIf* subscriptionServicePublishIf);
 
-		void syncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
-		void asyncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
-		void syncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
-		void asyncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
-		void syncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
-		void asyncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
-		void syncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
-		void asyncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
-		void syncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
-		void asyncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
-		void syncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish);
-		void asyncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish);
-		void syncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
-		void asyncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
-
-		//- Component -----------------------------------------------------------------
-		virtual void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
+		void syncSend(const OpcUaStackCore::ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
+		void syncSend(const OpcUaStackCore::ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
+		void syncSend(const OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
+		void syncSend(const OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
+		void syncSend(const OpcUaStackCore::ServiceTransactionPublish::SPtr& serviceTransactionPublish);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionPublish::SPtr& serviceTransactionPublish);
+		void syncSend(const OpcUaStackCore::ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
 
 	  protected:
-		SubscriptionServiceIf* subscriptionServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 
 	  private:
-		Component* componentSession_;
 		SubscriptionServicePublishIf* subscriptionServicePublishIf_;
 	};
 

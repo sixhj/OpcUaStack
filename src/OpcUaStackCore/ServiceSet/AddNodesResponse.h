@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,17 +19,16 @@
 #define __OpcUaStackCore_AddNodesResponse_h__
 
 #include <stdint.h>
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/BuildInTypes/BuildInTypes.h"
-#include "OpcUaStackCore/SecureChannel/ResponseHeader.h"
+#include "OpcUaStackCore/BuildInTypes/JsonFormatter.h"
+#include "OpcUaStackCore/BuildInTypes/OpcUaDiagnosticInfo.h"
 #include "OpcUaStackCore/ServiceSet/AddNodesResult.h"
 
 namespace OpcUaStackCore
 {
 
 	class DLLEXPORT AddNodesResponse
-	: public  Object
+	: public Object
+	, public JsonFormatter
 	{
 	  public:
 		typedef boost::shared_ptr<AddNodesResponse> SPtr;
@@ -43,8 +42,12 @@ namespace OpcUaStackCore
 		void diagnosticInfos(const OpcUaDiagnosticInfoArray::SPtr diagnosticInfosSPtr);
 		OpcUaDiagnosticInfoArray::SPtr diagnosticInfos(void) const;
 	
-		void opcUaBinaryEncode(std::ostream& os) const;
-		void opcUaBinaryDecode(std::istream& is);
+		bool opcUaBinaryEncode(std::ostream& os) const;
+		bool opcUaBinaryDecode(std::istream& is);
+
+	  protected:
+	    bool jsonEncodeImpl(boost::property_tree::ptree &pt) const;
+	    bool jsonDecodeImpl(const boost::property_tree::ptree &pt);
 
 	  private:
 		  AddNodesResultArray::SPtr addNodesResultArraySPtr_;

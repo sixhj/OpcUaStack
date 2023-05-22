@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,12 @@
 #ifndef __OpcUaStackServer_ApplicationIf_h__
 #define __OpcUaStackServer_ApplicationIf_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Base/Config.h"
 #include "OpcUaStackCore/Certificate/ApplicationCertificate.h"
 #include "OpcUaStackCore/Certificate/CryptoManager.h"
 #include "OpcUaStackServer/Application/ApplicationServiceIf.h"
 #include "OpcUaStackServer/Application/ApplicationInfo.h"
+#include "OpcUaStackServer/Forward/ForwardTransaction.h"
 
 namespace OpcUaStackServer
 {
@@ -38,21 +38,40 @@ namespace OpcUaStackServer
 
 		void applicationServiceIf(ApplicationServiceIf* applicationServiceIf);
 		ApplicationServiceIf& applicationServiceIf(void);
-		void config(Config* config);
-		Config* config(void);
+		void config(OpcUaStackCore::Config* config);
+		OpcUaStackCore::Config* config(void);
 		void applicationInfo(ApplicationInfo* applicationInfo);
 		ApplicationInfo* applicationInfo(void);
-		void applicationCertificate(const ApplicationCertificate::SPtr& applicationCertificate);
-		ApplicationCertificate::SPtr& applicationCertificate(void);
-		void cryptoManager(const CryptoManager::SPtr& cryptoManager);
-		CryptoManager::SPtr& cryptoManager(void);
+		void cryptoManager(const OpcUaStackCore::CryptoManager::SPtr& cryptoManager);
+		OpcUaStackCore::CryptoManager::SPtr& cryptoManager(void);
+
+		void applicationThreadPool(const OpcUaStackCore::IOThread::SPtr& applicationThreadPool);
+		OpcUaStackCore::IOThread::SPtr& applicationThreadPool(void);
+
+		void messageBusThreadPool(const OpcUaStackCore::IOThread::SPtr& messageBusThreadPool);
+		OpcUaStackCore::IOThread::SPtr& messageBusThreadPool(void);
+		void messageBusStrand(boost::shared_ptr<boost::asio::io_service::strand>& messageBusStrand);
+		boost::shared_ptr<boost::asio::io_service::strand>& messageBusStrand(void);
 
 	  private:
 		ApplicationServiceIf* applicationServiceIf_;
-		Config* config_;
+		OpcUaStackCore::Config* config_;
 		ApplicationInfo* applicationInfo_;
-		ApplicationCertificate::SPtr applicationCertificate_;
-		CryptoManager::SPtr cryptoManager_;
+		OpcUaStackCore::CryptoManager::SPtr cryptoManager_;
+
+		// This thread pool can be used by the application. This thread pool
+		// is independent of the opc ua server. The number of threads in the
+		// thread pool is specified in the opc ua server configuration file.
+		// (ApplThreadPool)
+		OpcUaStackCore::IOThread::SPtr applicationThreadPool_ = nullptr;
+
+		// This thread pool can be used by the application. This thread pool
+		// is used by the applications's message bus and can therefore be used
+		// together with the stand to synchronize the application. The number
+		// of threads in the thread pool is specified in the OPC UA configuration
+		// file. (ServerThreadPool)
+		OpcUaStackCore::IOThread::SPtr messageBusThreadPool_ = nullptr;
+		boost::shared_ptr<boost::asio::io_service::strand> messageBusStrand_ = nullptr;
 	};
 
 
@@ -64,19 +83,22 @@ namespace OpcUaStackServer
 
 		virtual bool startup(void) = 0;
 		virtual bool shutdown(void) = 0;
-		virtual void receive(ServiceTransaction::SPtr serviceTransaction);
+		virtual void receive(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		virtual void receiveForwardTrx(ForwardTransaction::SPtr forwardTransaction);
 		virtual std::string version(void);
+		virtual std::string gitCommit(void);
+		virtual std::string gitBranch(void);
 
 		void service(ApplicationServiceIf* applicationServiceIf);
 		ApplicationServiceIf& service(void);
-		void config(Config* config);
-		Config* config(void);
+		void config(OpcUaStackCore::Config* config);
+		OpcUaStackCore::Config* config(void);
 		void applicationInfo(ApplicationInfo* applicationInfo);
 		ApplicationInfo* applicationInfo(void);
-		void applicationCertificate(ApplicationCertificate::SPtr& applicationCertificate);
-		ApplicationCertificate::SPtr& applicationCertificate(void);
-		void cryptoManager(CryptoManager::SPtr cryptoManager);
-		CryptoManager::SPtr& cryptoManager(void);
+		void cryptoManager(OpcUaStackCore::CryptoManager::SPtr cryptoManager);
+		OpcUaStackCore::CryptoManager::SPtr& cryptoManager(void);
+		void applicationThreadPool(const OpcUaStackCore::IOThread::SPtr& applicationThreadPool);
+		OpcUaStackCore::IOThread::SPtr& applicationThreadPool(void);
 		void applicationData(ApplicationData::SPtr& applicationData);
 		ApplicationData::SPtr& applicationData(void);
 

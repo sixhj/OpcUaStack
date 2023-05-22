@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -28,7 +28,7 @@ namespace OpcUaStackCore
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	AddNodesRequest::AddNodesRequest(void)
-	: addNodesItemArray_(constructSPtr<AddNodesItemArray>())
+	: addNodesItemArray_(boost::make_shared<AddNodesItemArray>())
 	{
 	}
 
@@ -48,17 +48,42 @@ namespace OpcUaStackCore
 		return addNodesItemArray_;
 	}
 
+	void
+	AddNodesRequest::copyTo(AddNodesRequest& addNodesRequest)
+	{
+		addNodesItemArray_->copyTo(*addNodesRequest.nodesToAdd().get());
+	}
 
-	void 
+	bool
 	AddNodesRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		addNodesItemArray_->opcUaBinaryEncode(os);
+		return addNodesItemArray_->opcUaBinaryEncode(os);
 	}
 	
-	void 
+	bool
 	AddNodesRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		addNodesItemArray_->opcUaBinaryDecode(is);
+		return addNodesItemArray_->opcUaBinaryDecode(is);
+	}
+
+	bool
+	AddNodesRequest::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+
+		rc = rc & jsonArraySPtrEncode(pt, addNodesItemArray_, "NodesToAdd");
+
+		return rc;
+	}
+
+	bool
+	AddNodesRequest::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+
+		rc = rc & jsonArraySPtrDecode(pt, addNodesItemArray_, "NodesToAdd");
+
+		return rc;
 	}
 
 }
