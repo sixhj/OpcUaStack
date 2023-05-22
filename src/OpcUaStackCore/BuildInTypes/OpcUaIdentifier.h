@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -699,6 +699,13 @@
 #define OpcUaId_XVType_Encoding_DefaultXml 12082
 #define OpcUaId_ProgramDiagnosticDataType_Encoding_DefaultXml 895
 #define OpcUaId_Annotation_Encoding_DefaultXml 892
+#define OpcUaId_DataTypeDefinition_Encoding_DefaultXml 14797
+#define OpcUaId_StructureDefinition_Encoding_DefaultXml 14798
+#define OpcUaId_EnumDefinition_Encoding_DefaultXml 14799
+#define OpcUaId_StructureField_Encoding_DefaultXml 14800
+#define OpcUaId_EnumField_Encoding_DefaultXml 14801
+
+
 #define OpcUaId_Node_Encoding_DefaultBinary 260
 #define OpcUaId_InstanceNode_Encoding_DefaultBinary 11889
 #define OpcUaId_TypeNode_Encoding_DefaultBinary 11890
@@ -918,6 +925,11 @@
 #define OpcUaId_XVType_Encoding_DefaultBinary 12090
 #define OpcUaId_ProgramDiagnosticDataType_Encoding_DefaultBinary 896
 #define OpcUaId_Annotation_Encoding_DefaultBinary 893
+#define OpcUaId_DataTypeDefinition_Encoding_DefaultBinary 121
+#define OpcUaId_StructureDefinition_Encoding_DefaultBinary 122
+#define OpcUaId_EnumDefinition_Encoding_DefaultBinary 123
+#define OpcUaId_StructureField_Encoding_DefaultBinary 14844
+#define OpcUaId_EnumField_Encoding_DefaultBinary 14845
 
 #define OpcUaId_BaseObjectType 58
 #define OpcUaId_FolderType 61
@@ -2005,6 +2017,8 @@
 #define OpcUaId_OpcUa_BinarySchema_XVType 12094
 #define OpcUaId_OpcUa_BinarySchema_ProgramDiagnosticDataType 8247
 #define OpcUaId_OpcUa_BinarySchema_Annotation 8244
+#define OpcUaId_OpcUa_BinarySchema_DataTypeDefinitionType 121
+#define OpcUaId_OpcUa_BinarySchema_RolePermissionType 128
 
 /*============================================================================
 * VariableType Identifiers
@@ -2046,9 +2060,11 @@
 #define OpcUaId_TwoStateVariableType 8995
 #define OpcUaId_ConditionVariableType 9002
 #define OpcUaId_ProgramDiagnosticType 2380
+#define OpcUaId_RolePermissionType 96
+#define OpcUaId_DataTypeDefinitionType 97
 
 //
-// private identifier
+// private identifier (Application Service)
 //
 #define OpcUaId_RegisterForwardNodeRequest_Encoding_DefaultBinary 		1000000
 #define OpcUaId_RegisterForwardNodeResponse_Encoding_DefaultBinary 		1000001
@@ -2068,6 +2084,31 @@
 #define OpcUaId_FireEventResponse_Encoding_DefaultBinary 				1000015
 #define OpcUaId_BrowsePathToNodeIdRequest_Encoding_DefaultBinary 		1000016
 #define OpcUaId_BrowsePathToNodeIdResponse_Encoding_DefaultBinary 		1000017
+#define OpcUaId_CreateVariableRequest_Encoding_DefaultBinary 			1000018
+#define OpcUaId_CreateVariableResponse_Encoding_DefaultBinary 			1000019
+#define OpcUaId_CreateObjectRequest_Encoding_DefaultBinary 				1000020
+#define OpcUaId_CreateObjectResponse_Encoding_DefaultBinary 			1000021
+#define OpcUaId_RegisterForwardNodeAsyncRequest_Encoding_DefaultBinary 	1000022
+#define OpcUaId_RegisterForwardNodeAsyncResponse_Encoding_DefaultBinary 1000023
+#define OpcUaId_RegisterForwardMethodAsyncRequest_Encoding_DefaultBinary 1000024
+#define OpcUaId_RegisterForwardMethodAsyncResponse_Encoding_DefaultBinary 1000025
+
+#define OpcUaId_ForwardTransactionReadRequest_Encoding_DefaultBinary 	2000001
+#define OpcUaId_ForwardTransactionReadResponse_Encoding_DefaultBinary 	2000002
+#define OpcUaId_ForwardTransactionWriteRequest_Encoding_DefaultBinary 	2000003
+#define OpcUaId_ForwardTransactionWriteResponse_Encoding_DefaultBinary 	2000004
+#define OpcUaId_ForwardTransactionMethodRequest_Encoding_DefaultBinary 	2000005
+#define OpcUaId_ForwardTransactionMethodResponse_Encoding_DefaultBinary 2000006
+
+//
+// private identifier (Server Info Service)
+//
+#define OpcUaId_AddSessionRequest_Encoding_DefaultBinary 				1001000
+#define OpcUaId_AddSessionResponse_Encoding_DefaultBinary 				1001001
+#define OpcUaId_DelSessionRequest_Encoding_DefaultBinary 				1001002
+#define OpcUaId_DelSessionResponse_Encoding_DefaultBinary 				1001003
+#define OpcUaId_UpdSessionRequest_Encoding_DefaultBinary 				1001004
+#define OpcUaId_UpdSessionResponse_Encoding_DefaultBinary 				1001005
 
 #include <map>
 #include <stdint.h>

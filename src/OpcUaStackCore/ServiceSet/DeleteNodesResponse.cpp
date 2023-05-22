@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -29,8 +29,8 @@ namespace OpcUaStackCore
 	// ------------------------------------------------------------------------
 	DeleteNodesResponse::DeleteNodesResponse(void)
 	: Object()
-	, deleteNodesResultArraySPtr_(constructSPtr<DeleteNodesResultArray>())
-	, diagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
+	, deleteNodesResultArraySPtr_(boost::make_shared<DeleteNodesResultArray>())
+	, diagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
 	{
 	}
 
@@ -65,18 +65,48 @@ namespace OpcUaStackCore
 	}
 		
 
-	void 
+	bool
 	DeleteNodesResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		deleteNodesResultArraySPtr_->opcUaBinaryEncode(os);
-		diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= deleteNodesResultArraySPtr_->opcUaBinaryEncode(os);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	DeleteNodesResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		deleteNodesResultArraySPtr_->opcUaBinaryDecode(is);
-		diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= deleteNodesResultArraySPtr_->opcUaBinaryDecode(is);
+		rc &= diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
+
+    bool
+	DeleteNodesResponse::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+    {
+		 bool rc = true;
+
+		 rc = rc & jsonArraySPtrEncode(pt,  deleteNodesResultArraySPtr_, "Results");
+		 rc = rc & jsonObjectSPtrEncode(pt, diagnosticInfoArraySPtr_, "DiagnosticInfos");
+
+		 return true;
+    }
+
+    bool
+	DeleteNodesResponse::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+    {
+		 bool rc = true;
+
+		 rc = rc & jsonArraySPtrDecode(pt,  deleteNodesResultArraySPtr_, "Results");
+		 rc = rc & jsonObjectSPtrDecode(pt, diagnosticInfoArraySPtr_, "DiagnosticInfos");
+
+		 return true;
+    }
 
 }

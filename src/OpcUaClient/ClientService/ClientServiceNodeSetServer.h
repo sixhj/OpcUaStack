@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,7 @@
 #ifndef __OpcUaClient_ClientServiceNodeSetServer_h__
 #define __OpcUaClient_ClientServiceNodeSetServer_h__
 
+#include <future>
 #include <boost/shared_ptr.hpp>
 #include "OpcUaStackClient/ServiceSet/ViewServiceBrowse.h"
 #include "OpcUaStackClient/ServiceSet/AttributeServiceNode.h"
@@ -27,15 +28,13 @@
 #include "OpcUaClient/ClientService/ClientServiceBase.h"
 #include "OpcUaClient/ClientService/ClientServiceManager.h"
 
-using namespace OpcUaStackServer;
-
 namespace OpcUaClient
 {
 
-	class ClientServiceNodeSetServer
+	class DLLEXPORT ClientServiceNodeSetServer
 	: public ClientServiceBase
-	, public ViewServiceBrowseIf
-	, public AttributeServiceNodeIf
+	, public OpcUaStackClient::ViewServiceBrowseIf
+	, public OpcUaStackClient::AttributeServiceNodeIf
 	{
 	  public:
 		typedef boost::shared_ptr<ClientServiceNodeSetServer> SPtr;
@@ -57,43 +56,51 @@ namespace OpcUaClient
 		//- ClientServiceNodeSet interface ------------------------------------
 
 		//- ViewServiceBrowseIf -----------------------------------------------
-		virtual void viewServiceBrowseDone(OpcUaStatusCode statusCode);
+		virtual void viewServiceBrowseDone(
+			OpcUaStackCore::OpcUaStatusCode statusCode
+		);
 		virtual void viewServiceBrowseResult(
-			OpcUaStatusCode statusCode,
-			OpcUaNodeId::SPtr& nodeId,
-			ReferenceDescription::Vec& referenceDescriptionVec
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::OpcUaNodeId::SPtr& nodeId,
+			OpcUaStackCore::ReferenceDescription::Vec& referenceDescriptionVec
 		);
 		//- ViewServiceBrowseIf -----------------------------------------------
 
 		//- AttributeServiceNodeIf --------------------------------------------
-		virtual void attributeServiceNodeDone(OpcUaStatusCode statusCode);
+		virtual void attributeServiceNodeDone(
+			OpcUaStackCore::OpcUaStatusCode statusCode
+		);
 		virtual void attributeServiceNodeResult(
-			AttributeId attributeId,
-			OpcUaDataValue::SPtr& dataValue
+			OpcUaStackCore::AttributeId attributeId,
+			OpcUaStackCore::OpcUaDataValue::SPtr& dataValue
 		);
 		//- AttributeServiceNodeId --------------------------------------------
 
       private:
-		OpcUaStatusCode readNodeAttributes(
-			OpcUaNodeId::SPtr& nodeId,
-			NodeClassType nodeClassType
+		OpcUaStackCore::OpcUaStatusCode readNodeAttributes(
+			OpcUaStackCore::OpcUaNodeId::SPtr& nodeId,
+			OpcUaStackCore::NodeClass::Enum nodeClassType
 		);
-		OpcUaStatusCode readNamespaceArray(void);
-		void handleNamespaceArray(OpcUaDataValue::SPtr& dataValue);
-		bool createRootNode(OpcUaNodeId& rootNodeId);
+		OpcUaStackCore::OpcUaStatusCode readNamespaceArray(void);
+		void handleNamespaceArray(
+			OpcUaStackCore::OpcUaDataValue::SPtr& dataValue
+		);
+		bool createRootNode(
+			OpcUaStackCore::OpcUaNodeId& rootNodeId
+		);
 
 		State state_;
-		OpcUaNodeId readNodeId_;
-		ConditionBool browseCompleted_;
-		ConditionBool readCompleted_;
-		AttributeService::SPtr attributeService_;
-		BaseNodeClass::SPtr baseNodeClass_;
-		InformationModel::SPtr informationModel_;
-		NodeSetNamespace nodeSetNamespace_;
+		OpcUaStackCore::OpcUaNodeId readNodeId_;
+		std::promise<bool> browseCompleted_;
+		std::promise<bool> readCompleted_;
+		OpcUaStackClient::AttributeService::SPtr attributeService_;
+		OpcUaStackServer::BaseNodeClass::SPtr baseNodeClass_;
+		OpcUaStackServer::InformationModel::SPtr informationModel_;
+		OpcUaStackServer::NodeSetNamespace nodeSetNamespace_;
 
-		OpcUaStatusCode browseStatusCode_;
-		OpcUaStatusCode readStatusCode_;
-		OpcUaStatusCode readNamespaceArrayStatusCode_;
+		OpcUaStackCore::OpcUaStatusCode browseStatusCode_;
+		OpcUaStackCore::OpcUaStatusCode readStatusCode_;
+		OpcUaStackCore::OpcUaStatusCode readNamespaceArrayStatusCode_;
 	};
 
 }

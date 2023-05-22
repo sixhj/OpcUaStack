@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -67,12 +67,12 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	MonitoringParameters::filter(const ExtensibleParameter filter)
+	MonitoringParameters::filter(OpcUaExtensibleParameter& filter)
 	{
 		filter_ = filter;
 	}
 	
-	ExtensibleParameter 
+	OpcUaExtensibleParameter&
 	MonitoringParameters::filter(void)
 	{
 		return filter_;
@@ -102,23 +102,55 @@ namespace OpcUaStackCore
 		return discardOldest_;
 	}
 		
-	void 
+	bool
 	MonitoringParameters::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, clientHandle_);
-		OpcUaNumber::opcUaBinaryEncode(os, samplingInterval_);
-		filter_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, queueSize_);
-		OpcUaNumber::opcUaBinaryEncode(os, discardOldest_);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, clientHandle_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, samplingInterval_);
+		rc &= filter_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, queueSize_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, discardOldest_);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	MonitoringParameters::opcUaBinaryDecode(std::istream& is)
 	{
-		OpcUaNumber::opcUaBinaryDecode(is, clientHandle_);
-		OpcUaNumber::opcUaBinaryDecode(is, samplingInterval_);
-		filter_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, queueSize_);
-		OpcUaNumber::opcUaBinaryDecode(is, discardOldest_);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, clientHandle_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, samplingInterval_);
+		rc &= filter_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, queueSize_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, discardOldest_);
+
+		return rc;
+	}
+
+	bool
+	MonitoringParameters::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonNumberEncode(pt, clientHandle_, "ClientHandle");
+		rc = rc & jsonNumberEncode(pt, samplingInterval_, "SamplingInterval");
+		rc = rc & jsonObjectEncode(pt, filter_, "Filter", true);
+		rc = rc & jsonNumberEncode(pt, queueSize_, "QueueSize", true, (OpcUaUInt32)0);
+		rc = rc & jsonNumberEncode(pt, discardOldest_, "DiscardOldest", true, (OpcUaBoolean)true);
+		return rc;
+	}
+
+	bool
+	MonitoringParameters::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonNumberDecode(pt, clientHandle_, "ClientHandle");
+		rc = rc & jsonNumberDecode(pt, samplingInterval_, "SamplingInterval");
+		rc = rc & jsonObjectDecode(pt, filter_, "Filter", true);
+		rc = rc & jsonNumberDecode(pt, queueSize_, "QueueSize", true, (OpcUaUInt32)0);
+		rc = rc & jsonNumberDecode(pt, discardOldest_, "DiscardOldest", true, (OpcUaBoolean)true);
+		return rc;
 	}
 }

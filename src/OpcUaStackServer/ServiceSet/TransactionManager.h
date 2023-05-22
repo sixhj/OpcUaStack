@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,29 +18,27 @@
 #ifndef __OpcUaStackServer_TransactionManager_h__
 #define __OpcUaStackServer_TransactionManager_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/ServiceSet/ServiceTransaction.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT TransactionManager
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
-		typedef boost::shared_ptr<TransactionManager> SPtr;
+		using SPtr = boost::shared_ptr<TransactionManager>;
 
 		TransactionManager(void);
 		~TransactionManager(void);
 
-		bool registerTransaction(ServiceTransaction::SPtr serviceTransactionSPtr);
-		ServiceTransaction::SPtr getTransaction(OpcUaNodeId& typeId);
+		void clear(void);
+		bool registerTransaction(OpcUaStackCore::ServiceTransaction::SPtr serviceTransactionSPtr);
+		OpcUaStackCore::ServiceTransaction::SPtr getTransaction(uint32_t typeId);
+		OpcUaStackCore::ServiceTransaction::SPtr getTransaction(const OpcUaStackCore::OpcUaNodeId& typeId);
 
 	  private:
-		typedef std::map<OpcUaNodeId, ServiceTransaction::SPtr> ServiceTransactionMap;
+		using ServiceTransactionMap = std::map<OpcUaStackCore::OpcUaNodeId, OpcUaStackCore::ServiceTransaction::SPtr>;
 		ServiceTransactionMap serviceTransactionMap_;
 	};
 

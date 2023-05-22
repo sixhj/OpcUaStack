@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,6 +15,8 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/make_shared.hpp>
+#include "OpcUaStackCore/BuildInTypes/OpcUaStatus.h"
 #include "OpcUaStackCore/ServiceSet/WriteResponse.h"
 
 namespace OpcUaStackCore
@@ -30,8 +32,8 @@ namespace OpcUaStackCore
 
 	WriteResponse::WriteResponse(void)
 	: Object()
-	, statusCodeArraySPtr_(constructSPtr<OpcUaStatusCodeArray>())
-	, diagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
+	, statusCodeArraySPtr_(boost::make_shared<OpcUaStatusCodeArray>())
+	, diagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
 	{
 	}
 
@@ -77,5 +79,17 @@ namespace OpcUaStackCore
 		statusCodeArraySPtr_->opcUaBinaryDecode(is);
 		diagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
 		return true;
+	}
+
+	bool
+	WriteResponse::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		return jsonArraySPtrEncode(pt, statusCodeArraySPtr_, "Results");
+	}
+
+	bool
+	WriteResponse::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		return jsonArraySPtrDecode(pt, statusCodeArraySPtr_, "Results");
 	}
 }

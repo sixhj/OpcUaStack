@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,7 +16,8 @@
  */
 
 #include "OpcUaStackCore/Base/Log.h"
-#include "OpcUaStackCore/ServiceSet/DataChangeNotification.h"
+#include "OpcUaStackCore/StandardDataTypes/DataChangeNotification.h"
+#include "OpcUaStackCore/StandardDataTypes/EventNotificationList.h"
 #include "OpcUaStackClient/ServiceSet/SubscriptionService.h"
 
 using namespace OpcUaStackCore;
@@ -24,33 +25,67 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	SubscriptionService::SubscriptionService(IOThread* ioThread)
+	SubscriptionService::SubscriptionService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
 	: SubscriptionServiceBase()
 	, subscriptionSet_()
 	, subscriptionSetPendingDelete_()
 	, publishCount_(5)
 	, actPublishCount_(0)
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
+
 		subscriptionServicePublishIf(this);
 	}
 
 	SubscriptionService::~SubscriptionService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	SubscriptionService::setConfiguration(
-		Component* componentSession,
+		MessageBusMember::WPtr& sessionMember,
+		const DataChangeNotificationHandler& dataChangeNotificationHandler,
+		boost::shared_ptr<boost::asio::io_service::strand>& dataChangeNotificationHandlerStrand,
+		const EventNotificationHandler& eventNotificationHandler,
+		boost::shared_ptr<boost::asio::io_service::strand>& eventNotificationHandlerStrand,
+		const SubscriptionStateUpdateHandler& subscriptionStateUpdateHandler,
+		boost::shared_ptr<boost::asio::io_service::strand>& subscriptionStateUpdateHandlerStrand,
 		uint32_t publishCount,
-		uint32_t requestTimeout,
-		SubscriptionServiceIf* subscriptionServiceIf
+		uint32_t requestTimeout
 	)
 	{
-		this->componentSession(componentSession);
+		sessionMember_ = sessionMember;
+
+		dataChangeNotificationHandler_ = dataChangeNotificationHandler;
+		dataChangeNotificationHandlerStrand_ = dataChangeNotificationHandlerStrand;
+		eventNotificationHandler_ = eventNotificationHandler;
+		eventNotificationHandlerStrand_ = eventNotificationHandlerStrand;
+		subscriptionStateUpdateHandler_ = subscriptionStateUpdateHandler;
+		subscriptionStateUpdateHandlerStrand_ = subscriptionStateUpdateHandlerStrand;
 		publishCount_ = publishCount;
 		requestTimeout_ = requestTimeout;
-		this->subscriptionServiceIf(subscriptionServiceIf);
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void
@@ -73,86 +108,86 @@ namespace OpcUaStackClient
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void
-	SubscriptionService::syncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
+	SubscriptionService::syncSend(const ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionCreateSubscription);
 	}
 	void
-	SubscriptionService::asyncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
+	SubscriptionService::asyncSend(const ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionCreateSubscription);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
+	SubscriptionService::syncSend(const ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionModifySubscription);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
+	SubscriptionService::asyncSend(const ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionModifySubscription);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
+	SubscriptionService::syncSend(const ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionTransferSubscriptions);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
+	SubscriptionService::asyncSend(const ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionTransferSubscriptions);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
+	SubscriptionService::syncSend(const ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
 	{
 		sendDeleteSubscriptions(serviceTransactionDeleteSubscriptions);
 		SubscriptionServiceBase::syncSend(serviceTransactionDeleteSubscriptions);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
+	SubscriptionService::asyncSend(const ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
 	{
 		sendDeleteSubscriptions(serviceTransactionDeleteSubscriptions);
 		SubscriptionServiceBase::asyncSend(serviceTransactionDeleteSubscriptions);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
+	SubscriptionService::syncSend(const ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionSetPublishingMode);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
+	SubscriptionService::asyncSend(const ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionSetPublishingMode);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish)
+	SubscriptionService::syncSend(const ServiceTransactionPublish::SPtr& serviceTransactionPublish)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionPublish);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish)
+	SubscriptionService::asyncSend(const ServiceTransactionPublish::SPtr& serviceTransactionPublish)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionPublish);
 	}
 
 	void
-	SubscriptionService::syncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
+	SubscriptionService::syncSend(const ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
 	{
 		SubscriptionServiceBase::syncSend(serviceTransactionRepublish);
 	}
 
 	void
-	SubscriptionService::asyncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
+	SubscriptionService::asyncSend(const ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
 	{
 		SubscriptionServiceBase::asyncSend(serviceTransactionRepublish);
 	}
@@ -166,9 +201,12 @@ namespace OpcUaStackClient
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void
-	SubscriptionService::receive(Message::SPtr message)
+	SubscriptionService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 		switch (serviceTransaction->nodeTypeResponse().nodeId<uint32_t>())
 		{
 			case OpcUaId_CreateSubscriptionResponse_Encoding_DefaultBinary:
@@ -196,7 +234,7 @@ namespace OpcUaStackClient
 			}
 		}
 
-		SubscriptionServiceBase::receive(message);
+		SubscriptionServiceBase::receive(handleFrom, message);
 	}
 
     void
@@ -209,7 +247,7 @@ namespace OpcUaStackClient
     }
 
     void
-    SubscriptionService::sendDeleteSubscriptions(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
+    SubscriptionService::sendDeleteSubscriptions(const ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
     {
     	DeleteSubscriptionsRequest::SPtr req = serviceTransactionDeleteSubscriptions->request();
     	for (uint32_t pos=0; pos<req->subscriptionIds()->size(); pos++) {
@@ -302,8 +340,17 @@ namespace OpcUaStackClient
     	}
 
     	subscriptionSet_.insert(subscriptionId);
-   		if (subscriptionServiceIf_ != NULL) {
-    		subscriptionServiceIf_->subscriptionStateUpdate(SS_Open, subscriptionId);
+   		if (subscriptionStateUpdateHandler_) {
+   			if (subscriptionStateUpdateHandlerStrand_) {
+   				subscriptionStateUpdateHandlerStrand_->dispatch(
+   				    [this, subscriptionId](void) {
+   					    subscriptionStateUpdateHandler_(SS_Open, subscriptionId);
+   				    }
+   				);
+   			}
+   			else {
+   			    subscriptionStateUpdateHandler_(SS_Open, subscriptionId);
+   			}
     	}
 
     	if (subscriptionSet_.size() != 1) return;
@@ -327,8 +374,17 @@ namespace OpcUaStackClient
     void
     SubscriptionService::deleteSubscriptionResponse(uint32_t subscriptionId)
     {
-   		if (subscriptionServiceIf_ != NULL) {
-    		subscriptionServiceIf_->subscriptionStateUpdate(SS_Close, subscriptionId);
+   		if (subscriptionStateUpdateHandler_) {
+ 			if (subscriptionStateUpdateHandlerStrand_) {
+   				subscriptionStateUpdateHandlerStrand_->dispatch(
+   				    [this, subscriptionId](void) {
+   					    subscriptionStateUpdateHandler_(SS_Close, subscriptionId);
+   				    }
+   				);
+   			}
+   			else {
+   			    subscriptionStateUpdateHandler_(SS_Close, subscriptionId);
+   			}
     	}
     }
 
@@ -337,7 +393,7 @@ namespace OpcUaStackClient
     {
     	if (subscriptionSet_.size() == 0) return;
     	while (actPublishCount_ < publishCount_) {
-    		ServiceTransactionPublish::SPtr trx = constructSPtr<ServiceTransactionPublish>();
+    		ServiceTransactionPublish::SPtr trx = boost::make_shared<ServiceTransactionPublish>();
     		trx->requestTimeout(requestTimeout_);
     		SubscriptionServiceBase::asyncSend(trx);
 
@@ -348,15 +404,18 @@ namespace OpcUaStackClient
     void
     SubscriptionService::receivePublishResponse(const PublishResponse::SPtr& publishResponse)
     {
-    	uint32_t count = publishResponse->notificationMessage()->notificationData()->size();
+    	uint32_t count = publishResponse->notificationMessage()->notificationData().size();
     	for (uint32_t idx=0; idx<count; idx++) {
-    		ExtensibleParameter::SPtr notify;
-    		publishResponse->notificationMessage()->notificationData()->get(idx, notify);
+    		OpcUaExtensibleParameter::SPtr notify;
+    		publishResponse->notificationMessage()->notificationData().get(idx, notify);
 
     		switch (notify->parameterTypeId().nodeId<uint32_t>())
     		{
     			case OpcUaId_DataChangeNotification_Encoding_DefaultBinary:
     				dataChangeNotification(notify);
+    				break;
+    			case OpcUaId_EventNotificationList_Encoding_DefaultBinary:
+    				eventNotification(notify);
     				break;
     			default:
     				Log(Error, "subscription publish response error, because notification type in publish response unknown")
@@ -369,18 +428,51 @@ namespace OpcUaStackClient
     }
 
     void
-    SubscriptionService::dataChangeNotification(const ExtensibleParameter::SPtr& extensibleParameter)
+    SubscriptionService::dataChangeNotification(const OpcUaExtensibleParameter::SPtr& extensibleParameter)
     {
-    	DataChangeNotification::SPtr dataChange;
-    	dataChange = extensibleParameter->parameter<DataChangeNotification>();
+    	auto dataChange = extensibleParameter->parameter<DataChangeNotification>();
 
-    	uint32_t count = dataChange->monitoredItems()->size();
+    	auto count = dataChange->monitoredItems().size();
     	for (uint32_t idx=0; idx<count; idx++) {
     		MonitoredItemNotification::SPtr monitoredItem;
-    		dataChange->monitoredItems()->get(idx, monitoredItem);
+    		dataChange->monitoredItems().get(idx, monitoredItem);
 
-    		if (subscriptionServiceIf_ != NULL) {
-    			subscriptionServiceIf_->dataChangeNotification(monitoredItem);
+    		if (dataChangeNotificationHandler_) {
+    			if (dataChangeNotificationHandlerStrand_) {
+    				dataChangeNotificationHandlerStrand_->dispatch(
+    					[this, monitoredItem](void) {
+    					    dataChangeNotificationHandler_(monitoredItem);
+    				    }
+    				);
+    			}
+    			else {
+    			    dataChangeNotificationHandler_(monitoredItem);
+    			}
+    		}
+    	}
+    }
+
+    void
+	SubscriptionService::eventNotification(const OpcUaExtensibleParameter::SPtr& extensibleParameter)
+    {
+    	auto eventNotificationList = extensibleParameter->parameter<EventNotificationList>();
+
+    	auto count = eventNotificationList->events().size();
+    	for (uint32_t idx=0; idx<count; idx++) {
+    		EventFieldList::SPtr eventFieldList;
+    		eventNotificationList->events().get(idx, eventFieldList);
+
+    		if (eventNotificationHandler_) {
+    			if (eventNotificationHandlerStrand_) {
+    				eventNotificationHandlerStrand_->dispatch(
+    					[this, eventFieldList](void) {
+    					    eventNotificationHandler_(eventFieldList);
+    				    }
+    				);
+    			}
+    			else {
+    			    eventNotificationHandler_(eventFieldList);
+    			}
     		}
     	}
     }

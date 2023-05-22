@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,7 +16,6 @@
  */
 
 #include "OpcUaStackCore/Base/Log.h"
-#include "OpcUaStackCore/ServiceSet/AttributeServiceTransaction.h"
 #include "OpcUaStackCore/Application/ApplicationAutorizationContext.h"
 #include "OpcUaStackCore/Application/ApplicationReadContext.h"
 #include "OpcUaStackCore/Application/ApplicationHReadContext.h"
@@ -24,28 +23,94 @@
 #include "OpcUaStackCore/Application/ApplicationWriteContext.h"
 #include "OpcUaStackCore/Application/ApplicationHWriteContext.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
-#include "OpcUaStackCore/ServiceSet/HistoryData.h"
-#include "OpcUaStackCore/ServiceSet/HistoryEvent.h"
-#include "OpcUaStackCore/ServiceSet/ReadEventDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/HistoryEvent.h"
+#include "OpcUaStackCore/StandardDataTypes/ReadEventDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/ReadRawModifiedDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/HistoryData.h"
 #include "OpcUaStackServer/ServiceSet/AttributeService.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeAccess.h"
+#include "OpcUaStackServer/Forward/ForwardServiceTransaction.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
-	AttributeService::AttributeService(void)
+	AttributeService::AttributeService(
+		const std::string& serviceName,
+		OpcUaStackCore::IOThread::SPtr& ioThread,
+		OpcUaStackCore::MessageBus::SPtr& messageBus
+	)
+	: ServerServiceBase()
 	{
+		// set parameter in server service base
+		serviceName_ = serviceName;
+		ServerServiceBase::ioThread_ = ioThread.get();
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// init forward manager. The forward manager is used to transfer transaction
+		// asynchronously to an application.
+		auto sendTrxCallback = [this](
+			ForwardTransaction::SPtr& forwardTransaction
+		)
+		{
+			sendTrxForwardAsync(forwardTransaction);
+		};
+		auto recvTrxCallback = [this](
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		)
+		{
+			recvTrxForwardAsync(statusCode, serviceTransaction, forwardTransaction);
+		};
+		auto finishTrxCallback = [this](
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+		)
+		{
+			finishTrxForwardAsync(serviceTransaction);
+		};
+
+		forwardManager_ = boost::make_shared<ForwardManager>(
+			ioThread_,
+			strand_,
+			sendTrxCallback,
+			recvTrxCallback,
+			finishTrxCallback
+		);
+
+		// activate receiver
+		activateReceiver(
+			[this](const MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	AttributeService::~AttributeService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
+		messageBus_->deregisterMember(messageBusMember_);
 	}
 
-	void 
-	AttributeService::receive(Message::SPtr message)
+	void
+	AttributeService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		ServiceTransaction::SPtr& serviceTransaction
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
-		switch (serviceTransaction->nodeTypeRequest().nodeId<uint32_t>()) 
+		// receive service transaction from session component
+
+		serviceTransaction->memberServiceSession(handleFrom);
+
+		switch (serviceTransaction->nodeTypeRequest().nodeId<uint32_t>())
 		{
 			case OpcUaId_ReadRequest_Encoding_DefaultBinary:
 				receiveReadRequest(serviceTransaction);
@@ -64,8 +129,144 @@ namespace OpcUaStackServer
 					.parameter("TypeId", serviceTransaction->nodeTypeRequest());
 
 				serviceTransaction->statusCode(BadInternalError);
-				serviceTransaction->componentSession()->send(serviceTransaction);
+				sendAnswer(serviceTransaction);
 		}
+	}
+
+	void
+	AttributeService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		ForwardTransaction::SPtr& forwardTransaction
+	)
+	{
+		// receive forward transaction from application. The received forward
+		// transaction must be passed to the forward manager.
+		forwardManager_->recvTrx(forwardTransaction);
+	}
+
+	void 
+	AttributeService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		Message::SPtr& message
+	)
+	{
+		if (message->type_ == Message::ServiceTransaction) {
+			// receive message from session component
+			auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+			receive(handleFrom, serviceTransaction);
+		}
+		else if (message->type_ == Message::ForwardTransaction) {
+			// receive message from application component
+			auto forwardTransaction = boost::static_pointer_cast<ForwardTransaction>(message);
+			receive(handleFrom, forwardTransaction);
+		}
+		else {
+			Log(Error, "receive invalid message type in attribute service")
+				.parameter("Type", message->type_);
+		}
+	}
+
+	void
+	AttributeService::sendAnswer(OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction)
+	{
+		// send service transaction to session component
+		messageBus_->messageSend(
+			messageBusMember_,
+			serviceTransaction->memberServiceSession(),
+			serviceTransaction
+		);
+	}
+
+	// --------------------------------------------------------------------
+	//
+	// The following functions are used for asynchronously communication
+	// with the application.
+	//
+	// --------------------------------------------------------------------
+
+	void
+	AttributeService::sendTrxForwardAsync(
+		ForwardTransaction::SPtr& forwardTransaction
+	)
+	{
+		//
+		// This function is called by the forward manager when a transaction
+		// is to be send to the application.
+		//
+
+		// check message bus member source
+		auto messageBusMemberSource = messageBusMember_.lock();
+		if (!messageBusMemberSource) {
+			Log(Error, "send async forward request error in attribute service, because source message bus member empty")
+				.parameter("Name", forwardTransaction->name());
+			return;
+		}
+
+		// check message bus member target
+		auto messageBusMemberTarget = forwardTransaction->messageBusMemberTarget().lock();
+		if (!messageBusMemberTarget) {
+			Log(Error, "send async forward request error in attribute service, because target message bus member empty")
+				.parameter("Name", forwardTransaction->name());
+			return;
+		}
+
+		// send forward message to application
+		Log(Debug, "send async request")
+		    .parameter("Name", forwardTransaction->name())
+			.parameter("Sender", messageBusMemberSource->name())
+			.parameter("Receiver", messageBusMemberTarget->name());
+		messageBus_->messageSend(
+			messageBusMember_,
+			forwardTransaction->messageBusMemberTarget(),
+			forwardTransaction
+		);
+	}
+
+	void
+	AttributeService::recvTrxForwardAsync(
+		OpcUaStackCore::OpcUaStatusCode statusCode,
+		OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+		ForwardTransaction::SPtr& forwardTransaction
+	)
+	{
+		//
+		// This function is called by the forward manager when a transaction
+		// is received from the application or the transaction has timed out.
+		//
+		switch (forwardTransaction->nodeTypeResponse().nodeId<uint32_t>())
+		{
+			case OpcUaId_ForwardTransactionReadResponse_Encoding_DefaultBinary:
+			{
+				forwardReadAsyncResponse(
+					statusCode,
+					serviceTransaction,
+					forwardTransaction
+				);
+				break;
+			}
+			case OpcUaId_ForwardTransactionWriteResponse_Encoding_DefaultBinary:
+			{
+				forwardWriteAsyncResponse(
+					statusCode,
+					serviceTransaction,
+					forwardTransaction
+				);
+				break;
+			}
+		}
+	}
+
+	void
+	AttributeService::finishTrxForwardAsync(
+		OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+	)
+	{
+		//
+		// This function is called by the forward manager when the forward
+		// job is completed.
+		//
+		serviceTransaction->statusCode(Success);
+		sendAnswer(serviceTransaction);
 	}
 
 	// ------------------------------------------------------------------------
@@ -76,7 +277,9 @@ namespace OpcUaStackServer
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	void 
-	AttributeService::receiveReadRequest(ServiceTransaction::SPtr serviceTransaction)
+	AttributeService::receiveReadRequest(
+		ServiceTransaction::SPtr serviceTransaction
+	)
 	{
 		OpcUaStatusCode statusCode;
 
@@ -98,19 +301,22 @@ namespace OpcUaStackServer
 		// check node id array
 		if (readRequest->readValueIdArray()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
-		if (readRequest->readValueIdArray()->size() > 1500) { // FIXME: todo
+		if (readRequest->readValueIdArray()->size() > 3000) { // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
+
+		// create forward job
+		auto forwardJob = forwardManager_->createJob(serviceTransaction);
 
 		// read values
 		readResponse->dataValueArray()->resize(readRequest->readValueIdArray()->size());
 		for (uint32_t idx = 0; idx < readRequest->readValueIdArray()->size(); idx++) {
-			OpcUaDataValue::SPtr dataValue = constructSPtr<OpcUaDataValue>();
+			OpcUaDataValue::SPtr dataValue = boost::make_shared<OpcUaDataValue>();
 			readResponse->dataValueArray()->set(idx, dataValue);
 
 			// determine node information
@@ -144,8 +350,21 @@ namespace OpcUaStackServer
 
 			boost::shared_lock<boost::shared_mutex> lock(baseNodeClass->mutex());
 
+			// forward read async request
+			bool rc = forwardReadAsync(
+				forwardJob,
+				serviceTransaction->userContext(),
+				baseNodeClass,
+				idx,
+				trx
+			);
+			if (rc) {
+				// the operation is performed asynchronously
+				continue;
+			}
+
 			// forward read request
-			forwardRead(
+			forwardReadSync(
 				serviceTransaction->userContext(),
 				baseNodeClass,
 				readRequest,
@@ -198,12 +417,24 @@ namespace OpcUaStackServer
 				.parameter("Type", attribute->type());
 		}
 
-		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		// If there are no asynchronously transactions, the request can be answered
+		// immediately.
+		if (forwardJob->countPendingTrx() == 0) {
+			trx->statusCode(Success);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+
+		// If there are asynchronously transactions, the asynchronously job must
+		// be executed.
+		forwardManager_->startJob(forwardJob);
 	}
 
 	OpcUaStatusCode
-	AttributeService::forwardAuthorizationRead(UserContext::SPtr& userContext, ReadValueId::SPtr& readValueId)
+	AttributeService::forwardAuthorizationRead(
+		UserContext::SPtr& userContext,
+		ReadValueId::SPtr& readValueId
+	)
 	{
 		if (forwardGlobalSync().get() == nullptr) return Success;
 		if (!forwardGlobalSync()->autorizationService().isCallback()) return Success;
@@ -220,14 +451,105 @@ namespace OpcUaStackServer
 	}
 
 	void
-	AttributeService::forwardRead(
+	AttributeService::forwardReadAsyncResponse(
+		OpcUaStackCore::OpcUaStatusCode statusCode,
+		OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+		ForwardTransaction::SPtr& forwardTransaction
+	)
+	{
+		// get service data
+		auto serviceTrx = boost::static_pointer_cast<ServiceTransactionRead>(serviceTransaction);
+		auto serviceReq = serviceTrx->request();
+		auto serviceResp = serviceTrx->response();
+
+		OpcUaDataValue::SPtr dataValue;
+		serviceResp->dataValueArray()->get(forwardTransaction->idx(), dataValue);
+
+		// check status code
+		if (statusCode != Success) {
+			dataValue->statusCode(statusCode);
+			return;
+		}
+
+		// check status code of forward transaction
+		if (forwardTransaction->statusCode() != Success) {
+			dataValue->statusCode(statusCode);
+			return;
+		}
+
+		//  get forward data
+		auto forwardTrx = boost::static_pointer_cast<ForwardTransactionRead>(forwardTransaction);
+		auto forwardReq = forwardTrx->request();
+		auto forwardResp = forwardTrx->response();
+
+		// set data value
+		dataValue->copyFrom(*forwardResp->dataValue());
+	}
+
+	bool
+	AttributeService::forwardReadAsync(
+		ForwardJob::SPtr& forwardJob,
+		UserContext::SPtr& userContext,
+		BaseNodeClass::SPtr baseNodeClass,
+		uint32_t idx,
+		ServiceTransactionRead::SPtr& readTrx
+	)
+	{
+		auto serviceReq = readTrx->request();
+		auto serviceRes = readTrx->response();
+
+		// handle only value attributes
+		ReadValueId::SPtr readValueId;
+		serviceReq->readValueIdArray()->get(idx, readValueId);
+		if ((AttributeId)readValueId->attributeId() != AttributeId_Value) {
+			return false;
+		}
+
+		// check if async forwarding is enabled
+		auto forwardNodeAsync = baseNodeClass->forwardNodeAsync();
+		if (forwardNodeAsync.get() == nullptr) return false;
+		if (!forwardNodeAsync->readService().isActive()) return false;
+
+		// create new transaction
+		auto forwardTrx = boost::make_shared<ForwardTransactionRead>();
+		auto forwardReq = forwardTrx->request();
+		auto forwardRes = forwardTrx->response();
+
+		// set request parameter
+		forwardReq->readValueId(readValueId);
+		forwardReq->maxAge(serviceReq->maxAge());
+		forwardReq->timestampsToReturn(serviceReq->timestampsToReturn());
+
+		// set transaction parameter
+		forwardTrx->name("AsyncRead");
+		forwardTrx->messageBusMemberTarget(forwardNodeAsync->readService().messageBusMember());
+		forwardTrx->forwardJob(forwardJob);
+		forwardTrx->idx(idx);
+		forwardTrx->complete(false);
+		forwardTrx->userContext(userContext);
+		forwardTrx->applicationContext(forwardNodeAsync->readService().applicationContext());
+
+		// add forward transaction to forward job
+		ForwardTransaction::SPtr trx = forwardTrx;
+		forwardManager_->addTrx(forwardJob, trx);
+
+		Log(Debug, "handle read operation asynchronously")
+			.parameter("NodeId", *readValueId->nodeId());
+		return true;
+	}
+
+	void
+	AttributeService::forwardReadSync(
 		UserContext::SPtr& userContext,
 		BaseNodeClass::SPtr baseNodeClass,
 		ReadRequest::SPtr readRequest,
 		ReadValueId::SPtr readValueId
 	)
 	{
-		if ((AttributeId)readValueId->attributeId() != AttributeId_Value) return;
+		// handle only value attributes
+		if ((AttributeId)readValueId->attributeId() != AttributeId_Value) {
+			return;
+		}
 
 		ForwardNodeSync::SPtr forwardNodeSync = baseNodeClass->forwardNodeSync();
 		if (forwardNodeSync.get() == nullptr) return;
@@ -270,16 +592,19 @@ namespace OpcUaStackServer
 		// check node id array
 		if (writeRequest->writeValueArray()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
-		if (writeRequest->writeValueArray()->size() > 1000) {  // FIXME: todo
+		if (writeRequest->writeValueArray()->size() > 3000) {  // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->receive(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
-		// read values
+		// create forward job
+		auto forwardJob = forwardManager_->createJob(serviceTransaction);
+
+		// write values
 		writeResponse->results()->resize(writeRequest->writeValueArray()->size());
 		for (uint32_t idx=0; idx<writeRequest->writeValueArray()->size(); idx++) {
 
@@ -324,6 +649,20 @@ namespace OpcUaStackServer
 
 			boost::unique_lock<boost::shared_mutex> lock(baseNodeClass->mutex());
 
+			// forward read async request
+			bool rc = forwardWriteAsync(
+				forwardJob,
+				serviceTransaction->userContext(),
+				baseNodeClass,
+				idx,
+				trx
+			);
+			if (rc) {
+				// the operation is performed asynchronously
+				continue;
+			}
+
+			// forward write request
 			OpcUaStatusCode statusCode = forwardWrite(
 				serviceTransaction->userContext(),
 				baseNodeClass,
@@ -362,8 +701,95 @@ namespace OpcUaStackServer
 			writeResponse->results()->set(idx, Success);
 		}
 
-		serviceTransaction->statusCode(Success);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		// If there are no asynchronously transactions, the request can be answered
+		// immediately.
+		if (forwardJob->countPendingTrx() == 0) {
+			trx->statusCode(Success);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+
+		// If there are asynchronously transactions, the asynchronously job must
+		// be executed.
+		forwardManager_->startJob(forwardJob);
+	}
+
+	void
+	AttributeService::forwardWriteAsyncResponse(
+		OpcUaStackCore::OpcUaStatusCode statusCode,
+		OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+		ForwardTransaction::SPtr& forwardTransaction
+	)
+	{
+		// get service data
+		auto serviceTrx = boost::static_pointer_cast<ServiceTransactionWrite>(serviceTransaction);
+		auto serviceReq = serviceTrx->request();
+		auto serviceRes = serviceTrx->response();
+
+		// check status code of forward transaction
+		if (forwardTransaction->statusCode() != Success) {
+			serviceRes->results()->set(forwardTransaction->idx(), forwardTransaction->statusCode());
+			return;
+		}
+
+		//  get forward data
+		auto forwardTrx = boost::static_pointer_cast<ForwardTransactionWrite>(forwardTransaction);
+		auto forwardReq = forwardTrx->request();
+		auto forwardRes = forwardTrx->response();
+
+		// set data value
+		serviceRes->results()->set(forwardTransaction->idx(), forwardRes->result());
+	}
+
+	bool
+	AttributeService::forwardWriteAsync(
+		ForwardJob::SPtr& forwardJob,
+		OpcUaStackCore::UserContext::SPtr& userContext,
+		BaseNodeClass::SPtr baseNodeClass,
+		uint32_t idx,
+		OpcUaStackCore::ServiceTransactionWrite::SPtr& writeTrx
+	)
+	{
+		auto serviceReq = writeTrx->request();
+		auto serviceRes = writeTrx->response();
+
+		// handle only value attributes
+		WriteValue::SPtr writeValue;
+		serviceReq->writeValueArray()->get(idx, writeValue);
+		if ((AttributeId)writeValue->attributeId() != AttributeId_Value) {
+			return false;
+		}
+
+		// check if async forwarding is enabled
+		auto forwardNodeAsync = baseNodeClass->forwardNodeAsync();
+		if (forwardNodeAsync.get() == nullptr) return false;
+		if (!forwardNodeAsync->writeService().isActive()) return false;
+
+		// create new transaction
+		auto forwardTrx = boost::make_shared<ForwardTransactionWrite>();
+		auto forwardReq = forwardTrx->request();
+		auto forwardRes = forwardTrx->response();
+
+		// set request parameter
+		forwardReq->writeValue(writeValue);
+
+		// set transaction parameter
+		forwardTrx->name("AsyncWrite");
+		forwardTrx->messageBusMemberTarget(forwardNodeAsync->writeService().messageBusMember());
+		forwardTrx->forwardJob(forwardJob);
+		forwardTrx->idx(idx);
+		forwardTrx->complete(false);
+		forwardTrx->userContext(userContext);
+		forwardTrx->applicationContext(forwardNodeAsync->writeService().applicationContext());
+
+		// add forward transaction to forward job
+		ForwardTransaction::SPtr trx = forwardTrx;
+		forwardManager_->addTrx(forwardJob, trx);
+
+		Log(Debug, "handle write operation asynchronously")
+			.parameter("NodeId", *writeValue->nodeId());
+
+		return true;
 	}
 
 	OpcUaStatusCode
@@ -428,24 +854,25 @@ namespace OpcUaStackServer
 
 		Log(Debug, "attribute service historical read request")
 			.parameter("Trx", serviceTransaction->transactionId())
-			.parameter("NumberNodes", readRequest->nodesToRead()->size());
+			.parameter("NumberNodes", readRequest->nodesToRead()->size())
+			.parameter("ParameterTypeId", readRequest->historyReadDetails()->parameterTypeId());
 
 		// check timestampsToReturn attribute
 		if (readRequest->timestampsToReturn() == TimestampsToReturn_Neither) {
 			trx->statusCode(BadInvalidTimestampArgument);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
 		// check node id array
 		if (readRequest->nodesToRead()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 		if (readRequest->nodesToRead()->size() > 1000) { // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
@@ -474,8 +901,9 @@ namespace OpcUaStackServer
 			return;
 		}
 
+		Log(Error, "receive invalid attribute history read details");
 		trx->statusCode(BadServiceUnsupported);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -495,7 +923,7 @@ namespace OpcUaStackServer
 		// read values
 		readResponse->results()->resize(readRequest->nodesToRead()->size());
 		for (uint32_t idx = 0; idx < readRequest->nodesToRead()->size(); idx++) {
-			HistoryReadResult::SPtr readResult = constructSPtr<HistoryReadResult>();
+			HistoryReadResult::SPtr readResult = boost::make_shared<HistoryReadResult>();
 			readResponse->results()->set(idx, readResult);
 
 			// determine node information
@@ -588,11 +1016,11 @@ namespace OpcUaStackServer
 			HistoryData::SPtr historyData;
 			readResult->historyData()->parameterTypeId().set((OpcUaUInt32)OpcUaId_HistoryData_Encoding_DefaultBinary);
 			historyData = readResult->historyData()->parameter<HistoryData>();
-			historyData->dataValues(applicationReadContext.dataValueArray_);
+			applicationReadContext.dataValueArray_->copyTo(historyData->dataValues());
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -612,7 +1040,7 @@ namespace OpcUaStackServer
 		// read values
 		readResponse->results()->resize(readRequest->nodesToRead()->size());
 		for (uint32_t idx = 0; idx < readRequest->nodesToRead()->size(); idx++) {
-			HistoryReadResult::SPtr readResult = constructSPtr<HistoryReadResult>();
+			HistoryReadResult::SPtr readResult = boost::make_shared<HistoryReadResult>();
 			readResponse->results()->set(idx, readResult);
 
 			// determine node information
@@ -705,11 +1133,11 @@ namespace OpcUaStackServer
 			HistoryEvent::SPtr historyEvent;
 			readResult->historyData()->parameterTypeId().set((OpcUaUInt32)OpcUaId_HistoryEvent_Encoding_DefaultBinary);
 			historyEvent = readResult->historyData()->parameter<HistoryEvent>();
-			historyEvent->events(applicationReadContext.eventFieldArray_);
+			applicationReadContext.eventFieldArray_->copyTo(historyEvent->events());
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	OpcUaStatusCode
@@ -752,12 +1180,12 @@ namespace OpcUaStackServer
 		// check data array
 		if (updateRequest->historyUpdateDetails()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 		if (updateRequest->historyUpdateDetails()->size() > 1000) { // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
@@ -765,11 +1193,11 @@ namespace OpcUaStackServer
 		for (uint32_t idx=0; idx<updateRequest->historyUpdateDetails()->size(); idx++) {
 
 			// create result package
-			HistoryUpdateResult::SPtr writeResult = constructSPtr<HistoryUpdateResult>();
+			HistoryUpdateResult::SPtr writeResult = boost::make_shared<HistoryUpdateResult>();
 			updateResponse->results()->push_back(writeResult);
 
 			// check type of history update details
-			ExtensibleParameter::SPtr extensibleParameter;
+			OpcUaExtensibleParameter::SPtr extensibleParameter;
 			updateRequest->historyUpdateDetails()->get(idx, extensibleParameter);
 
 			OpcUaNodeId parameterTypeId;
@@ -793,18 +1221,18 @@ namespace OpcUaStackServer
 			}
 
 			// check operation type
-			if (dataDetails->performInsertReplace() != PerformUpdateEnumeration_Insert) {
+			if (dataDetails->performInsertReplace().enumeration() != PerformUpdateType::EnumInsert) {
 				writeResult->statusCode(BadServiceUnsupported);
 				Log(Debug, "history write value error, because invalid operation type")
 					.parameter("Trx", serviceTransaction->transactionId())
 					.parameter("Idx", idx)
 					.parameter("Node", dataDetails->nodeId())
-					.parameter("OperationType", dataDetails->performInsertReplace());
+					.parameter("OperationType", dataDetails->performInsertReplace().toString());
 				continue;
 			}
 
 			// check data array
-			if (dataDetails->updateValue()->size() == 0) {
+			if (dataDetails->updateValues().size() == 0) {
 				writeResult->statusCode(BadNothingToDo);
 				continue;
 			}
@@ -842,7 +1270,7 @@ namespace OpcUaStackServer
 			// call forward callback
 			ApplicationHWriteContext applicationWriteContext;
 			applicationWriteContext.nodeId_ = dataDetails->nodeId();
-			applicationWriteContext.dataValueArray_ = dataDetails->updateValue();
+			dataDetails->updateValues().copyTo(*applicationWriteContext.dataValueArray_);
 			applicationWriteContext.statusCode_ = Success;
 			applicationWriteContext.applicationContext_ = forwardNodeSync->writeHService().applicationContext();
 			applicationWriteContext.userContext_ = serviceTransaction->userContext();
@@ -852,7 +1280,7 @@ namespace OpcUaStackServer
 		}
 
 		serviceTransaction->statusCode(Success);
-		serviceTransaction->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	OpcUaStatusCode

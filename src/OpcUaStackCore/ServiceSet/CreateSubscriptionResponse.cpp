@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -89,21 +89,51 @@ namespace OpcUaStackCore
 		return revisedMaxKeepAliveCount_;
 	}
 
-	void 
+	bool
 	CreateSubscriptionResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
-		OpcUaNumber::opcUaBinaryEncode(os, revisedPublishingInterval_);
-		OpcUaNumber::opcUaBinaryEncode(os, revisedLifetimeCount_);
-		OpcUaNumber::opcUaBinaryEncode(os, revisedMaxKeepAliveCount_);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, revisedPublishingInterval_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, revisedLifetimeCount_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, revisedMaxKeepAliveCount_);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	CreateSubscriptionResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
-		OpcUaNumber::opcUaBinaryDecode(is, revisedPublishingInterval_);
-		OpcUaNumber::opcUaBinaryDecode(is, revisedLifetimeCount_);
-		OpcUaNumber::opcUaBinaryDecode(is, revisedMaxKeepAliveCount_);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, revisedPublishingInterval_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, revisedLifetimeCount_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, revisedMaxKeepAliveCount_);
+
+		return rc;
+	}
+
+	bool
+	CreateSubscriptionResponse::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonNumberEncode(pt, subscriptionId_, "SubscriptionId");
+		rc = rc & jsonNumberEncode(pt, revisedPublishingInterval_, "RevisedPublishingInterval");
+		rc = rc & jsonNumberEncode(pt, revisedLifetimeCount_, "RevisedLifetimeCount");
+		rc = rc & jsonNumberEncode(pt, revisedMaxKeepAliveCount_, "RevisedMaxKeepAliveCount");
+		return rc;
+	}
+
+	bool
+	CreateSubscriptionResponse::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		bool rc = true;
+		rc = rc & jsonNumberDecode(pt, subscriptionId_, "SubscriptionId");
+		rc = rc & jsonNumberDecode(pt, revisedPublishingInterval_, "RevisedPublishingInterval");
+		rc = rc & jsonNumberDecode(pt, revisedLifetimeCount_, "RevisedLifetimeCount");
+		rc = rc & jsonNumberDecode(pt, revisedMaxKeepAliveCount_, "RevisedMaxKeepAliveCount");
+		return rc;
 	}
 }

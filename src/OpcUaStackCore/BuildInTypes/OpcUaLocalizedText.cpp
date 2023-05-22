@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,11 +12,12 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include "OpcUaStackCore/BuildInTypes/OpcUaLocalizedText.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNumber.h"
+#include "OpcUaStackCore/BuildInTypes/JsonNumber.h"
 
 namespace OpcUaStackCore
 {
@@ -33,6 +34,14 @@ namespace OpcUaStackCore
 	, locale_()
 	, text_()
 	{
+	}
+
+	OpcUaLocalizedText::OpcUaLocalizedText(const OpcUaLocalizedText& value)
+	: Object()
+	, locale_()
+	, text_()
+	{
+		const_cast<OpcUaLocalizedText*>(&value)->copyTo(*this);
 	}
 
 	OpcUaLocalizedText::OpcUaLocalizedText(const std::string& locale, const std::string& text)
@@ -55,8 +64,8 @@ namespace OpcUaStackCore
 	void 
 	OpcUaLocalizedText::get(std::string& locale, std::string& text)
 	{
-		locale = locale_;
-		text = text_;
+		locale = locale_.toStdString();
+		text = text_.toStdString();
 	}
 
 	void 
@@ -157,9 +166,11 @@ namespace OpcUaStackCore
 
 	}
 
-	void 
+	bool
 	OpcUaLocalizedText::opcUaBinaryEncode(std::ostream& os) const
 	{
+		bool rc = true;
+
 		OpcUaByte encodingMask = 0x00;
 		if (locale_.exist()) {
 			encodingMask += 0x01;
@@ -168,68 +179,33 @@ namespace OpcUaStackCore
 			encodingMask += 0x02;
 		}
 
-		OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
 		if (locale_.exist()) {
-			locale_.opcUaBinaryEncode(os);
+			rc &= locale_.opcUaBinaryEncode(os);
 		}
 		if (text_.exist()) {
-			text_.opcUaBinaryEncode(os);
+			rc &= text_.opcUaBinaryEncode(os);
 		}
+
+		return rc;
 	}
 		
-	void 
+	bool
 	OpcUaLocalizedText::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaByte encodingMask;
-		OpcUaNumber::opcUaBinaryDecode(is, encodingMask);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, encodingMask);
 
 		if ((encodingMask & 0x01) == 0x01) {
-			locale_.opcUaBinaryDecode(is);
+			rc &= locale_.opcUaBinaryDecode(is);
 		}
 		if ((encodingMask & 0x02) == 0x02) {
-			text_.opcUaBinaryDecode(is);
-		}
-	}
-
-	bool
-	OpcUaLocalizedText::encode(boost::property_tree::ptree& pt) const
-	{
-		if (locale_.exist()) {
-			boost::property_tree::ptree locale;
-			if (!locale_.encode(locale)) return false;
-			pt.add_child("Locale", locale);
+			rc &= text_.opcUaBinaryDecode(is);
 		}
 
-		if (text_.exist()) {
-			boost::property_tree::ptree text;
-			if (!text_.encode(text)) return false;
-			pt.add_child("Text", text);
-		}
-
-		return true;
-	}
-
-	bool
-	OpcUaLocalizedText::decode(boost::property_tree::ptree& pt)
-	{
-		boost::optional<boost::property_tree::ptree&> locale;
-		locale = pt.get_child_optional("Locale");
-		if (!locale) {
-			// do nothing
-		}
-		else {
-			if (!locale_.decode(*locale)) return false;
-		}
-
-		boost::optional<boost::property_tree::ptree&> text;
-		text = pt.get_child_optional("Text");
-		if (!text) {
-			// do nothing
-		}
-		else {
-			if (!text_.decode(*text)) return false;
-		}
-		return true;
+		return rc;
 	}
 
 	bool
@@ -241,15 +217,19 @@ namespace OpcUaStackCore
 				.parameter("Element", element);
 			return false;
 		}
-		pt.push_back(std::make_pair(xmlns.addxmlns(element), elementTree));
+		pt.push_back(std::make_pair(xmlns.addPrefix(element), elementTree));
 		return true;
 	}
 
 	bool
 	OpcUaLocalizedText::xmlEncode(boost::property_tree::ptree& pt, Xmlns& xmlns)
 	{
-		pt.put(xmlns.addxmlns("Locale"), locale().toStdString());
-		pt.put(xmlns.addxmlns("Text"), text().toStdString());
+		if (locale_.exist()) {
+			pt.put(xmlns.addPrefix("Locale"), locale().toStdString());
+		}
+		if (text_.exist()) {
+			pt.put(xmlns.addPrefix("Text"), text().toStdString());
+		}
 		return true;
 	}
 
@@ -259,25 +239,60 @@ namespace OpcUaStackCore
 		//
 		// name
 		//
-		boost::optional<std::string> localeString = pt.get_optional<std::string>(xmlns.addxmlns("Locale"));
-		if (!localeString) {
-			locale("");
-		}
-		else {
+		boost::optional<std::string> localeString = pt.get_optional<std::string>(xmlns.addPrefix("Locale"));
+		if (localeString) {
 			locale(*localeString);
 		}
 
 		//
 		// text
 		//
-		boost::optional<std::string> textString = pt.get_optional<std::string>(xmlns.addxmlns("Text"));
-		if (!textString) {
-			text("");
-		}
-		else {
+		boost::optional<std::string> textString = pt.get_optional<std::string>(xmlns.addPrefix("Text"));
+		if (textString) {
 			text(*textString);
 		}
 		return true;
 	}
+
+	bool
+	OpcUaLocalizedText::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		// add locale
+		if (!locale_.jsonEncode(pt, "Locale")) {
+			Log(Error, "OpcUaLocalizedText json encode error")
+		        .parameter("Element", "Locale");
+			return false;
+		}
+
+		// add text
+		if (!text_.jsonEncode(pt, "Text")) {
+			Log(Error, "OpcUaLocalizedText json encode error")
+		        .parameter("Element", "Text");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool
+	OpcUaLocalizedText::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		// get locale
+		if (!locale_.jsonDecode(pt, "Locale")) {
+			Log(Error, "OpcUaLocalizedText json decode error")
+		        .parameter("Element", "Locale");
+			return false;
+		}
+
+		// get text
+		if (!text_.jsonDecode(pt, "Text")) {
+			Log(Error, "OpcUaLocalizedText json decode error")
+		        .parameter("Element", "Text");
+			return false;
+		}
+
+		return true;
+	}
+
 
 };

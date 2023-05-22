@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,11 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaClient/ClientCommand/CommandBrowse.h"
 #include "OpcUaClient/ClientService/ClientServiceBrowse.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -37,7 +37,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceBrowse::createClientService(void)
 	{
-		return constructSPtr<ClientServiceBrowse>();
+		return boost::make_shared<ClientServiceBrowse>();
 	}
 
 	bool
@@ -45,6 +45,8 @@ namespace OpcUaClient
 	{
 		OpcUaStatusCode statusCode;
 		CommandBrowse::SPtr commandBrowse = boost::static_pointer_cast<CommandBrowse>(commandBase);
+
+		auto future = browseCompleted_.get_future();
 
 		// create new or get existing client object
 		ClientAccessObject::SPtr clientAccessObject;
@@ -86,7 +88,7 @@ namespace OpcUaClient
 		viewServiceBrowse.asyncBrowse();
 
 		// wait for the end of the browse command
-		browseCompleted_.waitForCondition();
+		future.wait();
 
 		return true;
 	}
@@ -94,7 +96,7 @@ namespace OpcUaClient
 	void
 	ClientServiceBrowse::viewServiceBrowseDone(OpcUaStatusCode statusCode)
 	{
-		browseCompleted_.conditionTrue();
+		browseCompleted_.set_value(true);
 		std::cout << OpcUaStatusCodeMap::shortString(statusCode) << std::endl;
 	}
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,6 +16,8 @@
  */
 
 #include "OpcUaStackServer/ServiceSet/ChannelSessionHandleMap.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer 
 {
@@ -36,7 +38,7 @@ namespace OpcUaStackServer
 		SecureChannel* secureChannel)
 	{
 		// create new channel session handle
-		ChannelSessionHandle::SPtr channelSessionHandle = constructSPtr<ChannelSessionHandle>();
+		auto channelSessionHandle = boost::make_shared<ChannelSessionHandle>();
 		channelSessionHandle->secureChannel(secureChannel);
 		channelSessionHandle->secureChannelServer(secureChannelServer);
 
@@ -50,12 +52,11 @@ namespace OpcUaStackServer
 	ChannelSessionHandleMap::deleteSecureChannel(SecureChannel* secureChannel)
 	{
 		// find secure channel
-		ChannelSessionHandle::Map::iterator it;
-		it = channelIdMap_.find(secureChannel->channelId_);
+		auto it = channelIdMap_.find(secureChannel->channelId_);
 		if (it == channelIdMap_.end()) {
 			return;
 		}
-		ChannelSessionHandle::SPtr channelSessionHandle = it->second;
+		auto channelSessionHandle = it->second;
 		channelSessionHandle->secureChannel(nullptr);
 
 		// delete element from map
@@ -66,8 +67,7 @@ namespace OpcUaStackServer
 	ChannelSessionHandleMap::getSecureChannelList(std::vector<SecureChannel*>& secureChannelList)
 	{
 		// get all secure channel
-		ChannelSessionHandle::Map::iterator it;
-		for (it = channelIdMap_.begin(); it != channelIdMap_.end(); it++) {
+		for (auto it = channelIdMap_.begin(); it != channelIdMap_.end(); it++) {
 			if (it->second->secureChannelState() == ChannelSessionHandle::SCS_Valid) {
 				secureChannelList.push_back(it->second->secureChannel());
 			}
@@ -86,10 +86,9 @@ namespace OpcUaStackServer
 		ChannelSessionHandle::SPtr channelSessionHandle;
 
 		// find secure channel
-		ChannelSessionHandle::Map::iterator it;
-		it = channelIdMap_.find(secureChannel->channelId_);
+		auto it = channelIdMap_.find(secureChannel->channelId_);
 		if (it == channelIdMap_.end()) {
-			return channelSessionHandle;
+			return nullptr;
 		}
 		channelSessionHandle = it->second;
 
@@ -98,6 +97,12 @@ namespace OpcUaStackServer
 		sessionMap_.insert(std::make_pair(session->authenticationToken(), channelSessionHandle));
 
 		return channelSessionHandle;
+	}
+
+	void
+	ChannelSessionHandleMap::deleteSession(void)
+	{
+		sessionMap_.clear();
 	}
 
 	void
@@ -110,8 +115,7 @@ namespace OpcUaStackServer
 	ChannelSessionHandleMap::deleteSession(uint32_t authenticationToken)
 	{
 		// find session
-		ChannelSessionHandle::Map::iterator it;
-		it = sessionMap_.find(authenticationToken);
+		auto it = sessionMap_.find(authenticationToken);
 		if (it == sessionMap_.end()) {
 			return;
 		}

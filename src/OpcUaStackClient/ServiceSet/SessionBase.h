@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,7 @@
 #define __OpcUaStackClient_SessionBase_h__
 
 #include <boost/shared_ptr.hpp>
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/Base/os.h"
 
 namespace OpcUaStackClient
@@ -28,8 +29,8 @@ namespace OpcUaStackClient
 	  public:
 		typedef boost::shared_ptr<SessionBase> SPtr;
 
-		SessionBase(void) {}
-		virtual ~SessionBase(void) {}
+		SessionBase(void);
+		virtual ~SessionBase(void);
 	};
 
 }

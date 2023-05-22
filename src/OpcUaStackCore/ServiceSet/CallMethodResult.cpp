@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,6 +15,8 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/make_shared.hpp>
+#include "OpcUaStackCore/BuildInTypes/OpcUaStatus.h"
 #include "OpcUaStackCore/ServiceSet/CallMethodResult.h"
 
 namespace OpcUaStackCore
@@ -31,9 +33,9 @@ namespace OpcUaStackCore
 	CallMethodResult::CallMethodResult(void)
 	: Object()
 	, statusCode_()
-	, inputArgumentResultArraySPtr_(constructSPtr<OpcUaStatusCodeArray>())
-	, inputArgumentDiagnosticInfoArraySPtr_(constructSPtr<OpcUaDiagnosticInfoArray>())
-	, outputArgumentArraySPtr_(constructSPtr<OpcUaVariantArray>())
+	, inputArgumentResultArraySPtr_(boost::make_shared<OpcUaStatusCodeArray>())
+	, inputArgumentDiagnosticInfoArraySPtr_(boost::make_shared<OpcUaDiagnosticInfoArray>())
+	, outputArgumentArraySPtr_(boost::make_shared<OpcUaVariantArray>())
 	{
 	}
 
@@ -89,23 +91,61 @@ namespace OpcUaStackCore
 		return outputArgumentArraySPtr_;
 	}
 
-	void 
+	void
+	CallMethodResult::copyTo(CallMethodResult& callMethodResult)
+	{
+		callMethodResult.statusCode(statusCode_);
+		inputArgumentResultArraySPtr_->copyTo(*callMethodResult.inputArgumentResults().get());
+		inputArgumentDiagnosticInfoArraySPtr_->copyTo(*callMethodResult.inputArgumentDiagnosticInfos().get());
+		outputArgumentArraySPtr_->copyTo(*callMethodResult.outputArguments().get());
+	}
+
+	bool
 	CallMethodResult::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, statusCode_);
-		inputArgumentResultArraySPtr_->opcUaBinaryEncode(os);
-		inputArgumentDiagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
-		outputArgumentArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, statusCode_);
+		rc &= inputArgumentResultArraySPtr_->opcUaBinaryEncode(os);
+		rc &= inputArgumentDiagnosticInfoArraySPtr_->opcUaBinaryEncode(os);
+		rc &= outputArgumentArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	CallMethodResult::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaInt32 tmp;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
 		statusCode_ = (OpcUaStatusCode)tmp;
-		inputArgumentResultArraySPtr_->opcUaBinaryDecode(is);
-		inputArgumentDiagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
-		outputArgumentArraySPtr_->opcUaBinaryDecode(is);
+		rc &= inputArgumentResultArraySPtr_->opcUaBinaryDecode(is);
+		rc &= inputArgumentDiagnosticInfoArraySPtr_->opcUaBinaryDecode(is);
+		rc &= outputArgumentArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
+
+	bool
+	CallMethodResult::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonNumberEncode(pt, (uint32_t)statusCode_, "StatusCode");
+		rc = rc & jsonArraySPtrEncode(pt, inputArgumentResultArraySPtr_, "InputArgumentResults", true);
+		rc = rc & jsonArraySPtrEncode(pt, outputArgumentArraySPtr_, "OutputArguments", true);
+		return rc;
+	}
+
+	bool
+	CallMethodResult::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonNumberDecode(pt, *(uint32_t*)&statusCode_, "StatusCode");
+		rc = rc & jsonArraySPtrDecode(pt, inputArgumentResultArraySPtr_, "InputArgumentResults", true);
+		rc = rc & jsonArraySPtrDecode(pt, outputArgumentArraySPtr_, "OutputArguments", true);
+		return rc;
+	}
+
 }

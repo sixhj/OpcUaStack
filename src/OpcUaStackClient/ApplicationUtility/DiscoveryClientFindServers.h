@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,71 +18,79 @@
 #ifndef __OpcUaStackClient_DiscoveryClientFindServers_h__
 #define __OpcUaStackClient_DiscoveryClientFindServers_h__
 
-#include "OpcUaStackCore/Base/os.h"
+#include <future>
 #include "OpcUaStackCore/Core/Core.h"
-#include "OpcUaStackCore/ServiceSet/RegisteredServer.h"
 #include "OpcUaStackCore/Utility/IOThread.h"
+#include "OpcUaStackCore/StandardDataTypes/RegisteredServer.h"
+#include "OpcUaStackCore/StandardDataTypes/ApplicationDescription.h"
 #include "OpcUaStackClient/ServiceSet/ServiceSetManager.h"
-#include "OpcUaStackClient/ApplicationUtility/DiscoveryClientFindServersIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
 
+	typedef std::function<
+		void (OpcUaStackCore::OpcUaStatusCode statusCode, OpcUaStackCore::ApplicationDescription::Vec& applicationDescriptionVec)
+	> FindServerHandler;
+
 	class DLLEXPORT DiscoveryClientFindServers
-	: public SessionServiceIf
-	, public DiscoveryServiceIf
-	, public DiscoveryClientFindServersIf
 	{
 	  public:
-		typedef boost::shared_ptr<DiscoveryClientFindServers> SPtr;
+		using SPtr = boost::shared_ptr<DiscoveryClientFindServers>;
+		using ShutdownCompleteCallback = std::function<void (void)>;
+
+		class ShutdownContext
+		{
+		  public:
+			using SPtr = boost::shared_ptr<ShutdownContext>;
+			ShutdownCompleteCallback shutdownCompleteCallback_;
+		};
 
 		DiscoveryClientFindServers(void);
 	    ~DiscoveryClientFindServers(void);
 
-	    void ioThread(IOThread::SPtr& ioThread);
+	    void ioThread(OpcUaStackCore::IOThread::SPtr& ioThread);
+	    void messageBus(OpcUaStackCore::MessageBus::SPtr& messageBus);
 	    void discoveryUri(const std::string& discoveryUri);
 
 		bool startup(void);
-		void shutdown(void);
+		void asyncShutdown(const ShutdownCompleteCallback& shutdownCompleteCallback);
+		void syncShutdown(void);
 
-		//- DiscoveryClientFindServerIf ---------------------------------------
-		//
-		// asyncFind
-		//   server uri of the discovery server
-		//   findResultCallback(OpcUaStatusCode, ApplicationDescription::Vec&)
-		//
-		virtual void asyncFind(const std::string serverUri, Callback& findResultCallback);
-		//- DiscoveryClientFindServerIf ---------------------------------------
-
-		//- SessionServiceIf --------------------------------------------------
-		virtual void sessionStateUpdate(SessionBase& session, SessionState sessionState);
-		//- SessionServiceIf --------------------------------------------------
-
-        //- DiscoveryServiceIf ------------------------------------------------
-        virtual void discoveryServiceFindServersResponse(ServiceTransactionFindServers::SPtr serviceTransactionFindServers);
-        //- DiscoveryServiceIf ------------------------------------------------
+		void asyncFind(
+			const std::string& serverUri,
+			const FindServerHandler& resultHandler
+		);
 
 	  public:
+		void shutdownComplete(void);
+		void discoveryServiceFindServersResponse(
+			OpcUaStackCore::ServiceTransactionFindServers::SPtr& serviceTransactionFindServers
+		);
         void sendFindServersRequest(void);
-        void shutdownTask(void);
+        void disconnectSession(void);
 
-		IOThread::SPtr ioThread_;
-		std::string discoveryUri_;
+		ShutdownContext::SPtr shutdownContext_ = nullptr;
+		SessionServiceStateId sessionState_ = SessionServiceStateId::Disconnected;
+
+        std::string threadPoolName_ = "";
+        OpcUaStackCore::IOThread::SPtr ioThread_ = nullptr;
+        boost::shared_ptr<boost::asio::io_service::strand> strand_ = nullptr;
+        OpcUaStackCore::MessageBus::SPtr messageBus_ = nullptr;
+		std::string discoveryUri_ = "";
 
 		ServiceSetManager serviceSetManager_;
 		SessionService::SPtr sessionService_;
 		DiscoveryService::SPtr discoveryService_;
 
 		std::string serverUri_;
-		Callback findResultCallback_;
+		FindServerHandler resultHandler_;
 
-		ApplicationDescription::Vec findResults_;
-		OpcUaStatusCode findStatusCode_;
+		OpcUaStackCore::ApplicationDescription::Vec findResults_;
+		OpcUaStackCore::OpcUaStatusCode findStatusCode_;
 
 		bool shutdown_;
-		Condition shutdownCond_;
+		std::promise<void> shutdownProm_;
+		SessionServiceStateId sessionStateId_;
 	};
 
 }

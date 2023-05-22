@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,48 +18,43 @@
 #ifndef __OpcUaStackClient_ViewService_h__
 #define __OpcUaStackClient_ViewService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 #include "OpcUaStackCore/ServiceSet/ViewServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/ViewServiceIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient 
 {
 
 	class DLLEXPORT ViewService
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<ViewService> SPtr;
 
-		ViewService(IOThread* ioThread);
+		ViewService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~ViewService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			ViewServiceIf* viewServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void viewServiceIf(ViewServiceIf* viewServiceIf);
 
-		void syncSend(ServiceTransactionBrowse::SPtr serviceTransactionBrowse);
-		void asyncSend(ServiceTransactionBrowse::SPtr serviceTransactionBrowse);
-		void syncSend(ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext);
-		void asyncSend(ServiceTransactionBrowseNext::SPtr serviceTransactionBrowseNext);
-		void syncSend(ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr serviceTransactionTranslateBrowsePathsToNodeIds);
-		void asyncSend(ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr serviceTransactionTranslateBrowsePathsToNodeIds);
-
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionBrowse::SPtr& serviceTransactionBrowse);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionBrowse::SPtr& serviceTransactionBrowse);
+		void syncSend(const OpcUaStackCore::ServiceTransactionBrowseNext::SPtr& serviceTransactionBrowseNext);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionBrowseNext::SPtr& serviceTransactionBrowseNext);
+		void syncSend(const OpcUaStackCore::ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr& serviceTransactionTranslateBrowsePathsToNodeIds);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionTranslateBrowsePathsToNodeIds::SPtr& serviceTransactionTranslateBrowsePathsToNodeIds);
 
 	  private:
-		Component* componentSession_;
-
-		ViewServiceIf* viewServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

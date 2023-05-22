@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,13 +19,10 @@
 #define __OpcUaStackCore_QueryFirstResponse_h__
 
 #include <stdint.h>
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/BuildInTypes/BuildInTypes.h"
-#include "OpcUaStackCore/SecureChannel/ResponseHeader.h"
+#include "OpcUaStackCore/BuildInTypes/OpcUaByteString.h"
 #include "OpcUaStackCore/ServiceSet/QueryDataSet.h"
 #include "OpcUaStackCore/ServiceSet/ParsingResult.h"
-#include "OpcUaStackCore/ServiceSet/ContentFilterResult.h"
+#include "OpcUaStackCore/StandardDataTypes/ContentFilterResult.h"
 
 namespace OpcUaStackCore
 {
@@ -50,8 +47,8 @@ namespace OpcUaStackCore
 		void filterResult(const ContentFilterResult& filterResult);
 		ContentFilterResult& filterResult(void);
 
-		void opcUaBinaryEncode(std::ostream& os) const;
-		void opcUaBinaryDecode(std::istream& is);
+		bool opcUaBinaryEncode(std::ostream& os) const;
+		bool opcUaBinaryDecode(std::istream& is);
 
 	  private:
 		QueryDataSetArray::SPtr queryDataSetArraySPtr_;

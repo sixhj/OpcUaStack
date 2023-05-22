@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,80 +23,82 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	QueryService::QueryService(IOThread* ioThread)
-	: componentSession_(nullptr)
-	, queryServiceIf_(nullptr)
+	QueryService::QueryService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	QueryService::~QueryService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	QueryService::setConfiguration(
-		Component* componentSession,
-		QueryServiceIf* queryServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		queryServiceIf_ = queryServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	QueryService::componentSession(Component* componentSession)
+	QueryService::syncSend(const ServiceTransactionQueryFirst::SPtr& serviceTransactionQueryFirst)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionQueryFirst);
 	}
 
 	void 
-	QueryService::queryServiceIf(QueryServiceIf* queryServiceIf)
+	QueryService::asyncSend(const ServiceTransactionQueryFirst::SPtr& serviceTransactionQueryFirst)
 	{
-		queryServiceIf_ = queryServiceIf;
-	}
-
-	void 
-	QueryService::syncSend(ServiceTransactionQueryFirst::SPtr serviceTransactionQueryFirst)
-	{
-		serviceTransactionQueryFirst->sync(true);
-		serviceTransactionQueryFirst->conditionBool().conditionInit();
-		asyncSend(serviceTransactionQueryFirst);
-		serviceTransactionQueryFirst->conditionBool().waitForCondition();
-	}
-
-	void 
-	QueryService::asyncSend(ServiceTransactionQueryFirst::SPtr serviceTransactionQueryFirst)
-	{
-		serviceTransactionQueryFirst->componentService(this);
-		componentSession_->sendAsync(serviceTransactionQueryFirst);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionQueryFirst);
 	}
 
 	void
-	QueryService::syncSend(ServiceTransactionQueryNext::SPtr serviceTransactionQueryNext)
+	QueryService::syncSend(const ServiceTransactionQueryNext::SPtr& serviceTransactionQueryNext)
 	{
-		serviceTransactionQueryNext->sync(true);
-		serviceTransactionQueryNext->conditionBool().conditionInit();
-		asyncSend(serviceTransactionQueryNext);
-		serviceTransactionQueryNext->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionQueryNext);
 	}
 
 	void
-	QueryService::asyncSend(ServiceTransactionQueryNext::SPtr serviceTransactionQueryNext)
+	QueryService::asyncSend(const ServiceTransactionQueryNext::SPtr& serviceTransactionQueryNext)
 	{
-		serviceTransactionQueryNext->componentService(this);
-		componentSession_->sendAsync(serviceTransactionQueryNext);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionQueryNext);
 	}
 
 
 	void 
-	QueryService::receive(Message::SPtr message)
+	QueryService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
 		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 		
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 		
@@ -104,20 +106,40 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_QueryFirstResponse_Encoding_DefaultBinary:
 			{
-				if (queryServiceIf_ != nullptr) {
-					queryServiceIf_->queryServiceQueryFirstResponse(
-						boost::static_pointer_cast<ServiceTransactionQueryFirst>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionQueryFirst>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_QueryNextResponse_Encoding_DefaultBinary:
 			{
-				if (queryServiceIf_ != nullptr) {
-					queryServiceIf_->queryServiceQueryNextResponse(
-						boost::static_pointer_cast<ServiceTransactionQueryNext>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionQueryNext>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

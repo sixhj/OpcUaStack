@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,11 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaClient/ClientCommand/CommandGetEndpoint.h"
 #include "OpcUaClient/ClientService/ClientServiceGetEndpoint.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -36,7 +36,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceGetEndpoint::createClientService(void)
 	{
-		return constructSPtr<ClientServiceGetEndpoint>();
+		return boost::make_shared<ClientServiceGetEndpoint>();
 	}
 
 	bool
@@ -77,7 +77,7 @@ namespace OpcUaClient
 
 		// create get endpoint request
 		ServiceTransactionGetEndpoints::SPtr trx;
-		trx = constructSPtr<ServiceTransactionGetEndpoints>();
+		trx = boost::make_shared<ServiceTransactionGetEndpoints>();
 		GetEndpointsRequest::SPtr req = trx->request();
 
 		// send read request

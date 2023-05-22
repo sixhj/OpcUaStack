@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -35,11 +35,12 @@ namespace OpcUaStackCore
 	}
 
 	ServiceTransaction::ServiceTransaction(OpcUaUInt32 nodeTypeRequest, OpcUaUInt32 nodeTypeResponse)
-	: requestTimeout_(0)
+	: Message(Message::ServiceTransaction)
+	, requestTimeout_(0)
 	, requestHeader_()
 	, responseHeader_()
 	, sync_(false)
-	, conditionBool_()
+	, promise_()
 	, handle_()
 	, userContext_()
 	{
@@ -106,10 +107,10 @@ namespace OpcUaStackCore
 		return sync_;
 	}
 
-	ConditionBool&
-	ServiceTransaction::conditionBool(void)
+	std::promise<bool>&
+	ServiceTransaction::promise(void)
 	{
-		return conditionBool_;
+		return promise_;
 	}
 
 	void 
@@ -122,7 +123,7 @@ namespace OpcUaStackCore
 	ServiceTransaction::requestHeader(void)
 	{
 		if (requestHeader_.get() == nullptr) {
-			requestHeader_ = constructSPtr<RequestHeader>();
+			requestHeader_ = boost::make_shared<RequestHeader>();
 		}
 		return requestHeader_;
 	}
@@ -137,7 +138,7 @@ namespace OpcUaStackCore
 	ServiceTransaction::responseHeader(void)
 	{
 		if (responseHeader_.get() == nullptr) {
-			responseHeader_ = constructSPtr<ResponseHeader>();
+			responseHeader_ = boost::make_shared<ResponseHeader>();
 		}
 		return responseHeader_;
 	}
@@ -154,28 +155,27 @@ namespace OpcUaStackCore
 		return nodeTypeResponse_;
 	}
 
-	Component*
-	ServiceTransaction::componentService(void)
+	void
+	ServiceTransaction::memberService(const MessageBusMember::WPtr& memberService)
 	{
-		return componentService_;
+		memberService_ = memberService;
 	}
 
-	void 
-	ServiceTransaction::componentService(Component* componentService)
+	MessageBusMember::WPtr&
+	ServiceTransaction::memberService(void)
 	{
-		componentService_ = componentService;
-	}
-	
-	Component*
-	ServiceTransaction::componentSession(void)
-	{
-		return componentSession_;
+		return memberService_;
 	}
 
-	void 
-	ServiceTransaction::componentSession(Component* componentSession)
+	void
+	ServiceTransaction::memberServiceSession(const MessageBusMember::WPtr& memberServiceSession) {
+		memberServiceSession_ = memberServiceSession;
+	}
+
+	MessageBusMember::WPtr&
+	ServiceTransaction::memberServiceSession(void)
 	{
-		componentSession_ = componentSession;
+		return memberServiceSession_;
 	}
 
 	void

@@ -1,3 +1,20 @@
+/*
+   Copyright 2015-2022 Kai Huebl (kai@huebl-sgh.de)
+
+   Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
+   Datei nur in Übereinstimmung mit der Lizenz erlaubt.
+   Eine Kopie der Lizenz erhalten Sie auf http://www.apache.org/licenses/LICENSE-2.0.
+
+   Sofern nicht gemäß geltendem Recht vorgeschrieben oder schriftlich vereinbart,
+   erfolgt die Bereitstellung der im Rahmen der Lizenz verbreiteten Software OHNE
+   GEWÄHR ODER VORBEHALTE – ganz gleich, ob ausdrücklich oder stillschweigend.
+
+   Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
+   im Rahmen der Lizenz finden Sie in der Lizenz.
+
+   Autor: Kai Huebl (kai@huebl-sgh.de)
+ */
+
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackCore/Utility/SlotTimer.h"
 
@@ -20,12 +37,46 @@ namespace OpcUaStackCore
 
 	SlotTimerElement::~SlotTimerElement(void)
 	{
+		sequenceNumber_ = 0;
 	}
 
-	Callback& 
-	SlotTimerElement::callback(void)
+	void
+	SlotTimerElement::timeoutCallback(const TimeoutCallback& timeoutCallback)
 	{
-		return callback_;
+		strand_ = nullptr;
+		timeoutCallback_ = timeoutCallback;
+	}
+
+	void
+	SlotTimerElement::timeoutCallback(
+		const boost::shared_ptr<boost::asio::io_service::strand>& strand,
+		const TimeoutCallback& timeoutCallback
+	)
+	{
+		strand_ = strand;
+		timeoutCallback_ = timeoutCallback;
+	}
+
+	void
+	SlotTimerElement::runTimer(void)
+	{
+		if (timeoutCallback_) {
+			if (strand_) {
+				WPtr thisWeakPtr(shared_from_this());
+				uint32_t sequenceNumber = sequenceNumber_;
+				strand_->dispatch(
+					[this, thisWeakPtr, sequenceNumber](){
+					    auto myPtr = thisWeakPtr.lock();
+					    if (myPtr && sequenceNumber == sequenceNumber_) {
+					        timeoutCallback_();
+					    }
+				    }
+				);
+			}
+			else {
+			    timeoutCallback_();
+			}
+		}
 	}
 
 	void 
@@ -122,6 +173,12 @@ namespace OpcUaStackCore
 		return handle_;
 	}
 
+	void
+	SlotTimerElement::incSequenceNumber(void)
+	{
+		sequenceNumber_++;
+	}
+
 
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
@@ -155,6 +212,7 @@ namespace OpcUaStackCore
 		}
 
 		delete [] slotList_;
+		slotList_ = nullptr;
 	}
 
 	void 
@@ -257,7 +315,7 @@ namespace OpcUaStackCore
 			}
 
 			if (mutex != nullptr) mutex->unlock();
-			slotTimerElement->callback()();
+			slotTimerElement->runTimer();
 			if (mutex != nullptr) mutex->lock();
 		}
 
@@ -380,6 +438,7 @@ namespace OpcUaStackCore
 	SlotTimer::start(SlotTimerElement::SPtr slotTimerElement)
 	{
 		boost::mutex::scoped_lock g(mutex_);
+		slotTimerElement->incSequenceNumber();
 		internalStart(slotTimerElement);
 	}
 
@@ -403,6 +462,7 @@ namespace OpcUaStackCore
 		if (!slotTimerElement->isRunning()) return;
 
 		boost::mutex::scoped_lock g(mutex_);
+		slotTimerElement->incSequenceNumber();
 		slotArray1_.remove(slotTimerElement);
 	}
 
@@ -441,15 +501,15 @@ namespace OpcUaStackCore
 				Log(Error, "slot timer error");
 			}
 			running_ = false;
-			stopCondition_.sendEvent();
 			mutex_.unlock();
+			stopCondition_.set_value();
 			ownSPtr_.reset();
 			return;
 		}
 
 		if (running_ == false) {
-			stopCondition_.sendEvent();
 			mutex_.unlock();
+			stopCondition_.set_value();
 			ownSPtr_.reset();
 			return;
 		}
@@ -467,8 +527,8 @@ namespace OpcUaStackCore
 		uint64_t nextTick = slotArray1_.run(&mutex_);
 
 		if (running_ == false) {
-			stopCondition_.sendEvent();
 			mutex_.unlock();
+			stopCondition_.set_value();
 			ownSPtr_.reset();
 			return;
 		}
@@ -486,35 +546,51 @@ namespace OpcUaStackCore
 	void 
 	SlotTimer::startSlotTimerLoop(IOService* ioService)
 	{
+		Log(Debug, "slot timer starting");
+
 		running_ = true;
 		ioService_ = ioService;
 		startTime_ = boost::posix_time::microsec_clock::local_time();
 
 		timer_ = new boost::asio::deadline_timer(ioService->io_service(), boost::posix_time::milliseconds(0));
 		timer_->async_wait(boost::bind(&SlotTimer::loop, this, boost::asio::placeholders::error));
+
+		Log(Debug, "slot timer started");
 	}
 		
 	void 
 	SlotTimer::stopSlotTimerLoop(void)
 	{
+		if (!running_) return;
+
+		Log(Debug, "slot timer stopping");
+
 		running_ = false;
 		IOService::msecSleep(100);
 		delete timer_;
 		timer_ = nullptr;
+
+		Log(Debug, "slot timer stopped");
 	}
 
 	void
 	SlotTimer::stopSlotTimerLoopSync(void)
 	{
+		if (!running_) return;
+
+		Log(Debug, "slot timer stopping");
+
 		mutex_.lock();
-		stopCondition_.initEvent();
+		auto future = stopCondition_.get_future();
 		running_ = false;
 		timer_->cancel();
 		mutex_.unlock();
 
-		stopCondition_.waitForEvent();
+		future.wait();
 		delete timer_;
 		timer_ = nullptr;
+
+		Log(Debug, "slot timer stopped");
 	}
 
 	void

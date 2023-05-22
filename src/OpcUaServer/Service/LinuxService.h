@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,12 @@
 #ifndef __OpcUaServer_LinuxService_h__
 #define __OpcUaServer_LinuxService_h__
 
-#include "OpcUaServer/Interface/ServerApplicationIf.h"
+#include "OpcUaServer/Interface/ServerLoopIf.h"
 
 namespace OpcUaServer
 {
 
-	class LinuxService
+	class DLLEXPORT LinuxService
 	{
 	  public:
 		static LinuxService* instance_;
@@ -35,11 +35,11 @@ namespace OpcUaServer
 		void usage(void);
 		void main(unsigned int argc, char** argv);
 
-		void serverApplicationIf(ServerApplicationIf* serverApplicationIf);
+		void serverLoopIf(ServerLoopIf* serverLoopIf);
 		void stop(void);
 
 	  private:
-		ServerApplicationIf* serverApplicationIf_;
+		ServerLoopIf* serverLoopIf_;
 	};
 
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,9 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSetApplication/RegisterForwardNode.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -91,68 +93,135 @@ namespace OpcUaStackServer
 	}
 
 	void
-	RegisterForwardNode::setReadCallback(Callback& callback)
+	RegisterForwardNode::addApplicationContext(BaseClass::SPtr& applicationContext)
+	{
+		applicationContextVec_.push_back(applicationContext);
+	}
+
+	void
+	RegisterForwardNode::addApplicationContext(std::vector<BaseClass::SPtr>& applicationContextVec)
+	{
+		applicationContextVec_.insert(
+			applicationContextVec_.end(),
+			applicationContextVec.begin(),
+			applicationContextVec.end()
+		);
+	}
+
+	void
+	RegisterForwardNode::applicationContext(BaseClass::SPtr& applicationContext)
+	{
+		applicationContextVec_.clear();
+		applicationContextVec_.push_back(applicationContext);
+	}
+
+	void
+	RegisterForwardNode::applicationContext(std::vector<BaseClass::SPtr>& applicationContextVec)
+	{
+		applicationContextVec_ = applicationContextVec;
+	}
+
+	std::vector<BaseClass::SPtr>&
+	RegisterForwardNode::applicationContextVec(void)
+	{
+		return applicationContextVec_;
+	}
+
+	void
+	RegisterForwardNode::setReadCallback(
+		ApplicationCallback::Read callback
+	)
 	{
 		forwardNodeSync_.readService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setWriteCallback(Callback& callback)
+	RegisterForwardNode::setWriteCallback(
+		ApplicationCallback::Write callback
+	)
 	{
 		forwardNodeSync_.writeService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setReadHCallback(Callback& callback)
+	RegisterForwardNode::setReadHCallback(
+		ApplicationCallback::HRead callback
+	)
 	{
 		forwardNodeSync_.readHService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setReadHECallback(Callback& callback)
+	RegisterForwardNode::setReadHECallback(
+		ApplicationCallback::HERead callback
+	)
 	{
 		forwardNodeSync_.readHEService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setWriteHCallback(Callback& callback)
+	RegisterForwardNode::setWriteHCallback(
+		ApplicationCallback::HWrite callback
+	)
 	{
 		forwardNodeSync_.writeHService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setMethodCallback(Callback& callback)
+	RegisterForwardNode::setMethodCallback(
+		ApplicationCallback::Method callback
+	)
 	{
 		forwardNodeSync_.methodService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setMonitoredItemStartCallback(Callback& callback)
+	RegisterForwardNode::setMonitoredItemStartCallback(
+		ApplicationCallback::MonitoredItemStart callback
+	)
 	{
 		forwardNodeSync_.monitoredItemStartService().setCallback(callback);
 	}
 
 	void
-	RegisterForwardNode::setMonitoredItemStopCallback(Callback& callback)
+	RegisterForwardNode::setMonitoredItemStopCallback(
+		ApplicationCallback::MonitoredItemStop callback
+	)
 	{
 		forwardNodeSync_.monitoredItemStopService().setCallback(callback);
 	}
 
 	bool
-	RegisterForwardNode::query(ApplicationServiceIf* applicationServiceIf, bool checkStatusCodeArray)
+	RegisterForwardNode::query(
+		ApplicationServiceIf* applicationServiceIf,
+		bool checkStatusCodeArray
+	)
 	{
 		if (nodes_.size() == 0) return false;
 
 		resultCode_ = Success;
 		statuses_.clear();
 
+		// check parameter
+		if (!applicationContextVec_.empty() && applicationContextVec_.size() != nodes_.size()) {
+			return false;
+		}
+
+		//
 		// create request
-		auto trx = constructSPtr<ServiceTransactionRegisterForwardNode>();
+		//
+		auto trx = boost::make_shared<ServiceTransactionRegisterForwardNode>();
 		trx->request()->nodesToRegister()->resize(nodes_.size());
-		for (auto node : nodes_) trx->request()->nodesToRegister()->push_back(constructSPtr<OpcUaNodeId>(node));
+		for (auto node : nodes_) trx->request()->nodesToRegister()->push_back(boost::make_shared<OpcUaNodeId>(node));
+		if (!applicationContextVec_.empty()) {
+			trx->request()->applicationContextArray()->resize(applicationContextVec_.size());
+			for (auto applicationContext : applicationContextVec_) trx->request()->applicationContextArray()->push_back(applicationContext);
+		}
 		trx->request()->forwardNodeSync()->updateFrom(forwardNodeSync_);
 
+		//
 		// send query to application service
+		//
 		applicationServiceIf->sendSync(trx);
 		resultCode_ = trx->statusCode();
 	  	if (resultCode_ != Success) {

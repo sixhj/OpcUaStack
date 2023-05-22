@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -36,7 +36,7 @@ namespace OpcUaStackCore
 	, indexRange_()
 	, dataEncoding_()
 	{
-		nodeIdSPtr_ = constructSPtr<OpcUaNodeId>();
+		nodeIdSPtr_ = boost::make_shared<OpcUaNodeId>();
 	}
 
 	ReadValueId::~ReadValueId(void)
@@ -118,22 +118,63 @@ namespace OpcUaStackCore
 		dataEncoding_ = name;
 	}
 
-	void 
+	void
+	ReadValueId::copyTo(ReadValueId& readValueId)
+	{
+		nodeIdSPtr_->copyTo(*readValueId.nodeId().get());
+		readValueId.attributeId(attributeId_);
+		OpcUaString indexRange;
+		indexRange_.copyTo(indexRange);
+		readValueId.indexRange(indexRange);
+		dataEncoding_.copyTo(readValueId.dataEncoding());
+	}
+
+	bool
 	ReadValueId::opcUaBinaryEncode(std::ostream& os) const
 	{
-		nodeIdSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, attributeId_);
-		indexRange_.opcUaBinaryEncode(os);
-		dataEncoding_.opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= nodeIdSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, attributeId_);
+		rc &= indexRange_.opcUaBinaryEncode(os);
+		rc &= dataEncoding_.opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	ReadValueId::opcUaBinaryDecode(std::istream& is)
 	{
-		nodeIdSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, attributeId_);
-		indexRange_.opcUaBinaryDecode(is);
-		dataEncoding_.opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= nodeIdSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, attributeId_);
+		rc &= indexRange_.opcUaBinaryDecode(is);
+		rc &= dataEncoding_.opcUaBinaryDecode(is);
+
+		return true;
+	}
+
+	bool
+	ReadValueId::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrEncode(pt, nodeIdSPtr_, "NodeId");
+		rc = rc & jsonNumberEncode(pt, attributeId_, "AttributeId", true, (OpcUaInt32)13);
+		rc = rc & jsonObjectEncode(pt, indexRange_, "IndexRange", true);
+		rc = rc & jsonObjectEncode(pt, dataEncoding_, "DataEncoding", true);
+		return rc;
+	}
+
+	bool
+	ReadValueId::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonObjectSPtrDecode(pt, nodeIdSPtr_, "NodeId");
+		rc = rc & jsonNumberDecode(pt, attributeId_, "AttributeId", true, (OpcUaInt32)13);
+		rc = rc & jsonObjectDecode(pt, indexRange_, "IndexRange", true);
+		rc = rc & jsonObjectDecode(pt, dataEncoding_, "DataEncoding", true);
+		return rc;
 	}
 
 }

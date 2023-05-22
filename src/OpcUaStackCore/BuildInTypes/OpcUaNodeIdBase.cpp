@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-218 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,11 +12,12 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include <boost/lexical_cast.hpp>
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeIdBase.h"
+#include "OpcUaStackCore/BuildInTypes/JsonNumber.h"
 #include <sstream>
 
 namespace OpcUaStackCore
@@ -119,22 +120,52 @@ namespace OpcUaStackCore
 	OpcUaNodeIdBase::set(const std::string& nodeId, OpcUaUInt16 namespaceIndex)
 	{
 		if (nodeId.length() == 36 && nodeId.substr(8,1) == "-" && nodeId.substr(13,1) == "-" && nodeId.substr(18,1) == "-" && nodeId.substr(23,1) == "-") {
-			OpcUaGuid::SPtr opcUaGuidSPtr = constructSPtr<OpcUaGuid>();
+			OpcUaGuid::SPtr opcUaGuidSPtr = boost::make_shared<OpcUaGuid>();
 			*opcUaGuidSPtr = nodeId;
 			nodeIdValue_ = opcUaGuidSPtr;
 		}
 		else {
-			OpcUaString::SPtr opcUaStringSPtr = constructSPtr<OpcUaString>();
+			OpcUaString::SPtr opcUaStringSPtr = boost::make_shared<OpcUaString>();
 			*opcUaStringSPtr = nodeId;
 			nodeIdValue_ = opcUaStringSPtr;
 		}
 		namespaceIndex_ = namespaceIndex;
 	}
 
+	void
+	OpcUaNodeIdBase::set(const OpcUaString& nodeId, OpcUaUInt16 namespaceIndex)
+	{
+		set(nodeId.value(), namespaceIndex);
+	}
+
+	void
+	OpcUaNodeIdBase::set(const OpcUaGuid& nodeId, OpcUaUInt16 namespaceIndex)
+	{
+		OpcUaGuid::SPtr opcUaGuidSPtr = boost::make_shared<OpcUaGuid>();
+		*opcUaGuidSPtr = nodeId;
+		nodeIdValue_ = opcUaGuidSPtr;
+		namespaceIndex_ = namespaceIndex;
+	}
+
+	void
+	OpcUaNodeIdBase::set(const OpcUaByteString& nodeId, OpcUaUInt16 namespaceIndex)
+	{
+		OpcUaByteString::SPtr opcUaByteStringSPtr = boost::make_shared<OpcUaByteString>();
+		*opcUaByteStringSPtr = nodeId;
+		nodeIdValue_ = opcUaByteStringSPtr;
+		namespaceIndex_ = namespaceIndex;
+	}
+
+	void
+	OpcUaNodeIdBase::set(const OpcUaNodeIdNullType& nodeId)
+	{
+		setNull();
+	}
+
 	void 
 	OpcUaNodeIdBase::set(OpcUaByte* buf, OpcUaInt32 bufLen, OpcUaUInt16 namespaceIndex)
 	{
-		OpcUaByteString::SPtr opcUaByteStringSPtr = constructSPtr<OpcUaByteString>();
+		OpcUaByteString::SPtr opcUaByteStringSPtr = boost::make_shared<OpcUaByteString>();
 		opcUaByteStringSPtr->value(buf, bufLen);
 		namespaceIndex_ = namespaceIndex;
 		nodeIdValue_ = opcUaByteStringSPtr;
@@ -164,7 +195,7 @@ namespace OpcUaStackCore
 		else if (nodeIdType() == OpcUaBuildInType_OpcUaGuid) {
 			OpcUaGuid::SPtr opcUaGuidSPtr;
 			opcUaGuidSPtr = boost::get<OpcUaGuid::SPtr>(nodeIdValue_); 
-			nodeId = *opcUaGuidSPtr;
+			nodeId = opcUaGuidSPtr->value();
 		}
 		else {
 			return false;
@@ -201,9 +232,9 @@ namespace OpcUaStackCore
 	}
 
 	void
-	OpcUaNodeIdBase::copyFrom(OpcUaNodeIdBase& opcUaNodeIdBase)
+	OpcUaNodeIdBase::copyFrom(const OpcUaNodeIdBase& opcUaNodeIdBase)
 	{
-		opcUaNodeIdBase.copyTo(*this);
+		const_cast<OpcUaNodeIdBase*>(&opcUaNodeIdBase)->copyTo(*this);
 	}
 
 	void 
@@ -223,7 +254,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaString:
 			{
 				OpcUaString::SPtr value = boost::get<OpcUaString::SPtr>(nodeIdValue_);
-				OpcUaString::SPtr newValue = constructSPtr<OpcUaString>();
+				OpcUaString::SPtr newValue = boost::make_shared<OpcUaString>();
 				value->copyTo(*newValue);
 				opcUaNodeIdBase.nodeId(newValue);
 				break;
@@ -231,7 +262,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaGuid:
 			{
 				OpcUaGuid::SPtr value = boost::get<OpcUaGuid::SPtr>(nodeIdValue_);
-				OpcUaGuid::SPtr newValue = constructSPtr<OpcUaGuid>();
+				OpcUaGuid::SPtr newValue = boost::make_shared<OpcUaGuid>();
 				value->copyTo(*newValue);
 				opcUaNodeIdBase.nodeId(newValue);
 				break;
@@ -239,11 +270,13 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaByteString:
 			{
 				OpcUaByteString::SPtr value = boost::get<OpcUaByteString::SPtr>(nodeIdValue_);
-				OpcUaByteString::SPtr newValue = constructSPtr<OpcUaByteString>();
+				OpcUaByteString::SPtr newValue = boost::make_shared<OpcUaByteString>();
 				value->copyTo(*newValue);
 				opcUaNodeIdBase.nodeId(newValue);
 				break;
 			}
+			default:
+				Log(Error, "Unknown type").parameter("TypeId", type);
 		}
 	}
 
@@ -320,10 +353,28 @@ namespace OpcUaStackCore
 				return *value1 < *value2;
 				break;
 			}
+
+			default: Log(Error, "Unknown type").parameter("TypeId", nodeIdType());
 		}
 
 		return false;
 	}
+
+	bool
+	OpcUaNodeIdBase::isNull(void) const
+	{
+		if (nodeIdType() == OpcUaBuildInType_Unknown) {
+			return true;
+		}
+		return false;
+	}
+
+    void
+	OpcUaNodeIdBase::setNull(void)
+    {
+		namespaceIndex_ = 0;
+		nodeIdValue_ = OpcUaNodeIdNullType();
+    }
 
 	OpcUaByte 
 	OpcUaNodeIdBase::encodingFlag(void) const
@@ -342,9 +393,11 @@ namespace OpcUaStackCore
 		os << *this;
 	}
 
-	void 
+	bool
 	OpcUaNodeIdBase::opcUaBinaryEncode(std::ostream& os) const
 	{
+		bool rc = true;
+
 		OpcUaBuildInType type =  nodeIdType();
 		OpcUaByte ef = encodingFlag();
 
@@ -370,9 +423,9 @@ namespace OpcUaStackCore
 				//
 
 				OpcUaByte encodingMask = 0x00+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaByte)identifier);
-				return;
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaByte)identifier);
+				return rc;
 			}
 		}
 
@@ -385,10 +438,10 @@ namespace OpcUaStackCore
 				//
 
 				OpcUaByte encodingMask = 0x01+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaByte)namespaceIndex_);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaUInt16)identifier);
-				return;
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaByte)namespaceIndex_);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaStackCore::OpcUaUInt16)identifier);
+				return rc;
 			}
 		}
 
@@ -397,43 +450,51 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaUInt32:
 			{
 				OpcUaByte encodingMask = 0x02+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
-				OpcUaNumber::opcUaBinaryEncode(os, boost::get<OpcUaUInt32>(nodeIdValue_));
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, boost::get<OpcUaUInt32>(nodeIdValue_));
 				break;
 			}
 			case OpcUaBuildInType_OpcUaString:
 			{
 				OpcUaByte encodingMask = 0x03+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
-				boost::get<OpcUaString::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &=  OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
+				rc &= boost::get<OpcUaString::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
 				break;
 			}
 			case OpcUaBuildInType_OpcUaGuid:
 			{
 				OpcUaByte encodingMask = 0x04+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
-				boost::get<OpcUaGuid::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
+				rc &= boost::get<OpcUaGuid::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
 				break;
 			}
 			case OpcUaBuildInType_OpcUaByteString:
 			{
 				OpcUaByte encodingMask = 0x05+ef;
-				OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
-				OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
-				boost::get<OpcUaByteString::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, encodingMask);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, namespaceIndex_);
+				rc &= boost::get<OpcUaByteString::SPtr>(nodeIdValue_)->opcUaBinaryEncode(os);
 				break;
 			}
+			default:
+			{
+				rc = false;
+				Log(Error, "Unknown type").parameter("TypeId", nodeIdType());
+			}
 		}
+		return rc;
 	}
 
-	void 
+	bool
 	OpcUaNodeIdBase::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaByte encodingByte;
-		OpcUaNumber::opcUaBinaryDecode(is, encodingByte);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, encodingByte);
 
 		OpcUaByte ef = encodingByte & 0xF0;
 		encodingFlag(ef);
@@ -445,7 +506,7 @@ namespace OpcUaStackCore
 			{
 				OpcUaByte identifier;
 				namespaceIndex_ = 0;
-				OpcUaNumber::opcUaBinaryDecode(is, identifier);
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, identifier);
 				nodeIdValue_ = (OpcUaInt32)identifier;
 				break;
 			}
@@ -453,8 +514,8 @@ namespace OpcUaStackCore
 			{
 				OpcUaByte namespaceIndex;
 				OpcUaUInt16 identifier;
-				OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex);
-				OpcUaNumber::opcUaBinaryDecode(is, identifier);
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex);
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, identifier);
 				namespaceIndex_ = namespaceIndex;
 				nodeIdValue_ = (OpcUaInt32)identifier;
 				break;
@@ -462,53 +523,38 @@ namespace OpcUaStackCore
 			case 0x02:
 			{
 				OpcUaInt32 value;
-				OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
-				OpcUaNumber::opcUaBinaryDecode(is, value);
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, value);
 				nodeIdValue_ = value;
 				break;
 			}
 			case 0x03:
 			{
-				OpcUaString::SPtr value = constructSPtr<OpcUaString>();
-				OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
-				value->opcUaBinaryDecode(is);
+				OpcUaString::SPtr value = boost::make_shared<OpcUaString>();
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
+				rc &= value->opcUaBinaryDecode(is);
 				nodeIdValue_ = value;
 				break;
 			}
 			case 0x04:
 			{
-				OpcUaGuid::SPtr value = constructSPtr<OpcUaGuid>();
-				OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
-				value->opcUaBinaryDecode(is);
+				OpcUaGuid::SPtr value = boost::make_shared<OpcUaGuid>();
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
+				rc &= value->opcUaBinaryDecode(is);
 				nodeIdValue_ = value;
 				break;
 			}
 			case 0x05:
 			{
-				OpcUaByteString::SPtr value = constructSPtr<OpcUaByteString>();
-				OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
-				value->opcUaBinaryDecode(is);
+				OpcUaByteString::SPtr value = boost::make_shared<OpcUaByteString>();
+				rc &= OpcUaNumber::opcUaBinaryDecode(is, namespaceIndex_);
+				rc &= value->opcUaBinaryDecode(is);
 				nodeIdValue_ = value;
 				break;
 			}
 		}
-	}
 
-	bool
-	OpcUaNodeIdBase::encode(boost::property_tree::ptree& pt) const
-	{
-		std::string nodeIdString = toString();
-		pt.put_value<std::string>(nodeIdString);
-		return true;
-	}
-
-	bool
-	OpcUaNodeIdBase::decode(boost::property_tree::ptree& pt)
-	{
-		std::string nodeIdString;
-		nodeIdString = pt.get_value<std::string>();
-		if (!fromString(nodeIdString)) return false;
-		return true;
+		return rc;
 	}
 
 	bool
@@ -520,27 +566,170 @@ namespace OpcUaStackCore
 				.parameter("Element", element);
 			return false;
 		}
-		pt.push_back(std::make_pair(xmlns.addxmlns(element), elementTree));
+		pt.push_back(std::make_pair(xmlns.addPrefix(element), elementTree));
 		return true;
 	}
 
 	bool
 	OpcUaNodeIdBase::xmlEncode(boost::property_tree::ptree& pt, Xmlns& xmlns)
 	{
-		pt.put(xmlns.addxmlns("Identifier"), toString());
+		pt.put(xmlns.addPrefix("Identifier"), toString());
 		return true;
 	}
 
 	bool
 	OpcUaNodeIdBase::xmlDecode(boost::property_tree::ptree& pt, Xmlns& xmlns)
 	{
-		boost::optional<std::string> sourceValue = pt.get_optional<std::string>(xmlns.addxmlns("Identifier"));
+		boost::optional<std::string> sourceValue = pt.get_optional<std::string>(xmlns.addPrefix("Identifier"));
 		if (!sourceValue) {
 			Log(Error, "OpcUaNodeId xml decoder error - element not exist in xml document")
 				.parameter("Element", "Identifier");
 			return false;
 		}
 		return fromString(*sourceValue);
+	}
+
+	bool
+	OpcUaNodeIdBase::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		switch (nodeIdType())
+		{
+			case OpcUaBuildInType_OpcUaString:
+			{
+				OpcUaUInt32 idType = 1;
+				if (!JsonNumber::jsonEncode(pt, idType, "IdType")) {
+					Log(Error, "OpcUaNodeId json encode error")
+					    .parameter("Element", "IdType");
+					return false;
+				}
+				OpcUaString::SPtr string = boost::get<OpcUaString::SPtr>(nodeIdValue_);
+				if (!string->jsonEncode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json encode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				break;
+			}
+			case OpcUaBuildInType_OpcUaGuid:
+			{
+				OpcUaUInt32 idType = 2;
+				if (!JsonNumber::jsonEncode(pt, idType, "IdType")) {
+					Log(Error, "OpcUaNodeId json encode error")
+					    .parameter("Element", "IdType");
+					return false;
+				}
+				OpcUaGuid::SPtr guid = boost::get<OpcUaGuid::SPtr>(nodeIdValue_);
+				if (!guid->jsonEncode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json encode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				break;
+			}
+			case OpcUaBuildInType_OpcUaByteString:
+			{
+				OpcUaUInt32 idType = 3;
+				if (!JsonNumber::jsonEncode(pt, idType, "IdType")) {
+					Log(Error, "OpcUaNodeId json encode error")
+					    .parameter("Element", "IdType");
+					return false;
+				}
+				OpcUaByteString::SPtr byteString = boost::get<OpcUaByteString::SPtr>(nodeIdValue_);
+				if (!byteString->jsonEncode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json encode error")
+						.parameter("Element", "Id");
+					return false;
+				}
+				break;
+			}
+			default:
+			{
+				OpcUaUInt32 number = boost::get<OpcUaUInt32>(nodeIdValue_);
+				if (!JsonNumber::jsonEncode(pt, number, "Id")) {
+					Log(Error, "OpcUaNodeId json encode error")
+						.parameter("Element", "Id");
+					return false;
+				}
+				break;
+			}
+		}
+
+		// add namespace
+		if (namespaceIndex_ != 0) {
+			JsonNumber::jsonEncode(pt, namespaceIndex_, "Namespace");
+		}
+		return true;
+	}
+
+	bool
+	OpcUaNodeIdBase::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		OpcUaUInt32 idType = 0;
+		if (!JsonNumber::jsonDecode(pt, idType, "IdType")) {
+			idType = 0;
+		}
+
+		OpcUaUInt16 namespaceIndex = 0;
+		if (!JsonNumber::jsonDecode(pt, namespaceIndex, "Namespace")) {
+			namespaceIndex = 0;
+		}
+
+		switch (idType)
+		{
+			case 0: // uint32
+			{
+				OpcUaUInt32 id;
+				if (!JsonNumber::jsonDecode(pt, id, "Id")) {
+					Log(Error, "OpcUaNodeId json decode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				set(id, namespaceIndex);
+				break;
+			}
+			case 1: // string
+			{
+				OpcUaString id;
+				if (!id.jsonDecode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json decode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				set(id, namespaceIndex);
+				break;
+			}
+			case 2: // guid
+			{
+				OpcUaGuid id;
+				if (!id.jsonDecode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json decode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				set(id, namespaceIndex);
+				break;
+			}
+			case 3: // byte string
+			{
+				OpcUaByteString id;
+				if (!id.jsonDecode(pt, "Id")) {
+					Log(Error, "OpcUaNodeId json decode error")
+					    .parameter("Element", "Id");
+					return false;
+				}
+				set(id, namespaceIndex);
+				break;
+			}
+			default:
+			{
+				Log(Error, "OpcUaNodeId json decode error - IdType invalid")
+				    .parameter("Element", "Id")
+					.parameter("IdType", idType);
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	bool 
@@ -603,7 +792,7 @@ namespace OpcUaStackCore
 			posEnd = nodeIdString.length();
 
 			try {
-				OpcUaString::SPtr value = constructSPtr<OpcUaString>();
+				OpcUaString::SPtr value = boost::make_shared<OpcUaString>();
 				*value = nodeIdString.substr(posBegin, posEnd-posBegin); 
 				nodeId(value);
 			} catch (boost::bad_lexical_cast&)
@@ -623,7 +812,7 @@ namespace OpcUaStackCore
 			posEnd = nodeIdString.length();
 
 			try {
-				OpcUaGuid::SPtr value = constructSPtr<OpcUaGuid>();
+				OpcUaGuid::SPtr value = boost::make_shared<OpcUaGuid>();
 				*value = nodeIdString.substr(posBegin, posEnd-posBegin);
 				nodeId(value);
 			} catch (boost::bad_lexical_cast&)
@@ -680,7 +869,9 @@ namespace OpcUaStackCore
 				}
 				break;
 			}
+			default: Log(Error, "Unknown type").parameter("TypeId", nodeIdType());
 		}
+
 		return nodeIdStream.str();
 	}
 

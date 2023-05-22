@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,6 +17,8 @@
 
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
 #include "OpcUaStackServer/InformationModel/NamespaceArray.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -60,7 +62,7 @@ namespace OpcUaStackServer
 			return false;
 		}
 
-		OpcUaString::SPtr stringValue = constructSPtr<OpcUaString>();
+		OpcUaString::SPtr stringValue = boost::make_shared<OpcUaString>();
 		*stringValue = namespaceName;
 		dataValue.variant()->pushBack(stringValue);
 		dataValue.statusCode(Success);
@@ -76,7 +78,7 @@ namespace OpcUaStackServer
 		OpcUaDataValue dataValue;
 		std::vector<std::string>::iterator it;
 		for (it = namespaceNameVec.begin(); it != namespaceNameVec.end(); it++) {
-			OpcUaString::SPtr stringValue = constructSPtr<OpcUaString>();
+			OpcUaString::SPtr stringValue = boost::make_shared<OpcUaString>();
 			*stringValue = *it;
 			dataValue.variant()->pushBack(stringValue);
 		}
@@ -97,7 +99,7 @@ namespace OpcUaStackServer
 
 		std::vector<std::string>::iterator it;
 		for (it = namespaceNameVec.begin(); it != namespaceNameVec.end(); it++) {
-			OpcUaString::SPtr stringValue = constructSPtr<OpcUaString>();
+			OpcUaString::SPtr stringValue = boost::make_shared<OpcUaString>();
 			*stringValue = *it;
 			dataValue.variant()->pushBack(stringValue);
 		}

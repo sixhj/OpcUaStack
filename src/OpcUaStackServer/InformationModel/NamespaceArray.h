@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,19 +18,13 @@
 #ifndef __OpcUaStackServer_NamespaceArray_h__
 #define __OpcUaStackServer_NamespaceArray_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
-#include "OpcUaStackCore/BuildInTypes/OpcUaExpandedNodeId.h"
 #include "OpcUaStackServer/InformationModel/InformationModel.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT NamespaceArray
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
 		typedef boost::shared_ptr<NamespaceArray> SPtr;
@@ -46,7 +40,7 @@ namespace OpcUaStackServer
 		bool replaceNamespaceNames(std::vector<std::string>& namespaceNameVec);
 		int32_t getNamespaceIndex(const std::string& namespaceName);
 		std::string getNamespaceName(uint32_t namespaceIndex);
-		bool expandedNodeIdToNodeId(OpcUaExpandedNodeId& expandedNodeId, OpcUaNodeId& nodeId);
+		bool expandedNodeIdToNodeId(OpcUaStackCore::OpcUaExpandedNodeId& expandedNodeId, OpcUaStackCore::OpcUaNodeId& nodeId);
 		bool existNamespaceIndex(uint32_t namespaceIndex);
 		bool existNamespaceName(const std::string& namespaceName);
 

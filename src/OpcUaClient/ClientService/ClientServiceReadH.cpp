@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,13 +16,13 @@
  */
 
 #include "OpcUaStackCore/Base/Log.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/ServiceSet/ReadRawModifiedDetails.h"
-#include "OpcUaStackCore/ServiceSet/HistoryData.h"
+#include "OpcUaStackCore/StandardDataTypes/ReadRawModifiedDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/HistoryData.h"
 #include "OpcUaClient/ClientCommand/CommandReadH.h"
 #include "OpcUaClient/ClientService/ClientServiceReadH.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -40,7 +40,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceReadH::createClientService(void)
 	{
-		return constructSPtr<ClientServiceReadH>();
+		return boost::make_shared<ClientServiceReadH>();
 	}
 
 	bool
@@ -95,20 +95,20 @@ namespace OpcUaClient
 
 		OpcUaStatusCode statusCode;
 		ServiceTransactionHistoryRead::SPtr trx;
-		trx = constructSPtr<ServiceTransactionHistoryRead>();
+		trx = boost::make_shared<ServiceTransactionHistoryRead>();
 		HistoryReadRequest::SPtr req = trx->request();
 
 		ReadRawModifiedDetails::SPtr readDetails;
 		req->historyReadDetails()->parameterTypeId().set((OpcUaUInt32)OpcUaId_ReadRawModifiedDetails_Encoding_DefaultBinary);
 		req->timestampsToReturn(commandReadH->timestampsToReturn());
 		readDetails = req->historyReadDetails()->parameter<ReadRawModifiedDetails>();
-		readDetails->startTime(commandReadH->startTime());
-		readDetails->endTime(commandReadH->endTime());
-		readDetails->numValuesPerNode(commandReadH->maxNumResultValuesPerNode());
+		readDetails->startTime() = commandReadH->startTime();
+		readDetails->endTime() = commandReadH->endTime();
+		readDetails->numValuesPerNode() = commandReadH->maxNumResultValuesPerNode();
 
 		req->nodesToRead()->resize(commandReadH->nodeIdVec().size());
 		for (uint32_t idx=0; idx<commandReadH->nodeIdVec().size(); idx++) {
-			HistoryReadValueId::SPtr readValueId = constructSPtr<HistoryReadValueId>();
+			HistoryReadValueId::SPtr readValueId = boost::make_shared<HistoryReadValueId>();
 			readValueId->nodeId()->copyFrom(*commandReadH->nodeIdVec()[idx]);
 			readValueId->dataEncoding().namespaceIndex((OpcUaInt16) 0);
 			req->nodesToRead()->push_back(readValueId);
@@ -159,14 +159,14 @@ namespace OpcUaClient
 			}
 
 			HistoryData::SPtr historyData = readResult->historyData()->parameter<HistoryData>();
-			for (uint32_t idxv=0; idxv<historyData->dataValues()->size(); idxv++) {
+			for (uint32_t idxv=0; idxv<historyData->dataValues().size(); idxv++) {
 				OpcUaDataValue::SPtr dataValue;
-				historyData->dataValues()->get(idxv, dataValue);
+				historyData->dataValues().get(idxv, dataValue);
 				output(*dataValue, commandReadH);
 			}
 
 
-			if (readResult->continuationPoint().exist()  && historyData->dataValues()->size() > 0) {
+			if (readResult->continuationPoint().exist()  && historyData->dataValues().size() > 0) {
 				HistoryReadValueId::SPtr readValueId;
 				req->nodesToRead()->get(idx, readValueId);
 
@@ -203,23 +203,23 @@ namespace OpcUaClient
 
 		OpcUaStatusCode statusCode;
 		ServiceTransactionHistoryRead::SPtr trx;
-		trx = constructSPtr<ServiceTransactionHistoryRead>();
+		trx = boost::make_shared<ServiceTransactionHistoryRead>();
 		HistoryReadRequest::SPtr req = trx->request();
 
 		ReadRawModifiedDetails::SPtr readDetails;
 		req->historyReadDetails()->parameterTypeId().set((OpcUaUInt32)OpcUaId_ReadRawModifiedDetails_Encoding_DefaultBinary);
 		req->timestampsToReturn(commandReadH->timestampsToReturn());
 		readDetails = req->historyReadDetails()->parameter<ReadRawModifiedDetails>();
-		readDetails->startTime(commandReadH->startTime());
-		readDetails->endTime(commandReadH->endTime());
-		readDetails->numValuesPerNode(commandReadH->maxNumResultValuesPerNode());
+		readDetails->startTime() = commandReadH->startTime();
+		readDetails->endTime() = commandReadH->endTime();
+		readDetails->numValuesPerNode() = commandReadH->maxNumResultValuesPerNode();
 
 		req->nodesToRead()->resize(readNextNodeVec.size());
 		for (uint32_t idx=0; idx<readNextNodeVec.size(); idx++) {
 			OpcUaByteString continousPoint;
 			continousPoint.value(readNextNodeVec[idx].continousPoint_);
 
-			HistoryReadValueId::SPtr readValueId = constructSPtr<HistoryReadValueId>();
+			HistoryReadValueId::SPtr readValueId = boost::make_shared<HistoryReadValueId>();
 			readValueId->nodeId()->copyFrom(readNextNodeVec[idx].nodeId_);
 			readValueId->dataEncoding().namespaceIndex((OpcUaInt16) 0);
 			continousPoint.copyTo(readValueId->continuationPoint());
@@ -272,14 +272,14 @@ namespace OpcUaClient
 			}
 
 			HistoryData::SPtr historyData = readResult->historyData()->parameter<HistoryData>();
-			for (uint32_t idxv=0; idxv<historyData->dataValues()->size(); idxv++) {
+			for (uint32_t idxv=0; idxv<historyData->dataValues().size(); idxv++) {
 				OpcUaDataValue::SPtr dataValue;
-				historyData->dataValues()->get(idxv, dataValue);
+				historyData->dataValues().get(idxv, dataValue);
 				output(*dataValue, commandReadH);
 			}
 
 
-			if (readResult->continuationPoint().exist() && historyData->dataValues()->size() > 0) {
+			if (readResult->continuationPoint().exist() && historyData->dataValues().size() > 0) {
 				HistoryReadValueId::SPtr readValueId;
 				req->nodesToRead()->get(idx, readValueId);
 
@@ -310,7 +310,7 @@ namespace OpcUaClient
 	{
 		OpcUaStatusCode statusCode;
 		ServiceTransactionHistoryRead::SPtr trx;
-		trx = constructSPtr<ServiceTransactionHistoryRead>();
+		trx = boost::make_shared<ServiceTransactionHistoryRead>();
 		HistoryReadRequest::SPtr req = trx->request();
 
 		ReadRawModifiedDetails::SPtr readDetails;
@@ -318,16 +318,16 @@ namespace OpcUaClient
 		req->timestampsToReturn(commandReadH->timestampsToReturn());
 		req->releaseContinuationPoints(true);
 		readDetails = req->historyReadDetails()->parameter<ReadRawModifiedDetails>();
-		readDetails->startTime(commandReadH->startTime());
-		readDetails->endTime(commandReadH->endTime());
-		readDetails->numValuesPerNode(commandReadH->maxNumResultValuesPerNode());
+		readDetails->startTime() = commandReadH->startTime();
+		readDetails->endTime() = commandReadH->endTime();
+		readDetails->numValuesPerNode() = commandReadH->maxNumResultValuesPerNode();
 
 		req->nodesToRead()->resize(readNextNodeVec.size());
 		for (uint32_t idx=0; idx<readNextNodeVec.size(); idx++) {
 			OpcUaByteString continousPoint;
 			continousPoint.value(readNextNodeVec[idx].continousPoint_);
 
-			HistoryReadValueId::SPtr readValueId = constructSPtr<HistoryReadValueId>();
+			HistoryReadValueId::SPtr readValueId = boost::make_shared<HistoryReadValueId>();
 			readValueId->nodeId()->copyFrom(readNextNodeVec[idx].nodeId_);
 			readValueId->dataEncoding().namespaceIndex((OpcUaInt16) 0);
 			continousPoint.copyTo(readValueId->continuationPoint());
@@ -394,7 +394,7 @@ namespace OpcUaClient
 	{
 		// if necessaray initializing csv output
 		if (csv_.get() == nullptr) {
-			csv_ = constructSPtr<CSV>();
+			csv_ = boost::make_shared<CSV>();
 			bool success = csv_->open(commandReadH->csvFileName(), CSV::M_Write);
 			if (!success) {
 				Log(Error, "open csv file error")

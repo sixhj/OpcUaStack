@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -53,7 +53,7 @@ namespace OpcUaStackCore
 	}
 
 	void  
-	RequestHeader::time(const UtcTime& time)
+	RequestHeader::time(const OpcUaUtcTime& time)
 	{
 		time_ = time;
 	}
@@ -64,19 +64,19 @@ namespace OpcUaStackCore
 		time_.dateTime(time);
 	}
 
-	UtcTime 
+	OpcUaUtcTime
 	RequestHeader::time(void) const
 	{
 		return time_;
 	}
 
 	void  
-	RequestHeader::requestHandle(const IntegerId& requestHandle)
+	RequestHeader::requestHandle(const OpcUaIntegerId& requestHandle)
 	{ 
 		requestHandle_ = requestHandle;
 	}
 
-	IntegerId  
+	OpcUaIntegerId
 	RequestHeader::requestHandle(void) const
 	{
 		return requestHandle_;
@@ -119,37 +119,45 @@ namespace OpcUaStackCore
 		return timeoutHint_;
 	}
 
-	void 
+	bool
 	RequestHeader::opcUaBinaryEncode(std::ostream& os) const
 	{
-		sessionAuthenticationToken_.opcUaBinaryEncode(os);
-		time_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
-		OpcUaNumber::opcUaBinaryEncode(os, returnDisagnostics_);
-		auditEntryId_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, timeoutHint_);
+		bool rc = true;
+
+		rc &= sessionAuthenticationToken_.opcUaBinaryEncode(os);
+		rc &= time_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, returnDisagnostics_);
+		rc &= auditEntryId_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, timeoutHint_);
 
 		// FIXME: additional header
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+
+		return rc;
 	}
 
-	void 
+	bool
 	RequestHeader::opcUaBinaryDecode(std::istream& is)
 	{
-		sessionAuthenticationToken_.opcUaBinaryDecode(is);
-		time_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
-		OpcUaNumber::opcUaBinaryDecode(is, returnDisagnostics_);
-		auditEntryId_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, timeoutHint_);
+		bool rc = true;
+
+		rc &= sessionAuthenticationToken_.opcUaBinaryDecode(is);
+		rc &= time_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, returnDisagnostics_);
+		rc &= auditEntryId_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, timeoutHint_);
 
 		// FIXME: additional header
 		OpcUaByte tmp;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
+
+		return rc;
 	}
 
 }

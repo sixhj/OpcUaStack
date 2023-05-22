@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,6 +18,8 @@
 #include "OpcUaStackCore/Base/Utility.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaExtensionObject.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
+#include "OpcUaStackCore/BuildInTypes/XmlnsGuard.h"
+#include "OpcUaStackCore/Base/Utility.h"
 
 namespace OpcUaStackCore
 {
@@ -30,48 +32,74 @@ namespace OpcUaStackCore
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	bool OpcUaExtensionObject::init_ = false;
-	ExtensionObjectMap OpcUaExtensionObject::extentionObjectMap_;
+	ExtensionObjectBase::Map OpcUaExtensionObject::extentionObjectMap_;
 
 	bool
-	OpcUaExtensionObject::insertElement(OpcUaNodeId& opcUaNodeId, ExtensionObjectBase::SPtr epSPtr)
+	OpcUaExtensionObject::insertElement(const OpcUaNodeId& opcUaNodeId, ExtensionObjectBase::SPtr epSPtr)
 	{
-		ExtensionObjectMap::iterator it;
-		it = extentionObjectMap_.find(opcUaNodeId);
+		// check if extension object already exist
+		auto it = extentionObjectMap_.find(opcUaNodeId);
 		if (it != extentionObjectMap_.end()) {
+			Log(Error, "cannot insert new extension object, because object type id already exist")
+				.parameter("TypeId", opcUaNodeId);
 			return false;
 		}
+
+		// added extension object to extension object map
 		extentionObjectMap_.insert(std::make_pair(opcUaNodeId, epSPtr));
 		return true;
 	}
 
 	bool
-	OpcUaExtensionObject::deleteElement(OpcUaNodeId& opcUaNodeId)
+	OpcUaExtensionObject::deleteElement(const OpcUaNodeId& opcUaNodeId)
 	{
-		ExtensionObjectMap::iterator it;
-		it = extentionObjectMap_.find(opcUaNodeId);
+		// check if extension object exists
+		auto it = extentionObjectMap_.find(opcUaNodeId);
 		if (it == extentionObjectMap_.end()) {
 			return false;
 		}
+
+		// remove extension object from extension object map
 		extentionObjectMap_.erase(it);
 		return true;
 	}
 
 	ExtensionObjectBase::SPtr
-	OpcUaExtensionObject::findElement(OpcUaNodeId& opcUaNodeId)
+	OpcUaExtensionObject::findElement(const OpcUaNodeId& opcUaNodeId)
 	{
 		ExtensionObjectBase::SPtr epSPtr;
-		ExtensionObjectMap::iterator it;
-		it = extentionObjectMap_.find(opcUaNodeId);
+		auto it = extentionObjectMap_.find(opcUaNodeId);
 		if (it != extentionObjectMap_.end()) {
 			epSPtr = it->second;
 		}
 		return epSPtr;
 	}
 
+	OpcUaNodeId
+	OpcUaExtensionObject::getBinaryTypeIdFromJsonTypeId(OpcUaNodeId& jsonTypeId)
+	{
+		auto extenstionObject = findElement(jsonTypeId);
+		if (extenstionObject.get() == nullptr) {
+			return OpcUaNodeId(0,0);
+		}
+		else {
+			return extenstionObject->binaryTypeId();
+		}
+	}
+
 	OpcUaExtensionObject::OpcUaExtensionObject(void)
 	: Object()
 	, style_(S_None)
 	, typeId_()
+	, epSPtr_()
+	, byteString_()
+	{
+	}
+
+	OpcUaExtensionObject::OpcUaExtensionObject(const OpcUaNodeId& typeId)
+	: Object()
+	, style_(S_None)
+	, typeId_(typeId)
 	, epSPtr_()
 	, byteString_()
 	{
@@ -105,6 +133,13 @@ namespace OpcUaStackCore
 	bool
 	OpcUaExtensionObject::deregisterFactoryElement(OpcUaNodeId& opcUaNodeId) {
 		return OpcUaExtensionObject::deleteElement(opcUaNodeId);
+	}
+
+	bool
+	OpcUaExtensionObject::deregisterFactoryElements(void)
+	{
+		extentionObjectMap_.clear();
+		return true;
 	}
 
 	void
@@ -158,13 +193,19 @@ namespace OpcUaStackCore
 	bool
 	OpcUaExtensionObject::createObject(void)
 	{
-		ExtensionObjectMap::iterator it;
-		it = extentionObjectMap_.find(typeId_);
+		// find extension object
+		auto it = extentionObjectMap_.find(typeId_);
 		if (it == extentionObjectMap_.end()) {
 			return false;
 		}
+
+		// create new extension object
 		style_ = S_Type;
 		epSPtr_ = it->second->factory();
+
+		if (epSPtr_.get() == nullptr) {
+			return false;
+		}
 		return true;
 	}
 
@@ -184,7 +225,7 @@ namespace OpcUaStackCore
 		if (style_ == S_ByteString) {
 			if (byteString_.get() == nullptr) return;
 			typeId_.copyTo(extensionObject.typeId());
-			OpcUaByteString::SPtr byteString = constructSPtr<OpcUaByteString>();
+			OpcUaByteString::SPtr byteString = boost::make_shared<OpcUaByteString>();
 			byteString_->copyTo(*byteString);
 			extensionObject.byteString(byteString);
 		}
@@ -238,151 +279,92 @@ namespace OpcUaStackCore
 		}
 	}
 
-	void 
+	bool
 	OpcUaExtensionObject::opcUaBinaryEncode(std::ostream& os) const
 	{
+		bool rc = true;
+
 		if (style_ == S_None) {
-			OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-			OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-			OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+			rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+			rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+			rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
 		}
 
 		else if (style_ == S_ByteString) {
 			if (byteString_.get() == nullptr) {
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
 			}
 
 			else {
-				typeId_.opcUaBinaryEncode(os);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x01);
-				byteString_->opcUaBinaryEncode(os);
+				rc &= typeId_.opcUaBinaryEncode(os);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x01);
+				rc &= byteString_->opcUaBinaryEncode(os);
 			}
 		}
 
 		else {
 			if(epSPtr_.get() == NULL)
 			{
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
 			} else {
-				typeId_.opcUaBinaryEncode(os);
-				OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x01);
+				rc &= typeId_.opcUaBinaryEncode(os);
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x01);
 
 				boost::asio::streambuf sb;
 				std::ostream osb(&sb);
-				epSPtr_->opcUaBinaryEncode(osb);
+				rc &= epSPtr_->opcUaBinaryEncode(osb);
 
 				OpcUaUInt32 bufferLength = OpcUaStackCore::count(sb);
-				OpcUaNumber::opcUaBinaryEncode(os, bufferLength);
-				os << osb.rdbuf();
+				rc &= OpcUaNumber::opcUaBinaryEncode(os, bufferLength);
+				if (rc) {
+				    os << osb.rdbuf();
+				    rc = os.good();
+				}
 			}
 		}
+		return rc;
 	}
 		
-	void 
+	bool
 	OpcUaExtensionObject::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaByte encodingMask;
-		typeId_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, encodingMask);
+		rc &= typeId_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, encodingMask);
 
 		if (encodingMask == 0x00) {
 			style_ = S_None;
-			return;
+			return rc;
 		}
 
-		ExtensionObjectMap::iterator it;
+		ExtensionObjectBase::Map::iterator it;
 		it = extentionObjectMap_.find(typeId_);
 		if (it == extentionObjectMap_.end()) {
 
 			// Extension object unknown - read extension data as raw byte string
 
 			style_ = S_ByteString;
-			byteString_ = constructSPtr<OpcUaByteString>();
-			byteString_->opcUaBinaryDecode(is);
+			byteString_ = boost::make_shared<OpcUaByteString>();
+			rc &= byteString_->opcUaBinaryDecode(is);
 
-			return;
+			return rc;
 		}
 
 		style_ = S_Type;
 		OpcUaUInt32 bufferLength;
-		OpcUaNumber::opcUaBinaryDecode(is, bufferLength);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, bufferLength);
 		epSPtr_ = it->second->factory();
-		epSPtr_->opcUaBinaryDecode(is);
+		rc &= epSPtr_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
 	
-	bool
-	OpcUaExtensionObject::encode(boost::property_tree::ptree& pt) const
-	{
-		boost::property_tree::ptree typeId;
-		if (!typeId_.encode(typeId)) return false;
-		pt.put_child("TypeId", typeId);
-
-		return true;
-	}
-
-	bool
-	OpcUaExtensionObject::decode(boost::property_tree::ptree& pt, Xmlns& xmlns)
-	{
-		// get typeId
-		boost::optional<boost::property_tree::ptree&> typeId = pt.get_child_optional(xmlns.addxmlns("TypeId"));
-		if (!typeId) typeId = pt.get_child_optional("TypeId");
-		if (!typeId) {
-			Log(Error, "value empty")
-				.parameter("Tag", xmlns.addxmlns("TypeId"));
-			return false;
-		}
-
-		// get identifier
-		boost::optional<std::string> identifier = typeId->get_optional<std::string>(xmlns.addxmlns("Identifier"));
-		if (!identifier) identifier = typeId->get_optional<std::string>("Identifier");
-		if (!identifier) {
-			Log(Error, "value empty")
-				.parameter("Tag", xmlns.addxmlns("Identifier"));
-			return false;
-		}
-
-		OpcUaNodeId xmlNodeIdType;
-		std::string s = *identifier;
-		s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
-		bool rc = xmlNodeIdType.fromString(s);
-		if (!rc) {
-			Log(Error, "value format error")
-				.parameter("Tag", xmlns.addxmlns("Identifier"))
-				.parameter("Identifier", s);
-			return false;
-		}
-
-		// get body
-		boost::optional<boost::property_tree::ptree&> body = pt.get_child_optional(xmlns.addxmlns("Body"));
-		if (!body) body = pt.get_child_optional("Body");
-		if (!body) {
-			Log(Error, "value empty")
-				.parameter("Tag", xmlns.addxmlns("Body"))
-				.parameter("NodeIdType", xmlNodeIdType);
-			return false;
-		}
-
-		this->typeId(xmlNodeIdType);
-		if (!createObject()) {
-			// Extension object unknown
-			logExtensionObjectMap();
-			Log(Error, "extension object unknown")
-				.parameter("NodeIdType", xmlNodeIdType);
-			return false;
-		}
-
-		// Currently the XML type ist stored in the object. Now we determine
-		// the binary type by the XMl type.
-		typeId_ = epSPtr_->binaryTypeId();
-
-		// decode extension object from xml file
-		return epSPtr_->decode(*body, xmlns);
-	}
-
 	bool
 	OpcUaExtensionObject::xmlEncode(boost::property_tree::ptree& pt, const std::string& element, Xmlns& xmlns)
 	{
@@ -392,7 +374,8 @@ namespace OpcUaStackCore
 				.parameter("Element", element);
 			return false;
 		}
-		pt.push_back(std::make_pair(xmlns.addxmlns(element), elementTree));
+
+		pt.push_back(std::make_pair(xmlns.addPrefix(element), elementTree));
 		return true;
 	}
 
@@ -414,20 +397,40 @@ namespace OpcUaStackCore
 				.parameter("Element", "TypeId");
 			return false;
 		}
-		pt.add_child(xmlns.addxmlns("TypeId"), typeIdTree);
+		pt.add_child(xmlns.addPrefix("TypeId"), typeIdTree);
 
 		//
 		// encode body
 		//
 		boost::property_tree::ptree bodyTree;
-		if (!epSPtr_->xmlEncode(bodyTree, xmlns)) {
+		std::string uri = xmlns.getPrefix("http://opcfoundation.org/UA/2008/02/Types.xsd");
+		xmlns.addNamespace("", "http://opcfoundation.org/UA/2008/02/Types.xsd");
+
+		if (!epSPtr_->xmlEncode(bodyTree, epSPtr_->typeName(), xmlns)) {
 			Log(Error, "OpcUaExtensionObject xml encoder error")
 				.parameter("Element", "Body");
+			xmlns.addNamespace(uri, "http://opcfoundation.org/UA/2008/02/Types.xsd");
 			return false;
 		}
-		pt.add_child(xmlns.addxmlns("Body"), bodyTree);
+		bodyTree.front().second.put("<xmlattr>.xmlns", "http://opcfoundation.org/UA/2008/02/Types.xsd");
+
+		//
+		// added types namespace element
+		//
+
+
+		xmlns.addNamespace(uri, "http://opcfoundation.org/UA/2008/02/Types.xsd");
+		pt.add_child(xmlns.addPrefix("Body"), bodyTree);
 
 		return true;
+	}
+
+	bool
+	OpcUaExtensionObject::xmlDecode(boost::property_tree::ptree& pt, const std::string& element, Xmlns& xmlns)
+	{
+        boost::optional<boost::property_tree::ptree&> tree = pt.get_child_optional(element);
+        if (!tree) return false;
+        return xmlDecode(*tree, xmlns);
 	}
 
 	bool
@@ -436,7 +439,7 @@ namespace OpcUaStackCore
 		//
 		// get typeIdTree tree
 		//
-		boost::optional<boost::property_tree::ptree&> typeIdTree = pt.get_child_optional(xmlns.addxmlns("TypeId"));
+		boost::optional<boost::property_tree::ptree&> typeIdTree = pt.get_child_optional(xmlns.addPrefix("TypeId"));
 		if (!typeIdTree) {
 			Log(Error, "OpcUaExtensionObject xml decoder error - element not exist in xml document")
 				.parameter("Element", "TypeId");
@@ -456,7 +459,7 @@ namespace OpcUaStackCore
 		//
 		// get body tree
 		//
-		boost::optional<boost::property_tree::ptree&> bodyTree = pt.get_child_optional(xmlns.addxmlns("Body"));
+		boost::optional<boost::property_tree::ptree&> bodyTree = pt.get_child_optional(xmlns.addPrefix("Body"));
 		if (!bodyTree) {
 			Log(Error, "OpcUaExtensionObject xml decoder error - element not exist in xml document")
 				.parameter("Element", "Body")
@@ -479,12 +482,149 @@ namespace OpcUaStackCore
 		typeId_ = epSPtr_->binaryTypeId();
 
 		//
+		// handle namespaces in object tag
+		//
+		XmlnsGuard xmlnsGuard(bodyTree->front().second, xmlns);
+
+		//
+		// check namespace
+		//
+		//std::cout << "TypeName=" << epSPtr_->typeName() << " " << bodyTree->front().first << std::endl;
+
+		//
 		// decode extension object from xml file
 		//
-		if (!epSPtr_->xmlDecode(*bodyTree, xmlns)) {
+		if (!epSPtr_->xmlDecode(bodyTree->front().second, xmlns)) {
 			Log(Error, "OpcUaExtensionObject xml decoder error")
 				.parameter("Element", "Body")
 				.parameter("XmlTypeNodeId", xmlTypeNodeId);
+			return false;
+		}
+		return true;
+	}
+
+	bool
+	OpcUaExtensionObject::jsonEncode(boost::property_tree::ptree& pt, const std::string& element)
+	{
+		boost::property_tree::ptree elementTree;
+		if (!jsonEncode(elementTree)) {
+			Log(Error, "OpcUaExtensionObject json encoder error")
+				.parameter("Element", element);
+			return false;
+		}
+		pt.push_back(std::make_pair(element, elementTree));
+		return true;
+	}
+
+	bool
+	OpcUaExtensionObject::jsonEncode(boost::property_tree::ptree& pt)
+	{
+
+		if (epSPtr_.get() == nullptr) {
+			Log(Error, "OpcUaExtensionObject json encoder error - object invalid");
+			return false;
+		}
+
+		//
+		// encode type id
+		//
+		boost::property_tree::ptree typeIdTree;
+		OpcUaNodeId jsonNodeId = epSPtr_->jsonTypeId();
+		if (!jsonNodeId.jsonEncode(typeIdTree)) {
+			Log(Error, "OpcUaExtensionObject json encoder error")
+				.parameter("Element", "TypeId");
+			return false;
+		}
+		pt.add_child("TypeId", typeIdTree);
+
+		//
+		// encode body
+		//
+		boost::property_tree::ptree bodyTree;
+		if (!epSPtr_->jsonEncode(bodyTree, epSPtr_->typeName())) {
+			Log(Error, "OpcUaExtensionObject json encoder error")
+				.parameter("Element", "Body");
+			return false;
+		}
+		pt.add_child("Body", bodyTree);
+
+		return true;
+	}
+
+	bool
+	OpcUaExtensionObject::jsonDecode(boost::property_tree::ptree& pt, const std::string& element)
+	{
+		boost::optional<boost::property_tree::ptree&> tmpTree;
+
+		tmpTree = pt.get_child_optional(element);
+		if (!tmpTree) {
+			Log(Error, "OpcUaExtensionObject json decoder error")
+				.parameter("Element", element);
+				return false;
+		}
+		return jsonDecode(*tmpTree);
+	}
+
+	bool
+	OpcUaExtensionObject::jsonDecode(const boost::property_tree::ptree& pt)
+	{
+		//
+		// get typeIdTree tree
+		//
+		boost::optional<const boost::property_tree::ptree&> typeIdTree = pt.get_child_optional("TypeId");
+		if (!typeIdTree) {
+			Log(Error, "OpcUaExtensionObject json decoder error - element not exist in json document")
+				.parameter("Element", "TypeId");
+			return false;
+		}
+
+		//
+		// get type id
+		//
+		OpcUaNodeId jsonTypeNodeId;
+		if (!jsonTypeNodeId.jsonDecode(*typeIdTree)) {
+			Log(Error, "OpcUaExtensionObject json decoder error")
+				.parameter("Element", "TypeId");
+			return false;
+		}
+
+		//
+		// get body tree
+		//
+		boost::optional<const boost::property_tree::ptree&> bodyTree = pt.get_child_optional("Body");
+		if (!bodyTree) {
+			Log(Error, "OpcUaExtensionObject json decoder error - element not exist in json document")
+				.parameter("Element", "Body")
+				.parameter("JsonTypeNodeId", jsonTypeNodeId);
+			return false;
+		}
+
+		this->typeId(jsonTypeNodeId);
+		if (!createObject()) {
+			// Extension object unknown
+			logExtensionObjectMap();
+			Log(Error, "OpcUaExtensionObject json decoder error - object create error")
+				.parameter("Element", "Body")
+				.parameter("JsonTypeNodeId", jsonTypeNodeId);
+			return false;
+		}
+
+		// Currently the Json type is stored in the object. Now we determine
+		// the binary type by the XMl type.
+		typeId_ = epSPtr_->binaryTypeId();
+
+		//
+		// check namespace
+		//
+		//std::cout << "TypeName=" << epSPtr_->typeName() << " " << bodyTree->front().first << std::endl;
+
+		//
+		// decode extension object from json file
+		//
+		if (!epSPtr_->jsonDecode(bodyTree->front().second)) {
+			Log(Error, "OpcUaExtensionObject json decoder error")
+				.parameter("Element", "Body")
+				.parameter("JsonTypeNodeId", jsonTypeNodeId);
 			return false;
 		}
 		return true;
@@ -495,7 +635,7 @@ namespace OpcUaStackCore
 	{
 		Log(Debug, "extension object map entries");
 
-		ExtensionObjectMap::iterator it;
+		ExtensionObjectBase::Map::iterator it;
 		for (it=extentionObjectMap_.begin(); it!=extentionObjectMap_.end(); it++) {
 			Log(Debug, "  ").parameter(" ", it->first);
 		}

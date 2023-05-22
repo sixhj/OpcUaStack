@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,38 +16,86 @@
  */
 
 #include "OpcUaStackCore/Base/Log.h"
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/InformationModel/InformationModelManager.h"
 #include "OpcUaStackServer/InformationModel/InformationModelAccess.h"
+#include "OpcUaStackServer/InformationModel/NamespaceArray.h"
+#include "OpcUaStackServer/InformationModel/VariableInstanceBuilder.h"
+#include "OpcUaStackServer/InformationModel/ObjectInstanceBuilder.h"
 #include "OpcUaStackServer/ServiceSetApplication/ApplicationService.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeAccess.h"
 #include "OpcUaStackServer/NodeSet/NodeSetNamespace.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
-	ApplicationService::ApplicationService(void)
+	ApplicationService::ApplicationService(
+		const std::string& serviceName,
+		OpcUaStackCore::IOThread::SPtr& ioThread,
+		OpcUaStackCore::MessageBus::SPtr& messageBus
+	)
+	: ServerServiceBase()
 	{
+		// set parameter in server service base
+		serviceName_ = serviceName;
+		ServerServiceBase::ioThread_ = ioThread.get();
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	ApplicationService::~ApplicationService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
+		messageBus_->deregisterMember(messageBusMember_);
 	}
 
 	void 
-	ApplicationService::receive(Message::SPtr message)
+	ApplicationService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		Message::SPtr& message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		// check parameter
+		auto member = handleFrom.lock();
+		if (!member) {
+			Log(Error, "ApplicationService::receive, because handleFrom error");
+		}
+
+		// We have to remember the sender of the message. This enables us to
+		// send a reply for the received message later
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		serviceTransaction->memberServiceSession(handleFrom);
 
 		switch (serviceTransaction->nodeTypeRequest().nodeId<uint32_t>()) 
 		{
 			case OpcUaId_RegisterForwardNodeRequest_Encoding_DefaultBinary:
 				receiveRegisterForwardNodeRequest(serviceTransaction);
 				break;
+			case OpcUaId_RegisterForwardNodeAsyncRequest_Encoding_DefaultBinary:
+				receiveRegisterForwardNodeAsyncRequest(serviceTransaction);
+				break;
 			case OpcUaId_RegisterForwardMethodRequest_Encoding_DefaultBinary:
 				receiveRegisterForwardMethodRequest(serviceTransaction);
+				break;
+			case OpcUaId_RegisterForwardMethodAsyncRequest_Encoding_DefaultBinary:
+				receiveRegisterForwardMethodAsyncRequest(serviceTransaction);
 				break;
 			case OpcUaId_RegisterForwardGlobalRequest_Encoding_DefaultBinary:
 				receiveRegisterForwardGlobalRequest(serviceTransaction);
@@ -70,17 +118,35 @@ namespace OpcUaStackServer
 			case OpcUaId_BrowsePathToNodeIdRequest_Encoding_DefaultBinary:
 				receiveBrowsePathToNodeIdRequest(serviceTransaction);
 				break;
+			case OpcUaId_CreateVariableRequest_Encoding_DefaultBinary:
+				receiveCreateVariableRequest(serviceTransaction);
+				break;
+			case OpcUaId_CreateObjectRequest_Encoding_DefaultBinary:
+				receiveCreateObjectRequest(serviceTransaction);
+				break;
 			default:
 				Log(Error, "application service received unknown message type")
 					.parameter("TypeId", serviceTransaction->nodeTypeRequest());
 
 				serviceTransaction->statusCode(BadInternalError);
-				serviceTransaction->componentSession()->send(serviceTransaction);
+				sendAnswer(serviceTransaction);
 		}
 	}
 
 	void
-	ApplicationService::receiveRegisterForwardNodeRequest(ServiceTransaction::SPtr serviceTransaction)
+	ApplicationService::sendAnswer(OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction)
+	{
+		messageBus_->messageSend(
+			messageBusMember_,
+			serviceTransaction->memberServiceSession(),
+			serviceTransaction
+		);
+	}
+
+	void
+	ApplicationService::receiveRegisterForwardNodeRequest(
+		ServiceTransaction::SPtr serviceTransaction
+	)
 	{
 		ServiceTransactionRegisterForwardNode::SPtr trx = boost::static_pointer_cast<ServiceTransactionRegisterForwardNode>(serviceTransaction);
 
@@ -93,19 +159,23 @@ namespace OpcUaStackServer
 
 		if (registerForwardNodeRequest->nodesToRegister()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 		if (registerForwardNodeRequest->nodesToRegister()->size() > 1000) { // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
+		}
+		bool applicationContextArray = false;
+		if (registerForwardNodeRequest->applicationContextArray()->size() == registerForwardNodeRequest->nodesToRegister()->size()) {
+			applicationContextArray = true;
 		}
 
 		// register forward
 		registerForwardNodeResponse->statusCodeArray()->resize(registerForwardNodeRequest->nodesToRegister()->size());
 		for (uint32_t idx = 0; idx < registerForwardNodeRequest->nodesToRegister()->size(); idx++) {
-			OpcUaDataValue::SPtr dataValue = constructSPtr<OpcUaDataValue>();
+			OpcUaDataValue::SPtr dataValue = boost::make_shared<OpcUaDataValue>();
 			registerForwardNodeResponse->statusCodeArray()->set(idx, Success);
 
 			OpcUaNodeId::SPtr nodeId;
@@ -131,10 +201,21 @@ namespace OpcUaStackServer
 			// create or update forward info
 			ForwardNodeSync::SPtr forwardNodeSync = baseNodeClass->forwardNodeSync();
 			if (forwardNodeSync.get() == nullptr) {
-				forwardNodeSync = registerForwardNodeRequest->forwardNodeSync();
+				forwardNodeSync = boost::make_shared<ForwardNodeSync>();
 			}
-			else {
-				forwardNodeSync->updateFrom(*registerForwardNodeRequest->forwardNodeSync());
+			forwardNodeSync->updateFrom(*registerForwardNodeRequest->forwardNodeSync());
+			if (applicationContextArray) {
+				BaseClass::SPtr baseClass;
+				registerForwardNodeRequest->applicationContextArray()->get(idx, baseClass);
+				if (baseClass.get() != nullptr) {
+					forwardNodeSync->writeService().applicationContext(baseClass);
+					forwardNodeSync->readService().applicationContext(baseClass);
+					forwardNodeSync->writeHService().applicationContext(baseClass);
+					forwardNodeSync->readHService().applicationContext(baseClass);
+					forwardNodeSync->methodService().applicationContext(baseClass);
+					forwardNodeSync->monitoredItemStartService().applicationContext(baseClass);
+					forwardNodeSync->monitoredItemStopService().applicationContext(baseClass);
+				}
 			}
 			baseNodeClass->forwardNodeSync(forwardNodeSync);
 
@@ -145,17 +226,118 @@ namespace OpcUaStackServer
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
-	ApplicationService::receiveRegisterForwardMethodRequest(ServiceTransaction::SPtr serviceTransaction)
+	ApplicationService::receiveRegisterForwardNodeAsyncRequest(
+		ServiceTransaction::SPtr serviceTransaction
+	)
+	{
+		auto trx = boost::static_pointer_cast<ServiceTransactionRegisterForwardNodeAsync>(serviceTransaction);
+
+		auto registerForwardNodeAsyncRequest = trx->request();
+		auto registerForwardNodeAsyncResponse = trx->response();
+
+		Log(Debug, "application service register forward node async request")
+			.parameter("Trx", serviceTransaction->transactionId())
+			.parameter("NumberNodes", registerForwardNodeAsyncRequest->nodesToRegister()->size());
+
+		if (registerForwardNodeAsyncRequest->nodesToRegister()->size() == 0) {
+			trx->statusCode(BadNothingToDo);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+		if (registerForwardNodeAsyncRequest->nodesToRegister()->size() > 1000) { // FIXME: todo
+			trx->statusCode(BadTooManyOperations);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+		bool applicationContextArray = false;
+		if (registerForwardNodeAsyncRequest->applicationContextArray()->size() == registerForwardNodeAsyncRequest->nodesToRegister()->size()) {
+			applicationContextArray = true;
+		}
+
+		// register forward
+		registerForwardNodeAsyncResponse->statusCodeArray()->resize(registerForwardNodeAsyncRequest->nodesToRegister()->size());
+		for (uint32_t idx = 0; idx < registerForwardNodeAsyncRequest->nodesToRegister()->size(); idx++) {
+			OpcUaDataValue::SPtr dataValue = boost::make_shared<OpcUaDataValue>();
+			registerForwardNodeAsyncResponse->statusCodeArray()->set(idx, Success);
+
+			OpcUaNodeId::SPtr nodeId;
+			if (!registerForwardNodeAsyncRequest->nodesToRegister()->get(idx, nodeId)) {
+				registerForwardNodeAsyncResponse->statusCodeArray()->set(idx, BadNodeIdInvalid);
+				Log(Debug, "register forward node async error, because node request parameter node id invalid")
+					.parameter("Trx", serviceTransaction->transactionId())
+					.parameter("Idx", idx);
+				continue;
+			}
+
+			// find node
+			BaseNodeClass::SPtr baseNodeClass = informationModel_->find(nodeId);
+			if (baseNodeClass.get() == nullptr) {
+				registerForwardNodeAsyncResponse->statusCodeArray()->set(idx, BadNodeIdUnknown);
+				Log(Debug, "register forward node async error, because node not exist in information model")
+					.parameter("Trx", serviceTransaction->transactionId())
+					.parameter("Idx", idx)
+					.parameter("Node", *nodeId);
+				continue;
+			}
+
+			// add source message bus member
+			if (registerForwardNodeAsyncRequest->forwardNodeAsync()->writeService().isUsed()) {
+				registerForwardNodeAsyncRequest->forwardNodeAsync()->writeService().messageBusMember(serviceTransaction->memberServiceSession());
+			}
+			if (registerForwardNodeAsyncRequest->forwardNodeAsync()->readService().isUsed()) {
+				registerForwardNodeAsyncRequest->forwardNodeAsync()->readService().messageBusMember(serviceTransaction->memberServiceSession());
+			}
+			if (registerForwardNodeAsyncRequest->forwardNodeAsync()->methodService().isUsed()) {
+				registerForwardNodeAsyncRequest->forwardNodeAsync()->methodService().messageBusMember(serviceTransaction->memberServiceSession());
+			}
+
+			// create or update forward info
+			auto forwardNodeAsync = baseNodeClass->forwardNodeAsync();
+			if (!forwardNodeAsync) {
+				forwardNodeAsync  = boost::make_shared<ForwardNodeAsync>();
+			}
+			forwardNodeAsync->updateFrom(*registerForwardNodeAsyncRequest->forwardNodeAsync());
+
+			// add application context
+			if (applicationContextArray) {
+				BaseClass::SPtr baseClass;
+				registerForwardNodeAsyncRequest->applicationContextArray()->get(idx, baseClass);
+				if (baseClass.get() != nullptr) {
+					if (registerForwardNodeAsyncRequest->forwardNodeAsync()->writeService().isUsed()) {
+						forwardNodeAsync->writeService().applicationContext(baseClass);
+					}
+					if (registerForwardNodeAsyncRequest->forwardNodeAsync()->readService().isUsed()) {
+						forwardNodeAsync->readService().applicationContext(baseClass);
+					}
+					if (registerForwardNodeAsyncRequest->forwardNodeAsync()->methodService().isUsed()) {
+						forwardNodeAsync->methodService().applicationContext(baseClass);
+					}
+				}
+			}
+			baseNodeClass->forwardNodeAsync(forwardNodeAsync);
+
+			Log(Debug, "register forward node async")
+				.parameter("Trx", serviceTransaction->transactionId())
+				.parameter("Idx", idx)
+				.parameter("Node", *nodeId);
+		}
+
+		trx->statusCode(Success);
+		sendAnswer(serviceTransaction);
+	}
+
+	void
+	ApplicationService::receiveRegisterForwardMethodRequest(
+		ServiceTransaction::SPtr serviceTransaction)
 	{
 		BaseNodeClass::SPtr baseNodeClass;
-		ServiceTransactionRegisterForwardMethod::SPtr trx = boost::static_pointer_cast<ServiceTransactionRegisterForwardMethod>(serviceTransaction);
-
-		RegisterForwardMethodRequest::SPtr registerForwardMethodRequest = trx->request();
-		RegisterForwardMethodResponse::SPtr registerForwardMethodResponse = trx->response();
+		auto trx = boost::static_pointer_cast<ServiceTransactionRegisterForwardMethod>(serviceTransaction);
+		auto registerForwardMethodRequest = trx->request();
+		auto registerForwardMethodResponse = trx->response();
 
 		Log(Debug, "application service register forward method request")
 			.parameter("Trx", serviceTransaction->transactionId())
@@ -171,7 +353,7 @@ namespace OpcUaStackServer
 				.parameter("ObjectNode", registerForwardMethodRequest->objectNodeId().toString());
 
 			trx->statusCode(Success);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
@@ -184,19 +366,19 @@ namespace OpcUaStackServer
 				.parameter("MethodNode", registerForwardMethodRequest->methodNodeId().toString());
 
 			trx->statusCode(Success);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
 		// register/deregister method call
 		if (!registerForwardMethodRequest->forwardMethodSync()->methodService().isCallback()) {
-			informationModel_->methodMap().deregisterMethod(
+			informationModel_->methodMap().deregisterMethodSync(
 				registerForwardMethodRequest->objectNodeId(),
 				registerForwardMethodRequest->methodNodeId()
 			);
 		}
 		else {
-			informationModel_->methodMap().registerMethod(
+			informationModel_->methodMap().registerMethodSync(
 				registerForwardMethodRequest->objectNodeId(),
 				registerForwardMethodRequest->methodNodeId(),
 				registerForwardMethodRequest->forwardMethodSync()
@@ -204,7 +386,71 @@ namespace OpcUaStackServer
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
+	}
+
+	void
+	ApplicationService::receiveRegisterForwardMethodAsyncRequest(
+		ServiceTransaction::SPtr serviceTransaction)
+	{
+		BaseNodeClass::SPtr baseNodeClass;
+		auto trx = boost::static_pointer_cast<ServiceTransactionRegisterForwardMethodAsync>(serviceTransaction);
+		auto req = trx->request();
+		auto res = trx->response();
+
+		Log(Debug, "application service register forward method async request")
+			.parameter("Trx", serviceTransaction->transactionId())
+			.parameter("ObjectNodeId", req->objectNodeId().toString())
+			.parameter("MethodNodeId", req->methodNodeId().toString());
+
+		// find object node
+		baseNodeClass = informationModel_->find(req->objectNodeId());
+		if (baseNodeClass.get() == nullptr) {
+			res->statusCode(BadNodeIdUnknown);
+			Log(Debug, "register forward method async error, because object node not exist in information model")
+				.parameter("Trx", serviceTransaction->transactionId())
+				.parameter("ObjectNode", req->objectNodeId().toString());
+
+			trx->statusCode(Success);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+
+		// find method node
+		baseNodeClass = informationModel_->find(req->methodNodeId());
+		if (baseNodeClass.get() == nullptr) {
+			res->statusCode(BadNodeIdUnknown);
+			Log(Debug, "register forward method async error, because function node not exist in information model")
+				.parameter("Trx", serviceTransaction->transactionId())
+				.parameter("MethodNode", req->methodNodeId().toString());
+
+			trx->statusCode(Success);
+			sendAnswer(serviceTransaction);
+			return;
+		}
+
+		// add source message bus member
+		if (req->forwardMethodAsync()->methodService().isUsed()) {
+			req->forwardMethodAsync()->methodService().messageBusMember(serviceTransaction->memberServiceSession());
+		}
+
+		// register/deregister method call
+		if (!req->forwardMethodAsync()->methodService().isActive()) {
+			informationModel_->methodMap().deregisterMethodAsync(
+				req->objectNodeId(),
+				req->methodNodeId()
+			);
+		}
+		else {
+			informationModel_->methodMap().registerMethodAsync(
+				req->objectNodeId(),
+				req->methodNodeId(),
+				req->forwardMethodAsync()
+			);
+		}
+
+		trx->statusCode(Success);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -221,7 +467,7 @@ namespace OpcUaStackServer
 		forwardGlobalSync()->updateFrom(*registerForwardGlobalRequest->forwardGlobalSync());
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 
@@ -239,19 +485,19 @@ namespace OpcUaStackServer
 
 		if (getNodeReferenceRequest->nodes()->size() == 0) {
 			trx->statusCode(BadNothingToDo);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 		if (getNodeReferenceRequest->nodes()->size() > 1000) { // FIXME: todo
 			trx->statusCode(BadTooManyOperations);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
 		// get node reference
 		getNodeReferenceResponse->nodeReferenceArray()->resize(getNodeReferenceRequest->nodes()->size());
 		for (uint32_t idx = 0; idx < getNodeReferenceRequest->nodes()->size(); idx++) {
-			NodeReferenceApplication::SPtr nodeReference = constructSPtr<NodeReferenceApplication>();
+			NodeReferenceApplication::SPtr nodeReference = boost::make_shared<NodeReferenceApplication>();
 			nodeReference->statusCode(Success);
 			getNodeReferenceResponse->nodeReferenceArray()->set(idx, nodeReference);
 
@@ -282,7 +528,7 @@ namespace OpcUaStackServer
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -296,8 +542,17 @@ namespace OpcUaStackServer
 		Log(Debug, "application service namespace info request")
 			.parameter("Trx", serviceTransaction->transactionId());
 
-		// read global namespaces
+		// register new namespace
 		NodeSetNamespace nodeSetNamespace;
+		if (namespaceInfoRequest->newNamespaceUri() != "") {
+			nodeSetNamespace.addNewGlobalNamespace(namespaceInfoRequest->newNamespaceUri());
+
+			NamespaceArray nsa;
+			nsa.informationModel(informationModel_);
+			nsa.addNamespaceName(namespaceInfoRequest->newNamespaceUri());
+		}
+
+		// read global namespaces
 		for (uint32_t idx = 0; idx < nodeSetNamespace.globalNamespaceVec().size(); idx++) {
 			std::string namespaceName = nodeSetNamespace.globalNamespaceVec()[idx];
 			namespaceInfoResponse->index2NamespaceMap().insert(std::make_pair(idx, namespaceName));
@@ -305,16 +560,17 @@ namespace OpcUaStackServer
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
-	ApplicationService::receiveCreateNodeInstanceRequest(ServiceTransaction::SPtr serviceTransaction)
+	ApplicationService::receiveCreateNodeInstanceRequest(
+		ServiceTransaction::SPtr serviceTransaction
+	)
 	{
-		ServiceTransactionCreateNodeInstance::SPtr trx = boost::static_pointer_cast<ServiceTransactionCreateNodeInstance>(serviceTransaction);
-
-		CreateNodeInstanceRequest::SPtr createNodeInstanceRequest = trx->request();
-		CreateNodeInstanceResponse::SPtr createNodeInstanceResponse = trx->response();
+		auto trx = boost::static_pointer_cast<ServiceTransactionCreateNodeInstance>(serviceTransaction);
+		auto req = trx->request();
+		auto res = trx->response();
 
 		Log(Debug, "application service create node instance request")
 			.parameter("Trx", serviceTransaction->transactionId());
@@ -324,26 +580,35 @@ namespace OpcUaStackServer
 		//
 		AddNodeRule addNodeRule;
 		addNodeRule.delemiter("/");
-		addNodeRule.displayPath(createNodeInstanceRequest->name());
+		addNodeRule.displayPath(req->name());
 		InformationModelManager imm(informationModel_);
 		bool success = imm.addNode(
-			createNodeInstanceRequest->nodeClassType(),
+			req->nodeClassType(),
 			addNodeRule,
-			createNodeInstanceRequest->parentNodeId(),
-			createNodeInstanceRequest->nodeId(),
-			createNodeInstanceRequest->displayName(),
-			createNodeInstanceRequest->browseName(),
-			createNodeInstanceRequest->referenceNodeId(),
-			createNodeInstanceRequest->typeNodeId()
+			req->parentNodeId(),
+			req->nodeId(),
+			req->displayName(),
+			req->browseName(),
+			req->referenceNodeId(),
+			req->typeNodeId()
 		);
 
+		//
+		// find created base node class
+		//
+		BaseNodeClass::WPtr baseNodeClass = informationModel_->find(req->nodeId());
+		res->baseNodeClass(baseNodeClass);
 		if (success) {
 			trx->statusCode(Success);
 		}
 		else {
 			trx->statusCode(BadInternalError);
 		}
-		trx->componentSession()->send(serviceTransaction);
+
+		//
+		// send answer
+		//
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -371,7 +636,7 @@ namespace OpcUaStackServer
 		else {
 			trx->statusCode(BadInternalError);
 		}
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -392,7 +657,7 @@ namespace OpcUaStackServer
 				.parameter("Node", fireEventRequest->nodeId());
 
 			trx->statusCode(BadNodeIdUnknown);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 			return;
 		}
 
@@ -467,7 +732,7 @@ namespace OpcUaStackServer
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -481,21 +746,67 @@ namespace OpcUaStackServer
 		uint32_t size = req->browseNameArray()->size();
 		if (size == 0) {
 			trx->statusCode(BadInvalidArgument);
-			trx->componentSession()->send(serviceTransaction);
+			sendAnswer(serviceTransaction);
 		}
 
 		res->nodeIdResults()->resize(size);
 		for (uint32_t idx = 0; idx < size; idx++) {
 			BrowseName::SPtr browseName;
 			req->browseNameArray()->get(idx, browseName);
-			NodeIdResult::SPtr nodeIdResult = constructSPtr<NodeIdResult>();
+			NodeIdResult::SPtr nodeIdResult = boost::make_shared<NodeIdResult>();
 
 			getNodeIdFromBrowsePath(browseName, nodeIdResult);
 			res->nodeIdResults()->set(idx, nodeIdResult);
 		}
 
 		trx->statusCode(Success);
-		trx->componentSession()->send(serviceTransaction);
+		sendAnswer(serviceTransaction);
+	}
+
+	void
+	ApplicationService::receiveCreateVariableRequest(ServiceTransaction::SPtr serviceTransaction)
+	{
+		auto trx = boost::static_pointer_cast<ServiceTransactionCreateVariable>(serviceTransaction);
+		auto req = trx->request();
+		auto res = trx->response();
+		auto variableBase = boost::static_pointer_cast<VariableBase>(req->variableInstance());
+
+		VariableInstanceBuilder variableInstanceBuilder;
+		OpcUaStatusCode result = variableInstanceBuilder.createVariableInstance(
+			informationModel_,
+			req->namespaceName(),
+			req->displayName(),
+			req->parentNodeId(),
+			req->referenceTypeNodeId(),
+			variableBase,
+			&req->nodeIdMap()
+		);
+
+		trx->statusCode(result);
+		sendAnswer(serviceTransaction);
+	}
+
+	void
+	ApplicationService::receiveCreateObjectRequest(ServiceTransaction::SPtr serviceTransaction)
+	{
+		auto trx = boost::static_pointer_cast<ServiceTransactionCreateObject>(serviceTransaction);
+		auto req = trx->request();
+		auto res = trx->response();
+		auto objectBase = boost::static_pointer_cast<ObjectBase>(req->objectInstance());
+
+		ObjectInstanceBuilder objectInstanceBuilder;
+		auto result = objectInstanceBuilder.createObjectInstance(
+			informationModel_,
+			req->namespaceName(),
+			req->displayName(),
+			req->parentNodeId(),
+			req->referenceTypeNodeId(),
+			objectBase,
+			&req->nodeIdMap()
+		);
+
+		trx->statusCode(result);
+		sendAnswer(serviceTransaction);
 	}
 
 	void
@@ -508,7 +819,8 @@ namespace OpcUaStackServer
 		// check parameter
 		//
 		if (browseName->pathNames()->size() == 0) {
-			nodeIdResult->statusCode(BadInvalidArgument);
+			nodeIdResult->nodeId(browseName->nodeId());
+			nodeIdResult->statusCode(Success);
 			return;
 		}
 

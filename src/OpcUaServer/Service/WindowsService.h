@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,7 +19,8 @@
 #define __OpcUaServer_WindowsService_h__
 #ifdef _WIN32
 
-#include "OpcUaServer/Interface/ServerApplicationIf.h"
+#include "OpcUaStackCore/Base/os.h"
+#include "OpcUaServer/Interface/ServerLoopIf.h"
 #include <Windows.h>
 #include <WinSvc.h>
 #include <string>
@@ -27,7 +28,7 @@
 namespace OpcUaServer
 {
 
-	class WindowsService
+	class DLLEXPORT WindowsService
 	{
 	  public:
 		static WindowsService* instance_;
@@ -51,7 +52,7 @@ namespace OpcUaServer
 		void log(const std::string& logLevel, const std::string& message);
 		void eventLog(const std::string& logLevel, const std::string& message);
 
-		void serverApplicationIf(ServerApplicationIf* serverApplicationIf);
+		void serverLoopIf(ServerLoopIf* serverLoopIf);
 
 	  private:
 		bool setServiceDescription(const std::string& serviceName, const std::string& serviceDescription);
@@ -64,7 +65,7 @@ namespace OpcUaServer
 		SERVICE_STATUS serviceStatus_;
 		SERVICE_STATUS_HANDLE ssHandle_;
 
-		ServerApplicationIf* serverApplicationIf_;
+		ServerLoopIf* serverLoopIf_;
 	};
 }
 

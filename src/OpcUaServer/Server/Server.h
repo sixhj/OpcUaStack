@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,28 +18,25 @@
 #ifndef __OpcUaServer_Server_h__
 #define __OpcUaServer_Server_h__
 
+#include <OpcUaServer/ApplicationLibrary/ApplicationLibraryManager.h>
+#include <OpcUaStackServer/Server/OpcUaServer.h>
 #include "OpcUaStackCore/Base/Config.h"
 #include "OpcUaStackCore/Base/ConfigXml.h"
-#include "OpcUaStackCore/Core/FileLogger.h"
-#include "OpcUaStackServer/Server/Server.h"
+#include "OpcUaStackCore/Logging/FileLogger.h"
 #include "OpcUaStackServer/Application/ReloadIf.h"
 #include "OpcUaServer/Server/DiscoveryClient.h"
-#include "OpcUaServer/ApplicationLibrary/ApplicationManager.h"
-
 #include <string>
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaServer
 {
 
-	class Server 
+	class DLLEXPORT Server 
 	{
 	  public:
 		Server(void);
 		~Server(void);
 
-		void reloadIf(ReloadIf* reloadIf);
+		void reloadIf(OpcUaStackServer::ReloadIf* reloadIf);
 		bool startup(const std::string& configurationFile);
 		bool start(void);
 		void stop(void);
@@ -51,13 +48,13 @@ namespace OpcUaServer
 		void logServerInfo(void);
 
 		std::string configurationFile_;
-		Config* config_;
-		OpcUaStackServer::Server server_;
-		FileLogger fileLogger_;
+		OpcUaStackCore::Config* config_;
+		OpcUaStackServer::OpcUaServer opcuaServer_;
+		OpcUaStackCore::FileLogger fileLogger_;
 
-		ReloadIf* reloadIf_;
-		DiscoveryClient discoveryClient_;
-		ApplicationManager applicationManager_;
+		OpcUaStackServer::ReloadIf* reloadIf_;
+		DiscoveryClient::SPtr discoveryClient_;
+		ApplicationLibraryManager applicationLibraryManager_;
 	};
 
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,65 +23,70 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	MethodService::MethodService(IOThread* ioThread)
-	: componentSession_(nullptr)
-	, methodServiceIf_(nullptr)
+	MethodService::MethodService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	MethodService::~MethodService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	MethodService::setConfiguration(
-		Component* componentSession,
-		MethodServiceIf* methodServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		methodServiceIf_ = methodServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	MethodService::componentSession(Component* componentSession)
+	MethodService::syncSend(const ServiceTransactionCall::SPtr& serviceTransactionCall)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionCall);
 	}
 
 	void 
-	MethodService::methodServiceIf(MethodServiceIf* methodServiceIf)
+	MethodService::asyncSend(const ServiceTransactionCall::SPtr& serviceTransactionCall)
 	{
-		methodServiceIf_ = methodServiceIf;
-	}
-
-	void 
-	MethodService::syncSend(ServiceTransactionCall::SPtr serviceTransactionCall)
-	{
-		serviceTransactionCall->sync(true);
-		serviceTransactionCall->conditionBool().conditionInit();
-		asyncSend(serviceTransactionCall);
-		serviceTransactionCall->conditionBool().waitForCondition();
-	}
-
-	void 
-	MethodService::asyncSend(ServiceTransactionCall::SPtr serviceTransactionCall)
-	{
-		serviceTransactionCall->componentService(this);
-		OpcUaNodeId nodeId;
-		componentSession_->sendAsync(serviceTransactionCall);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionCall);
 	}
 
 
 	void 
-	MethodService::receive(Message::SPtr message)
+	MethodService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
 		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 		
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 		
@@ -89,10 +94,20 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_CallResponse_Encoding_DefaultBinary:
 			{
-				if (methodServiceIf_ != nullptr) {
-					methodServiceIf_->methodServiceCallResponse(
-						boost::static_pointer_cast<ServiceTransactionCall>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionCall>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

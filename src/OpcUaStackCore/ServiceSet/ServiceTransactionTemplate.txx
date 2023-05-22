@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -53,8 +53,8 @@ namespace OpcUaStackCore
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::ServiceTransactionTemplate(void)
 	  : ServiceTransaction(REQID, RESID)
-	  , request_(constructSPtr<REQTYPE>())
-	  , response_(constructSPtr<RESTYPE>())
+	  , request_(boost::make_shared<REQTYPE>())
+	  , response_(boost::make_shared<RESTYPE>())
 	  {
 	  }
 
@@ -67,7 +67,7 @@ namespace OpcUaStackCore
 	  ServiceTransaction::SPtr 
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::constructTransaction(void) 
 	  {
-		  return constructSPtr<ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID> >();
+		  return boost::make_shared<ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID> >();
 	  }
 
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
@@ -100,29 +100,57 @@ namespace OpcUaStackCore
 	  
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
 	  void 
+	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::resultHandler(const ResultHandler& resultHandler)
+	  {
+	  	  resultHandler_ = resultHandler;
+	  }
+		  
+	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
+      typename ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::ResultHandler& 
+      ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::resultHandler(void)
+      {
+          return resultHandler_;
+      }
+      
+    template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
+	  void 
+	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::resultHandlerStrand(const boost::shared_ptr<boost::asio::io_service::strand>& resultHandlerStrand)
+	  {
+	  	  resultHandlerStrand_ = resultHandlerStrand;
+	  }
+		  
+	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
+      boost::shared_ptr<boost::asio::io_service::strand>& 
+      ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::resultHandlerStrand(void)
+      {
+          return resultHandlerStrand_;
+      }
+	  
+	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
+	  bool 
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::opcUaBinaryEncodeRequest(std::ostream& os) const
 	  {
-		  request_->opcUaBinaryEncode(os);
+		  return request_->opcUaBinaryEncode(os);
 	  }
 
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
-	  void 
+	  bool 
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::opcUaBinaryEncodeResponse(std::ostream& os) const
 	  {
-		  response_->opcUaBinaryEncode(os);
+		  return response_->opcUaBinaryEncode(os);
 	  }
 
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
-	  void 
+	  bool 
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::opcUaBinaryDecodeRequest(std::istream& is)
 	  {
-		  request_->opcUaBinaryDecode(is);
+		  return request_->opcUaBinaryDecode(is);
 	  }
 
 	template<typename REQTYPE, typename RESTYPE, uint32_t REQID, uint32_t RESID>
-	  void 
+	  bool 
 	  ServiceTransactionTemplate<REQTYPE, RESTYPE, REQID, RESID>::opcUaBinaryDecodeResponse(std::istream& is)
 	  {
-		  response_->opcUaBinaryDecode(is);
+		  return response_->opcUaBinaryDecode(is);
 	  }
 }

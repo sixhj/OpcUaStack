@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -21,9 +21,8 @@
 #include <vector>
 #include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
+#include "OpcUaStackCore/Application/ApplicationCallback.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -34,27 +33,22 @@ namespace OpcUaStackServer
 		typedef boost::shared_ptr<RegisterForwardMethod> SPtr;
 
 		RegisterForwardMethod(void);
-		RegisterForwardMethod(const OpcUaNodeId& objectNodeId, const OpcUaNodeId& methodNodeId);
+		RegisterForwardMethod(const OpcUaStackCore::OpcUaNodeId& objectNodeId, const OpcUaStackCore::OpcUaNodeId& methodNodeId);
 		virtual ~RegisterForwardMethod(void);
 
-		void objectNodeId(const OpcUaNodeId& objectNodeId);
-		void methodNodeId(const OpcUaNodeId& methodNodeId);
-		void setMethodCallback(Callback& callback);
-		template<typename T>
-		  void setMethodCallback(T handler) {
-			  Callback callback;
-			  callback.reset(handler);
-			  setMethodCallback(callback);
-		  }
+		void objectNodeId(const OpcUaStackCore::OpcUaNodeId& objectNodeId);
+		void methodNodeId(const OpcUaStackCore::OpcUaNodeId& methodNodeId);
+		void setMethodCallback(OpcUaStackCore::ApplicationCallback::Method callback);
+		void applicationContext(OpcUaStackCore::BaseClass::SPtr& applicationContext);
 
 		bool query(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
 	  private:
-		OpcUaNodeId objectNodeId_;
-		OpcUaNodeId methodNodeId_;
+		OpcUaStackCore::OpcUaNodeId objectNodeId_;
+		OpcUaStackCore::OpcUaNodeId methodNodeId_;
 		ForwardMethodSync forwardMethodSync_;
-		OpcUaStatusCode resultCode_;
+		OpcUaStackCore::OpcUaStatusCode resultCode_;
 	};
 
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,7 +12,7 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include "OpcUaStackCore/Base/Utility.h"
@@ -118,7 +118,7 @@ namespace OpcUaStackCore
 	}
 
 	std::string
-	OpcUaGuid::value(void)
+	OpcUaGuid::value(void) const
 	{
 		std::string str1, str2, str3, str4, str5;
 
@@ -200,53 +200,36 @@ namespace OpcUaStackCore
 		return (strncmp((char*)data4_, (char*)opcUaGuid.data4(), 8) == 0);
 	}
 
-	void 
+	bool
 	OpcUaGuid::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, data1_);
-		OpcUaNumber::opcUaBinaryEncode(os, data2_);
-		OpcUaNumber::opcUaBinaryEncode(os, data3_);
-		os.write((char*)data4_, sizeof(data4_));
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, data1_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, data2_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, data3_);
+		if (rc) {
+			os.write((char*)data4_, sizeof(data4_));
+			rc = os.good();
+		}
+
+		return rc;
 	}
 		
-	void 
+	bool
 	OpcUaGuid::opcUaBinaryDecode(std::istream& is)
 	{
-		OpcUaNumber::opcUaBinaryDecode(is, data1_);
-		OpcUaNumber::opcUaBinaryDecode(is, data2_);
-		OpcUaNumber::opcUaBinaryDecode(is, data3_);
-		is.read((char*)data4_, sizeof(data4_));
-	}
+		bool rc = true;
 
-	bool
-	OpcUaGuid::encode(boost::property_tree::ptree& pt) const
-	{
-		std::string str1, str2, str3, str4, str5;
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, data1_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, data2_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, data3_);
+		if (rc) {
+			is.read((char*)data4_, sizeof(data4_));
+			rc = is.good();
+		}
 
-		byteSequenceToHexString((uint8_t*)&data1_, 4, str1);
-		byteSequenceToHexString((uint8_t*)&data2_, 2, str2);
-		byteSequenceToHexString((uint8_t*)&data3_, 2, str3);
-		byteSequenceToHexString(data4_, 2, str4);
-		byteSequenceToHexString(&data4_[2], 6, str5);
-
-		str1.append("-").append(str2).append("-").append(str3)
-			.append("-").append(str4).append("-").append(str5);
-		pt.put_value<std::string>(str1);
-		return true;
-	}
-
-	bool
-	OpcUaGuid::decode(boost::property_tree::ptree& pt)
-	{
-		std::string guidString;
-		guidString = pt.get_value<std::string>();
-		if (guidString.length() != 36) return false;
-		hexStringToByteSequence(guidString.substr(0,8), (uint8_t*)&data1_);
-		hexStringToByteSequence(guidString.substr(9,4), (uint8_t*)&data2_);
-		hexStringToByteSequence(guidString.substr(14,4), (uint8_t*)&data3_);
-		hexStringToByteSequence(guidString.substr(19,4), data4_);
-		hexStringToByteSequence(guidString.substr(24,12), &data4_[2]);
-		return true;
+		return rc;
 	}
 
 	bool
@@ -258,7 +241,7 @@ namespace OpcUaStackCore
 				.parameter("Element", element);
 			return false;
 		}
-		pt.push_back(std::make_pair(xmlns.addxmlns(element), elementTree));
+		pt.push_back(std::make_pair(xmlns.addPrefix(element), elementTree));
 		return true;
 	}
 
@@ -266,20 +249,45 @@ namespace OpcUaStackCore
 	OpcUaGuid::xmlEncode(boost::property_tree::ptree& pt, Xmlns& xmlns)
 	{
 		std::string guidString = value();
-		pt.put(xmlns.addxmlns("String"), guidString);
+		pt.put(xmlns.addPrefix("String"), guidString);
 		return true;
 	}
 
 	bool
 	OpcUaGuid::xmlDecode(boost::property_tree::ptree& pt, Xmlns& xmlns)
 	{
-		boost::optional<std::string> sourceValue = pt.get_optional<std::string>(xmlns.addxmlns("String"));
+		boost::optional<std::string> sourceValue = pt.get_optional<std::string>(xmlns.addPrefix("String"));
 		if (!sourceValue) {
 			Log(Error, "OpcUaGuid xml decoder error")
 				.parameter("Element", "String");
 			return false;
 		}
 		return value(*sourceValue);
+	}
+
+	bool
+	OpcUaGuid::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		pt.put_value(value());
+		return true;
+	}
+
+	bool
+	OpcUaGuid::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		std::string sourceValue = pt.get_value<std::string>();
+		if (sourceValue.empty()) {
+			Log(Error, "OpcUaGuid json decoder error - value not exist in json document");
+			return false;
+		}
+
+		if (!value(sourceValue)) {
+			Log(Error, "OpcUaDateTime json decoder error - value format error")
+				.parameter("Value", sourceValue);
+			return false;
+		}
+
+		return true;
 	}
 
 }

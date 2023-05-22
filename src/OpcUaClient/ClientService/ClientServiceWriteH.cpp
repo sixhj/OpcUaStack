@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,16 +15,16 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/Base/Log.h"
-#include "OpcUaStackCore/ServiceSet/UpdateStructureDataDetails.h"
-#include "OpcUaStackCore/ServiceSet/HistoryData.h"
+#include "OpcUaStackCore/StandardDataTypes/UpdateStructureDataDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/HistoryData.h"
 #include "OpcUaClient/ClientCommand/CommandWriteH.h"
 #include "OpcUaClient/ClientService/ClientServiceWriteH.h"
 
 #define MAXValuesPerRequest		1000
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -41,7 +41,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceWriteH::createClientService(void)
 	{
-		return constructSPtr<ClientServiceWriteH>();
+		return boost::make_shared<ClientServiceWriteH>();
 	}
 
 	bool
@@ -98,23 +98,23 @@ namespace OpcUaClient
 
 		// create update request
 		ServiceTransactionHistoryUpdate::SPtr trx;
-		trx = constructSPtr<ServiceTransactionHistoryUpdate>();
+		trx = boost::make_shared<ServiceTransactionHistoryUpdate>();
 		HistoryUpdateRequest::SPtr req = trx->request();
 
 		req->historyUpdateDetails()->resize(1);
-		ExtensibleParameter::SPtr extensibleParameter = constructSPtr<ExtensibleParameter>();
+		OpcUaExtensibleParameter::SPtr extensibleParameter = boost::make_shared<OpcUaExtensibleParameter>();
 		req->historyUpdateDetails()->push_back(extensibleParameter);
 
 		UpdateStructureDataDetails::SPtr updateDetails;
 		extensibleParameter->parameterTypeId().set((OpcUaUInt32)OpcUaId_UpdateStructureDataDetails_Encoding_DefaultBinary);
 		updateDetails = extensibleParameter->parameter<UpdateStructureDataDetails>();
 
-		updateDetails->nodeId(commandWriteH->nodeId());
-		updateDetails->performInsertReplace(PerformUpdateEnumeration_Insert);
+		updateDetails->nodeId() = commandWriteH->nodeId();
+		updateDetails->performInsertReplace().enumeration(PerformUpdateType::EnumInsert);
 
-		updateDetails->updateValue()->resize(commandWriteH->dataValueVec().size());
+		updateDetails->updateValues().resize(commandWriteH->dataValueVec().size());
 		for (uint32_t idx=0; idx<commandWriteH->dataValueVec().size(); idx++) {
-			updateDetails->updateValue()->push_back(commandWriteH->dataValueVec()[idx]);
+			updateDetails->updateValues().push_back(commandWriteH->dataValueVec()[idx]);
 		}
 
 		// send read history request
@@ -196,23 +196,23 @@ namespace OpcUaClient
 
 			// create update request
 			ServiceTransactionHistoryUpdate::SPtr trx;
-			trx = constructSPtr<ServiceTransactionHistoryUpdate>();
+			trx = boost::make_shared<ServiceTransactionHistoryUpdate>();
 			HistoryUpdateRequest::SPtr req = trx->request();
 
 			req->historyUpdateDetails()->resize(1);
-			ExtensibleParameter::SPtr extensibleParameter = constructSPtr<ExtensibleParameter>();
+			OpcUaExtensibleParameter::SPtr extensibleParameter = boost::make_shared<OpcUaExtensibleParameter>();
 			req->historyUpdateDetails()->push_back(extensibleParameter);
 
 			UpdateStructureDataDetails::SPtr updateDetails;
 			extensibleParameter->parameterTypeId().set((OpcUaUInt32)OpcUaId_UpdateStructureDataDetails_Encoding_DefaultBinary);
 			updateDetails = extensibleParameter->parameter<UpdateStructureDataDetails>();
 
-			updateDetails->nodeId(commandWriteH->nodeId());
-			updateDetails->performInsertReplace(PerformUpdateEnumeration_Insert);
+			updateDetails->nodeId() = commandWriteH->nodeId();
+			updateDetails->performInsertReplace().enumeration(PerformUpdateType::EnumInsert);
 
-			updateDetails->updateValue()->resize(dataValueVec.size());
+			updateDetails->updateValues().resize(dataValueVec.size());
 			for (uint32_t idx=0; idx<dataValueVec.size(); idx++) {
-				updateDetails->updateValue()->push_back(dataValueVec[idx]);
+				updateDetails->updateValues().push_back(dataValueVec[idx]);
 			}
 
 			// send read history request
@@ -262,7 +262,7 @@ namespace OpcUaClient
 		Log(Debug, "read csv file")
 		    .parameter("CSVFileName", fileName);
 
-		csv_ = constructSPtr<CSV>();
+		csv_ = boost::make_shared<CSV>();
 		bool success = csv_->open(fileName, CSV::M_Read);
 		if (!success) {
 			Log(Error, "open csv file error")
@@ -304,7 +304,7 @@ namespace OpcUaClient
 			//
 			// create new data value entry
 			//
-			OpcUaDataValue::SPtr dataValue = constructSPtr<OpcUaDataValue>();
+			OpcUaDataValue::SPtr dataValue = boost::make_shared<OpcUaDataValue>();
 			dataValueVec.push_back(dataValue);
 
 			// read status code

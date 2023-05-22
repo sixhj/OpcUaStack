@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -126,7 +126,7 @@ namespace OpcUaStackServer
 			}
 			case OpcUaBuildInType_OpcUaGuid:
 			{
-				displayPath_ = *nodeId.nodeId<OpcUaGuid::SPtr>();
+				displayPath_ = nodeId.nodeId<OpcUaGuid::SPtr>()->value();
 				break;
 			}
 			case OpcUaBuildInType_OpcUaByteString:
@@ -228,7 +228,7 @@ namespace OpcUaStackServer
 
 	bool
 	InformationModelManager::addNode(
-		NodeClassType nodeClassType,
+		NodeClass::Enum nodeClassType,
 		AddNodeRule& addNodeRule,
 		OpcUaNodeId& parentNodeId,
 		OpcUaNodeId& nodeId,
@@ -240,7 +240,7 @@ namespace OpcUaStackServer
 	{
 		switch (nodeClassType)
 		{
-			case NodeClassType_Object:
+			case NodeClass::EnumObject:
 			{
 				return addObjectNode(
 					addNodeRule,
@@ -253,7 +253,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_Variable:
+			case NodeClass::EnumVariable:
 			{
 				return addVariableNode(
 					addNodeRule,
@@ -266,7 +266,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_Method:
+			case NodeClass::EnumMethod:
 			{
 				return addMethodNode(
 					parentNodeId,
@@ -276,7 +276,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_ObjectType:
+			case NodeClass::EnumObjectType:
 			{
 				return addObjectTypeNode(
 					parentNodeId,
@@ -286,7 +286,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_VariableType:
+			case NodeClass::EnumVariableType:
 			{
 				return addVariableTypeNode(
 					parentNodeId,
@@ -296,7 +296,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_DataType:
+			case NodeClass::EnumDataType:
 			{
 				return addDataTypeNode(
 					parentNodeId,
@@ -306,7 +306,7 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
-			case NodeClassType_ReferenceType:
+			case NodeClass::EnumReferenceType:
 			{
 				return addReferenceTypeNode(
 					parentNodeId,
@@ -316,6 +316,8 @@ namespace OpcUaStackServer
 				);
 				break;
 			}
+			default:
+				Log(Error, "Node class type isn't supported").parameter("NodeClassType", nodeClassType);
 		}
 
 		return false;
@@ -385,7 +387,7 @@ namespace OpcUaStackServer
 		//
 		// create new object node and add the attributes
 		//
-		ObjectNodeClass::SPtr objectNodeClass = constructSPtr<ObjectNodeClass>();
+		ObjectNodeClass::SPtr objectNodeClass = boost::make_shared<ObjectNodeClass>();
 		objectNodeClass->setNodeId(nodeId);
 		objectNodeClass->setBrowseName(browseName);
 		objectNodeClass->setDisplayName(displayName);
@@ -527,7 +529,7 @@ namespace OpcUaStackServer
 		//
 		// create new variable node and add the attributes
 		//
-		VariableNodeClass::SPtr variableNodeClass = constructSPtr<VariableNodeClass>();
+		VariableNodeClass::SPtr variableNodeClass = boost::make_shared<VariableNodeClass>();
 		variableNodeClass->setNodeId(nodeId);
 		variableNodeClass->setBrowseName(browseName);
 		variableNodeClass->setDisplayName(displayName);
@@ -655,7 +657,7 @@ namespace OpcUaStackServer
     	//
     	// create method node
     	//
-       	MethodNodeClass::SPtr methodNodeClass = constructSPtr<MethodNodeClass>();
+       	MethodNodeClass::SPtr methodNodeClass = boost::make_shared<MethodNodeClass>();
        	methodNodeClass->setNodeId(nodeId);
        	methodNodeClass->setBrowseName(browseName);
        	methodNodeClass->setDisplayName(displayName);
@@ -707,7 +709,7 @@ namespace OpcUaStackServer
     	//
     	// create object type node
     	//
-       	ObjectTypeNodeClass::SPtr objectTypeNodeClass = constructSPtr<ObjectTypeNodeClass>();
+       	ObjectTypeNodeClass::SPtr objectTypeNodeClass = boost::make_shared<ObjectTypeNodeClass>();
        	objectTypeNodeClass->setNodeId(nodeId);
        	objectTypeNodeClass->setBrowseName(browseName);
        	objectTypeNodeClass->setDisplayName(displayName);
@@ -760,7 +762,7 @@ namespace OpcUaStackServer
 	    //
 	    // create variable type node
 	    //
-	    VariableTypeNodeClass::SPtr variableTypeNodeClass = constructSPtr<VariableTypeNodeClass>();
+	    VariableTypeNodeClass::SPtr variableTypeNodeClass = boost::make_shared<VariableTypeNodeClass>();
 	    variableTypeNodeClass->setNodeId(nodeId);
 	    variableTypeNodeClass->setBrowseName(browseName);
 	    variableTypeNodeClass->setDisplayName(displayName);
@@ -815,7 +817,7 @@ namespace OpcUaStackServer
 	    //
 	    // create data type node
 	    //
-	    DataTypeNodeClass::SPtr dataTypeNodeClass = constructSPtr<DataTypeNodeClass>();
+	    DataTypeNodeClass::SPtr dataTypeNodeClass = boost::make_shared<DataTypeNodeClass>();
 	    dataTypeNodeClass->setNodeId(nodeId);
 	    dataTypeNodeClass->setBrowseName(browseName);
 	    dataTypeNodeClass->setDisplayName(displayName);
@@ -868,7 +870,7 @@ namespace OpcUaStackServer
 	    //
 	    // create reference type node
 	    //
-	    ReferenceTypeNodeClass::SPtr referenceTypeNodeClass = constructSPtr<ReferenceTypeNodeClass>();
+	    ReferenceTypeNodeClass::SPtr referenceTypeNodeClass = boost::make_shared<ReferenceTypeNodeClass>();
 	    referenceTypeNodeClass->setNodeId(nodeId);
 	    referenceTypeNodeClass->setBrowseName(browseName);
 	    referenceTypeNodeClass->setDisplayName(displayName);
@@ -898,7 +900,7 @@ namespace OpcUaStackServer
 
 	bool
 	InformationModelManager::delNode(
-		OpcUaNodeId& nodeId
+		const OpcUaNodeId& nodeId
 	)
 	{
 		//
@@ -953,9 +955,9 @@ namespace OpcUaStackServer
 
 	bool
 	InformationModelManager::delReference(
-		OpcUaNodeId& sourceNodeId,
-		OpcUaNodeId& referenceTypeNodeId,
-		OpcUaNodeId& targetNodeId
+		const OpcUaNodeId& sourceNodeId,
+		const OpcUaNodeId& referenceTypeNodeId,
+		const OpcUaNodeId& targetNodeId
 	)
 	{
 		//
@@ -998,12 +1000,12 @@ namespace OpcUaStackServer
 		for (uint32_t idx=0; idx<childBaseNodeClassVec.size(); idx++) {
 			BaseNodeClass::SPtr childBaseNodeClass = childBaseNodeClassVec[idx];
 
-			NodeClassType nodeClassType;
+			NodeClass::Enum nodeClassType;
 			childBaseNodeClass->getNodeClass(nodeClassType);
 
-			if (nodeClassType != NodeClassType_Object &&
-				nodeClassType != NodeClassType_Variable &&
-				nodeClassType != NodeClassType_Method) {
+			if (nodeClassType != NodeClass::EnumObject &&
+				nodeClassType != NodeClass::EnumVariable &&
+				nodeClassType != NodeClass::EnumMethod) {
 				continue;
 			}
 
@@ -1032,7 +1034,7 @@ namespace OpcUaStackServer
 
 			switch (nodeClassType)
 			{
-				case NodeClassType_Object:
+				case NodeClass::EnumObject:
 				{
 					bool success = addObjectNode(
 						addNodeRule,
@@ -1043,7 +1045,7 @@ namespace OpcUaStackServer
 					if (!success) return false;
 					break;
 				}
-				case NodeClassType_Variable:
+				case NodeClass::EnumVariable:
 				{
 					bool success = addVariableNode(
 						addNodeRule,
@@ -1054,7 +1056,7 @@ namespace OpcUaStackServer
 					if (!success) return false;
 					break;
 				}
-				case NodeClassType_Method:
+				case NodeClass::EnumMethod:
 				{
 					bool success = addMethodNode(
 						addNodeRule,

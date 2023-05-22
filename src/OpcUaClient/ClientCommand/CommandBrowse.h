@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,13 +23,10 @@
 #include "OpcUaClient/ClientCommand/CommandBase.h"
 #include "OpcUaStackClient/ServiceSet/ViewServiceBrowse.h"
 
-using namespace OpcUaStackCore;
-using namespace OpcUaStackClient;
-
 namespace OpcUaClient
 {
 
-	class CommandBrowse
+	class DLLEXPORT CommandBrowse
 	: public CommandBase
 	{
 	  public:
@@ -45,13 +42,13 @@ namespace OpcUaClient
 		virtual std::string help(void);
 		//- CommandBrowse interface ---------------------------------------------
 
-		OpcUaNodeId::Vec& nodeIdVec(void);
-		BrowseDirectionEnum direction(void);
+		OpcUaStackCore::OpcUaNodeId::Vec& nodeIdVec(void);
+		OpcUaStackCore::BrowseDirectionEnum direction(void);
 		bool recursive(void);
 
 	  private:
-		OpcUaNodeId::Vec nodeIdVec_;
-		BrowseDirectionEnum direction_;
+		OpcUaStackCore::OpcUaNodeId::Vec nodeIdVec_;
+		OpcUaStackCore::BrowseDirectionEnum direction_;
 		bool recursive_;
 	};
 

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -25,8 +25,8 @@ namespace OpcUaStackCore
 	, time_()
 	, requestHandle_()
 	, serviceResult_()
-	, diagnosticInfoSPtr_(constructSPtr<OpcUaDiagnosticInfo>())
-	, stringTableSPtr_(constructSPtr<OpcUaStringArray>())
+	, diagnosticInfoSPtr_(boost::make_shared<OpcUaDiagnosticInfo>())
+	, stringTableSPtr_(boost::make_shared<OpcUaStringArray>())
 	{
 		time_.dateTime(boost::posix_time::microsec_clock::universal_time());
 		requestHandle_ = 0;
@@ -38,7 +38,7 @@ namespace OpcUaStackCore
 	}
 
 	void  
-	ResponseHeader::time(const UtcTime& time)
+	ResponseHeader::time(const OpcUaUtcTime& time)
 	{
 		time_ = time;
 	}
@@ -49,7 +49,7 @@ namespace OpcUaStackCore
 		time_.dateTime(time);
 	}
 
-	UtcTime 
+	OpcUaUtcTime
 	ResponseHeader::time(void) const
 	{
 		return time_;
@@ -57,12 +57,12 @@ namespace OpcUaStackCore
 
 
 	void 
-	ResponseHeader::requestHandle(const IntegerId& requestHandle)
+	ResponseHeader::requestHandle(const OpcUaIntegerId& requestHandle)
 	{
 		requestHandle_ = requestHandle;
 	}
 		
-	IntegerId 
+	OpcUaIntegerId
 	ResponseHeader::requestHandle(void) const
 	{
 		return requestHandle_;
@@ -104,36 +104,44 @@ namespace OpcUaStackCore
 		return stringTableSPtr_;
 	}
 
-	void 
+	bool
 	ResponseHeader::opcUaBinaryEncode(std::ostream& os) const
 	{
-		time_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
-		OpcUaNumber::opcUaBinaryEncode(os, serviceResult_);
-		diagnosticInfoSPtr_->opcUaBinaryEncode(os);
-		stringTableSPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= time_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, serviceResult_);
+		rc &= diagnosticInfoSPtr_->opcUaBinaryEncode(os);
+	    rc &= stringTableSPtr_->opcUaBinaryEncode(os);
 
 		// FIXME: additional header
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaByte)0x00);
+
+		return rc;
 	}
 		
-	void 
+	bool
 	ResponseHeader::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaInt32 tmp1;
-		time_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp1); serviceResult_ = (OpcUaStatusCode)tmp1;
-		diagnosticInfoSPtr_->opcUaBinaryDecode(is);
-		stringTableSPtr_->opcUaBinaryDecode(is);
+		rc &= time_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp1); serviceResult_ = (OpcUaStatusCode)tmp1;
+		rc &= diagnosticInfoSPtr_->opcUaBinaryDecode(is);
+		rc &= stringTableSPtr_->opcUaBinaryDecode(is);
 
 		// FIXME: additional header
 		OpcUaByte tmp2;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp2);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp2);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp2);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp2);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp2);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp2);
+
+		return true;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,49 +18,46 @@
 #ifndef __OpcUaStackClient_NodeManagementService_h__
 #define __OpcUaStackClient_NodeManagementService_h__
 
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
 #include "OpcUaStackCore/ServiceSet/NodeManagementServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/NodeManagementServiceIf.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
 
 namespace OpcUaStackClient 
 {
 
 	class DLLEXPORT NodeManagementService
-	: public Component
+	: public ClientServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<NodeManagementService> SPtr;
 
-		NodeManagementService(IOThread* ioThread);
+		NodeManagementService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~NodeManagementService(void);
 
 		void setConfiguration(
-			Component* componentSession,
-			NodeManagementServiceIf* nodeManagementServiceIf
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember
 		);
-		void componentSession(Component* componentSession);
-		void nodeManagementServiceIf(NodeManagementServiceIf* nodeManagementServiceIf);
 
-		void syncSend(ServiceTransactionAddNodes::SPtr serviceTransactionAddNodes);
-		void asyncSend(ServiceTransactionAddNodes::SPtr serviceTransactionAddNodes);
-		void syncSend(ServiceTransactionAddReferences::SPtr serviceTransactionAddReferences);
-		void asyncSend(ServiceTransactionAddReferences::SPtr serviceTransactionAddReferences);
-		void syncSend(ServiceTransactionDeleteNodes::SPtr serviceTransactionDeleteNodes);
-		void asyncSend(ServiceTransactionDeleteNodes::SPtr serviceTransactionDeleteNodes);
-		void syncSend(ServiceTransactionDeleteReferences::SPtr serviceTransactionDeleteReferences);
-		void asyncSend(ServiceTransactionDeleteReferences::SPtr serviceTransactionDeleteReferences);
-
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionAddNodes::SPtr& serviceTransactionAddNodes);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionAddNodes::SPtr& serviceTransactionAddNodes);
+		void syncSend(const OpcUaStackCore::ServiceTransactionAddReferences::SPtr& serviceTransactionAddReferences);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionAddReferences::SPtr& serviceTransactionAddReferences);
+		void syncSend(const OpcUaStackCore::ServiceTransactionDeleteNodes::SPtr& serviceTransactionDeleteNodes);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionDeleteNodes::SPtr& serviceTransactionDeleteNodes);
+		void syncSend(const OpcUaStackCore::ServiceTransactionDeleteReferences::SPtr& serviceTransactionDeleteReferences);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionDeleteReferences::SPtr& serviceTransactionDeleteReferences);
 
 	  private:
-		Component* componentSession_;
-
-		NodeManagementServiceIf* nodeManagementServiceIf_;
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		OpcUaStackCore::MessageBusMember::WPtr sessionMember_;
 	};
 
 }

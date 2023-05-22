@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,11 +17,13 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/ViewNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	ViewNodeClass::ViewNodeClass(void)
-	: BaseNodeClass(NodeClassType_View)
+	: BaseNodeClass(NodeClass::EnumView)
 	, containsNoLoops_()
 	, eventNotifier_()
 	{
@@ -72,7 +74,7 @@ namespace OpcUaStackServer
 	BaseNodeClass::SPtr
 	ViewNodeClass::clone(void)
 	{
-		ViewNodeClass::SPtr viewNodeClass = constructSPtr<ViewNodeClass>();
+		ViewNodeClass::SPtr viewNodeClass = boost::make_shared<ViewNodeClass>();
 		copyTo(viewNodeClass);
 		return viewNodeClass;
 	}

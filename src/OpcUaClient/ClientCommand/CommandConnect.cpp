@@ -16,11 +16,10 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <boost/make_shared.hpp>
 #include <sstream>
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaClient/ClientCommand/CommandConnect.h"
 
-using namespace OpcUaStackCore;
+#include "OpcUaClient/ClientCommand/CommandConnect.h"
 
 namespace OpcUaClient
 {
@@ -39,7 +38,7 @@ namespace OpcUaClient
 	CommandBase::SPtr
 	CommandConnect::createCommand(void)
 	{
-		CommandBase::SPtr commandBase = constructSPtr<CommandConnect>();
+		CommandBase::SPtr commandBase = boost::make_shared<CommandConnect>();
 		return commandBase;
 	}
 

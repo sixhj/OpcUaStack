@@ -1,5 +1,5 @@
 /*
-   Copyright 2016-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,17 +18,13 @@
 #ifndef __OpcUaStackClient_ClientMonitoredItem_h__
 #define __OpcUaStackClient_ClientMonitoredItem_h__
 
-#include <boost/shared_ptr.hpp>
 #include <map>
 #include <set>
 #include <vector>
 #include <stdint.h>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
-#include "OpcUaStackCore/BuildInTypes/DataChangeTrigger.h"
+#include "OpcUaStackCore/StandardDataTypes/DataChangeTrigger.h"
 #include "OpcUaStackClient/ServiceSet/ServiceSetManager.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
@@ -54,10 +50,10 @@ namespace OpcUaStackClient
 		void samplingInterval(uint32_t samplingInterval);
 		uint32_t queueSize(void);
 		void queueSize(uint32_t queueSize);
-		DataChangeTrigger dataChangeFilter(void);
-		void dataChangeFilter(DataChangeTrigger dataChangeFilter);
-		OpcUaNodeId& nodeId(void);
-		void nodeId(OpcUaNodeId& nodeId);
+		OpcUaStackCore::DataChangeTrigger dataChangeFilter(void);
+		void dataChangeFilter(OpcUaStackCore::DataChangeTrigger dataChangeFilter);
+		OpcUaStackCore::OpcUaNodeId& nodeId(void);
+		void nodeId(OpcUaStackCore::OpcUaNodeId& nodeId);
 		void clientHandle(uint32_t clientHandle);
 		uint32_t clientHandle(void);
 
@@ -67,23 +63,23 @@ namespace OpcUaStackClient
 		boost::posix_time::ptime reconnectTime(void);
 		void monitoredItemId(uint32_t monitoredItemId);
 		uint32_t monitoredItemId(void);
-		void context(Object::SPtr& context);
-		Object::SPtr& context(void);
+		void context(OpcUaStackCore::Object::SPtr& context);
+		OpcUaStackCore::Object::SPtr& context(void);
 
 	  private:
 
 	    // configuration data
 		uint32_t samplingInterval_;
 		uint32_t queueSize_;
-		OpcUaNodeId nodeId_;
-		DataChangeTrigger dataChangeFilter_;
+		OpcUaStackCore::OpcUaNodeId nodeId_;
+		OpcUaStackCore::DataChangeTrigger dataChangeFilter_;
 		uint32_t clientHandle_;
 
 		// runtime data
 		State state_;
 		boost::posix_time::ptime reconnectTime_;
 		uint32_t monitoredItemId_;
-		Object::SPtr context_;
+		OpcUaStackCore::Object::SPtr context_;
 	};
 
 }

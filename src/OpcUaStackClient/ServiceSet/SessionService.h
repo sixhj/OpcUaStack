@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -14,138 +14,88 @@
 
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
-#ifndef __OpcUaStackClient_Session_h__
-#define __OpcUaStackClient_Session_h__
+#ifndef __OpcUaStackClient_SessionService_h__
+#define __OpcUaStackClient_SessionService_h__
 
-#include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Component/Component.h"
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/Utility/SlotTimer.h"
 #include "OpcUaStackCore/Utility/IOThread.h"
 #include "OpcUaStackCore/Utility/PendingQueue.h"
-#include "OpcUaStackCore/SecureChannel/SecureChannelClient.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelClientIf.h"
-#include "OpcUaStackCore/ServiceSet/ServiceTransaction.h"
-#include "OpcUaStackClient/ServiceSet/SessionServiceIf.h"
+#include "OpcUaStackClient/ServiceSet/ClientServiceBase.h"
+#include "OpcUaStackClient/ServiceSet/SessionMode.h"
+#include "OpcUaStackClient/ServiceSet/SessionServiceStateMachine.h"
 #include "OpcUaStackClient/ServiceSet/SessionBase.h"
 #include "OpcUaStackClient/ServiceSet/SessionConfig.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackClient/ServiceSet/SessionServiceContext.h"
+#include "OpcUaStackClient/ServiceSet/SessionServiceConfig.h"
+#include "OpcUaStackClient/ServiceSet/SessionServiceHandler.h"
+#include "OpcUaStackClient/ServiceSet/EndpointDescriptionCache.h"
 
 namespace OpcUaStackClient
 {
 
-	class DLLEXPORT SessionTransaction
-	{
-	  public:
-		typedef enum
-		{
-			OP_None,
-			OP_Connect,
-			OP_Disconnect
-		} Operation;
-
-		typedef boost::shared_ptr<SessionTransaction> SPtr;
-
-		SessionTransaction(void);
-		~SessionTransaction(void);
-
-		Operation operation_;
-		Condition condition_;
-		OpcUaStatusCode statusCode_;
-	};
+	class SessionServiceContext;
 
 	class DLLEXPORT SessionService
-	: public SessionBase
-	, public Component
-	, public SecureChannelClientIf
+	: public ClientServiceBase
+	, public SessionBase
+	, public OpcUaStackCore::SecureChannelClientIf
 	{
 	  public:
-		typedef boost::shared_ptr<SessionService> SPtr;
+		using SPtr = boost::shared_ptr<SessionService>;
 
-		typedef enum
-		{
-			M_SecureChannel,
-			M_SecureChannelAndSession
-		} Mode;
-
-		typedef enum
-		{
-			SCS_Disconnected,
-			SCS_DisconnectedWait,
-			SCS_Connecting,
-			SCS_Connected,
-			SCS_Disconnecting
-		} SecureChannelState;
-
-		SessionService(IOThread* ioThread);
+		SessionService(
+			const std::string& serviceName,				 // Global unique name of the service. The service
+			                                             // name is used to register a unique member in the
+			                                             // message bus.
+			OpcUaStackCore::IOThread* ioThread,			 // Threads for the execution of tasks in the service
+			                                             // component.
+			OpcUaStackCore::MessageBus::SPtr& messageBus // Global message bus for service communication.
+		);
 		~SessionService(void);
 
 		void setConfiguration(
-			Mode mode,
-			SessionServiceIf* sessionServiceIf,
-			SecureChannelClientConfig::SPtr& secureChannelClientConfig,
+			SessionMode sessionMode,
+			SessionServiceChangeHandler& sessionServiceChangeHandler,
+			boost::shared_ptr<boost::asio::io_service::strand>& sessionServiceChangeHandlerStrand,
+			OpcUaStackCore::SecureChannelClientConfig::SPtr& secureChannelClientConfig,
 			SessionConfig::SPtr& sessionConfig
 		);
 		void updateEndpointUrl(const std::string& endpointUrl);
 
-		void sessionServiceIf(SessionServiceIf* sessionServiceIf);
 		void asyncConnect(void);
-		OpcUaStatusCode syncConnect(void);
+		OpcUaStackCore::OpcUaStatusCode syncConnect(void);
 		void asyncDisconnect(bool deleteSubscriptions = true);
-		OpcUaStatusCode syncDisconnect(bool deleteSubscriptions = true);
+		OpcUaStackCore::OpcUaStatusCode syncDisconnect(bool deleteSubscriptions = true);
 		void asyncCancel(uint32_t requestHandle);
-		SecureChannelState secureChannelState(void);
+
+		EndpointDescriptionCache& getEndpointDescriptionCache(void);
 
 		//- SecureChannelClientIf ---------------------------------------------
-		virtual void handleConnect(SecureChannel* secureChannel);
-		virtual void handleDisconnect(SecureChannel* secureChannel);
-		virtual void handleMessageResponse(SecureChannel* secureChannel);
+		virtual void handleConnect(OpcUaStackCore::SecureChannel* secureChannel);
+		virtual void handleDisconnect(OpcUaStackCore::SecureChannel* secureChannel);
+		virtual void handleMessageResponse(OpcUaStackCore::SecureChannel* secureChannel);
 		//- SecureChannelClientIf ---------------------------------------------
 
-		// - Component -------------------------------------------------------
-		void receive(Message::SPtr message);
-		// - Component -------------------------------------------------------
-
-	  private:
-		void asyncConnectInternal(SessionTransaction::SPtr& sessionTransaction);
-		void asyncDisconnectInternal(SessionTransaction::SPtr& sessionTransaction, bool deleteSubscriptions);
-		void asyncCancelInternal(uint32_t requestHandle);
-
-		void sendCreateSessionRequest(void);
-		void recvCreateSessionResponse(SecureChannelTransaction::SPtr secureChannelTransaction, ResponseHeader::SPtr& responseHeader);
-		void sendActivateSessionRequest(void);
-		void recvActivateSessionResponse(SecureChannelTransaction::SPtr secureChannelTransaction, ResponseHeader::SPtr responseHeader);
-		void sendCloseSessionRequest(bool deleteSubscriptions);
-		void sendCancelRequest(uint32_t requestHandle);
-		void pendingQueueTimeout(Object::SPtr object);
-		void receiveMessage(SecureChannelTransaction::SPtr secureChannelTransaction, ResponseHeader::SPtr responseHeader);
+		void pendingQueueTimeout(OpcUaStackCore::Object::SPtr object);
 		void reconnectTimeout(void);
 
-		// configuration
-		Mode mode_;
+	  private:
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr message
+		);
+		SessionService(void);
 
-		SecureChannelState secureChannelState_;
+		void pendingQueueTimeoutLoop(void);
+		void asyncConnectInternal(void);
+		void asyncDisconnectInternal(bool deleteSubscriptions);
+		void asyncCancelInternal(uint32_t requestHandle);
 
-		IOThread* ioThread_;
-		SessionServiceIf* sessionServiceIf_;
-		SecureChannel* secureChannel_;
-		bool sessionConnect_;
-		SecureChannelClient secureChannelClient_;
-		SessionConfig::SPtr sessionConfig_;
-		SecureChannelClientConfig::SPtr secureChannelClientConfig_;
-		SlotTimerElement::SPtr slotTimerElement_;
+		SessionServiceStateMachine sm_;
+		SessionServiceContext* ctx_;
 
-		SessionTransaction::SPtr sessionTransaction_;
-		OpcUaUInt32 requestHandle_;
-		OpcUaDouble sessionTimeout_;
-		OpcUaUInt32 maxResponseMessageSize_;
-		uint32_t requestTimeout_;
-
-		OpcUaUInt32 requestId_;
-		OpcUaNodeId authenticationToken_;
-
-		PendingQueue pendingQueue_;
 	};
 
 }

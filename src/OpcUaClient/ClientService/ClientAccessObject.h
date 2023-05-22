@@ -1,5 +1,5 @@
 /*
-   Copyright 2016-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -22,12 +22,10 @@
 #include <map>
 #include "OpcUaStackClient/ServiceSet/ServiceSetManager.h"
 
-using namespace OpcUaStackClient;
-
 namespace OpcUaClient
 {
 
-	class ClientAccessObject
+	class DLLEXPORT ClientAccessObject
 	{
 	  public:
 		typedef boost::shared_ptr<ClientAccessObject> SPtr;
@@ -36,38 +34,54 @@ namespace OpcUaClient
 		ClientAccessObject(void);
 		~ClientAccessObject(void);
 
-		AttributeService::SPtr createAttributeService(void);
-		AttributeService::SPtr createAttributeService(AttributeServiceConfig& attributeServiceConfig);
-		AttributeService::SPtr getOrCreateAttributeService(void);
-		AttributeService::SPtr getOrCreateAttributeService(AttributeServiceConfig& attributeServiceConfig);
+		OpcUaStackClient::AttributeService::SPtr createAttributeService(void);
+		OpcUaStackClient::AttributeService::SPtr createAttributeService(
+			OpcUaStackClient::AttributeServiceConfig& attributeServiceConfig
+		);
+		OpcUaStackClient::AttributeService::SPtr getOrCreateAttributeService(void);
+		OpcUaStackClient::AttributeService::SPtr getOrCreateAttributeService(
+			OpcUaStackClient::AttributeServiceConfig& attributeServiceConfig
+		);
 
-		ViewService::SPtr createViewService(void);
-		ViewService::SPtr createViewService(ViewServiceConfig& viewServiceConfig);
-		ViewService::SPtr getOrCreateViewService(void);
-		ViewService::SPtr getOrCreateViewService(ViewServiceConfig& viewServiceConfig);
+		OpcUaStackClient::ViewService::SPtr createViewService(void);
+		OpcUaStackClient::ViewService::SPtr createViewService(
+			OpcUaStackClient::ViewServiceConfig& viewServiceConfig
+		);
+		OpcUaStackClient::ViewService::SPtr getOrCreateViewService(void);
+		OpcUaStackClient::ViewService::SPtr getOrCreateViewService(
+			OpcUaStackClient::ViewServiceConfig& viewServiceConfig
+		);
 
-		MethodService::SPtr createMethodService(void);
-		MethodService::SPtr createMethodService(MethodServiceConfig& methodServiceConfig);
-		MethodService::SPtr getOrCreateMethodService(void);
-		MethodService::SPtr getOrCreateMethodService(MethodServiceConfig& methodServiceConfig);
+		OpcUaStackClient::MethodService::SPtr createMethodService(void);
+		OpcUaStackClient::MethodService::SPtr createMethodService(
+			OpcUaStackClient::MethodServiceConfig& methodServiceConfig
+		);
+		OpcUaStackClient::MethodService::SPtr getOrCreateMethodService(void);
+		OpcUaStackClient::MethodService::SPtr getOrCreateMethodService(
+			OpcUaStackClient::MethodServiceConfig& methodServiceConfig
+		);
 
-		DiscoveryService::SPtr createDiscoveryService(void);
-		DiscoveryService::SPtr createDiscoveryService(DiscoveryServiceConfig& discoveryServiceConfig);
-		DiscoveryService::SPtr getOrCreateDiscoveryService(void);
-		DiscoveryService::SPtr getOrCreateDiscoveryService(DiscoveryServiceConfig& discoveryServiceConfig);
+		OpcUaStackClient::DiscoveryService::SPtr createDiscoveryService(void);
+		OpcUaStackClient::DiscoveryService::SPtr createDiscoveryService(
+			OpcUaStackClient::DiscoveryServiceConfig& discoveryServiceConfig
+		);
+		OpcUaStackClient::DiscoveryService::SPtr getOrCreateDiscoveryService(void);
+		OpcUaStackClient::DiscoveryService::SPtr getOrCreateDiscoveryService(
+			OpcUaStackClient::DiscoveryServiceConfig& discoveryServiceConfig
+		);
 
 	  public:
-		ServiceSetManager serviceSetManager_;
+		OpcUaStackClient::ServiceSetManager serviceSetManager_;
 
-		SessionService::SPtr sessionService_;
+		OpcUaStackClient::SessionService::SPtr sessionService_;
 
-		AttributeService::SPtr attributeService_;
+		OpcUaStackClient::AttributeService::SPtr attributeService_;
 
-		ViewService::SPtr viewService_;
+		OpcUaStackClient::ViewService::SPtr viewService_;
 
-		MethodService::SPtr methodService_;
+		OpcUaStackClient::MethodService::SPtr methodService_;
 
-		DiscoveryService::SPtr discoveryService_;
+		OpcUaStackClient::DiscoveryService::SPtr discoveryService_;
 	};
 
 }

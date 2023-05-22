@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,8 +24,7 @@ namespace OpcUaStackClient
 {
 
 	ViewServiceBrowse::ViewServiceBrowse(void)
-	: ViewServiceIf()
-	, viewServiceBrowseIf_(nullptr)
+	: viewServiceBrowseIf_(nullptr)
 	, viewService_()
 	, maxNodesInBrowse_(20)
 	, nodeIdVec_()
@@ -52,7 +51,6 @@ namespace OpcUaStackClient
 	ViewServiceBrowse::viewService(ViewService::SPtr& viewService)
 	{
 		viewService_ = viewService;
-		viewService_->viewServiceIf(this);
 	}
 
 	void
@@ -82,13 +80,13 @@ namespace OpcUaStackClient
 	void
 	ViewServiceBrowse::asyncBrowse(void)
 	{
-		ServiceTransactionBrowse::SPtr trx = constructSPtr<ServiceTransactionBrowse>();
-		BrowseRequest::SPtr req = trx->request();
+		auto trx = boost::make_shared<ServiceTransactionBrowse>();
+		auto req = trx->request();
 
 		req->nodesToBrowse()->resize(nodeIdVec_.size());
 
 		for (uint32_t pos = 0; pos < nodeIdVec_.size(); pos++) {
-			BrowseDescription::SPtr browseDescription = constructSPtr<BrowseDescription>();
+			BrowseDescription::SPtr browseDescription = boost::make_shared<BrowseDescription>();
 			browseDescription->nodeId(nodeIdVec_[pos]);
 			browseDescription->browseDirection(direction_);
 			browseDescription->nodeClassMask(0xFFFFFFFF);
@@ -96,11 +94,18 @@ namespace OpcUaStackClient
 			req->nodesToBrowse()->push_back(browseDescription);
 		}
 
+		trx->resultHandler(
+			[this](ServiceTransactionBrowse::SPtr& trx) {
+				viewServiceBrowseResponse(trx);
+			}
+		);
 		viewService_->asyncSend(trx);
 	}
 
     void
-    ViewServiceBrowse::viewServiceBrowseResponse(ServiceTransactionBrowse::SPtr serviceTransactionBrowse)
+    ViewServiceBrowse::viewServiceBrowseResponse(
+    	ServiceTransactionBrowse::SPtr serviceTransactionBrowse
+	)
     {
     	OpcUaStatusCode statusCode;
     	BrowseResponse::SPtr res = serviceTransactionBrowse->response();
@@ -182,17 +187,22 @@ namespace OpcUaStackClient
     void
     ViewServiceBrowse::asyncBrowseNext(void)
     {
-    	ServiceTransactionBrowseNext::SPtr trx = constructSPtr<ServiceTransactionBrowseNext>();
+    	ServiceTransactionBrowseNext::SPtr trx = boost::make_shared<ServiceTransactionBrowseNext>();
 		BrowseNextRequest::SPtr req = trx->request();
 
 		req->continuationPoints()->resize(continuationPointVec_.size());
 
 		for (uint32_t pos = 0; pos < continuationPointVec_.size(); pos++) {
-			OpcUaByteString::SPtr continuationPoint = constructSPtr<OpcUaByteString>();
+			OpcUaByteString::SPtr continuationPoint = boost::make_shared<OpcUaByteString>();
 			continuationPoint->fromHexString(continuationPointVec_[pos]);
 			req->continuationPoints()->set(pos, continuationPoint);
 		}
 
+		trx->resultHandler(
+			[this](ServiceTransactionBrowseNext::SPtr& trx) {
+				viewServiceBrowseNextResponse(trx);
+			}
+		);
 		viewService_->asyncSend(trx);
     }
 
@@ -296,7 +306,7 @@ namespace OpcUaStackClient
 				if (nodeIdVec_.size() >= maxNodesInBrowse_) break;
 
 				OpcUaNodeId tmp = *it;
-				OpcUaNodeId::SPtr nodeId = constructSPtr<OpcUaNodeId>();
+				OpcUaNodeId::SPtr nodeId = boost::make_shared<OpcUaNodeId>();
 				nodeId->copyFrom(tmp);
 				nodeIdVec_.push_back(nodeId);
 			}

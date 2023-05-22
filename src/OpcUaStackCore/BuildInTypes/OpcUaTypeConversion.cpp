@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -79,7 +79,7 @@ namespace OpcUaStackCore
 		OpcUaVariant& targetVariant 		// target variant data
 	)
 	{
-		OpcUaBuildInType sourceType = sourceVariant.variantType();
+		auto sourceType = sourceVariant.variantType();
 
 		switch (conversionType(sourceType, targetType))
 		{
@@ -105,7 +105,11 @@ namespace OpcUaStackCore
 	}
 
 	bool
-	OpcUaTypeConversion::cast(OpcUaVariant& sourceVariant, OpcUaBuildInType targetType, OpcUaVariant& targetVariant)
+	OpcUaTypeConversion::cast(
+		OpcUaVariant& sourceVariant,
+		OpcUaBuildInType targetType,
+		OpcUaVariant& targetVariant
+	)
 	{
 		if (sourceVariant.isArray()) {
 			Log(LogLevel::Warning, "array conversion is not supported");
@@ -174,7 +178,7 @@ namespace OpcUaStackCore
 				hexString.insert(18, "-");
 				hexString.insert(23, "-");
 
-				OpcUaGuid::SPtr guid = constructSPtr<OpcUaGuid>();
+				OpcUaGuid::SPtr guid = boost::make_shared<OpcUaGuid>();
 
 				if (guid->value(hexString)) {
 					targetVariant.variant(guid);
@@ -225,7 +229,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaNodeId:
 			{
 
-				OpcUaNodeId::SPtr nodeId = constructSPtr<OpcUaNodeId>();
+				OpcUaNodeId::SPtr nodeId = boost::make_shared<OpcUaNodeId>();
 				((OpcUaNodeIdBase*)sourceVariant.getSPtr<OpcUaExpandedNodeId>().get())->copyTo((OpcUaNodeId&)*nodeId);
 
 				targetVariant.variant(nodeId);
@@ -255,7 +259,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaUInt16:	return castRealToInteger<OpcUaFloat, OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt32:	return castRealToInteger<OpcUaFloat, OpcUaUInt32>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt64:	return castRealToInteger<OpcUaFloat, OpcUaUInt64>(sourceVariant, targetVariant);
-			default: 							false;
+			default: 							return false;
 			}
 		}
 
@@ -268,7 +272,7 @@ namespace OpcUaStackCore
 				std::string guidString =  sourceVariant.getSPtr<OpcUaGuid>()->value();
 				boost::replace_all(guidString, "-", "");
 
-				OpcUaByteString::SPtr byteString = constructSPtr<OpcUaByteString>();
+				OpcUaByteString::SPtr byteString = boost::make_shared<OpcUaByteString>();
 				byteString->fromHexString(guidString);
 
 				targetVariant.variant(byteString);
@@ -280,7 +284,7 @@ namespace OpcUaStackCore
 				targetVariant.setValue(value);
 				return true;
 			}
-			default: 							false;
+				default: 						return false;
 			}
 		}
 		case OpcUaBuildInType_OpcUaInt16:
@@ -298,7 +302,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaUInt16:	return castIntegerToInteger<OpcUaInt16, OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt32:	return cast<OpcUaInt16, OpcUaUInt32>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt64:	return cast<OpcUaInt16, OpcUaUInt64>(sourceVariant, targetVariant);
-			default:							false;
+				default: 						return false;
 			}
 		}
 		case OpcUaBuildInType_OpcUaInt32:
@@ -317,7 +321,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaUInt16:	return castIntegerToInteger<OpcUaInt32, OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt32:	return castIntegerToInteger<OpcUaInt32, OpcUaUInt32>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt64:	return cast<OpcUaInt32, OpcUaUInt64>(sourceVariant, targetVariant);
-			default:							false;
+			default:							return false;
 			}
 		}
 
@@ -346,7 +350,7 @@ namespace OpcUaStackCore
 			{
 			case OpcUaBuildInType_OpcUaExpandedNodeId:
 			{
-				OpcUaExpandedNodeId::SPtr expandedNodeId = constructSPtr<OpcUaExpandedNodeId>();
+				OpcUaExpandedNodeId::SPtr expandedNodeId = boost::make_shared<OpcUaExpandedNodeId>();
 				expandedNodeId->copyFrom(*sourceVariant.getSPtr<OpcUaNodeId>());
 				targetVariant.variant(expandedNodeId);
 				return true;
@@ -437,7 +441,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaDouble: 	return castStringToReal<OpcUaDouble>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaExpandedNodeId:
 			{
-				OpcUaExpandedNodeId::SPtr value = constructSPtr<OpcUaExpandedNodeId>();
+				OpcUaExpandedNodeId::SPtr value = boost::make_shared<OpcUaExpandedNodeId>();
 				if (value->fromString(sourceVariant.getSPtr<OpcUaString>()->toStdString())) {
 					targetVariant.variant(value);
 					return true;
@@ -449,7 +453,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaFloat: 	return castStringToReal<OpcUaFloat>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaGuid:
 			{
-				OpcUaGuid::SPtr value = constructSPtr<OpcUaGuid>();
+				OpcUaGuid::SPtr value = boost::make_shared<OpcUaGuid>();
 				if (value->value(sourceVariant.getSPtr<OpcUaString>()->toStdString())) {
 					targetVariant.variant(value);
 					return true;
@@ -463,7 +467,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaInt64:	return castStringToInteger<OpcUaInt64>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaNodeId:
 			{
-				OpcUaNodeId::SPtr value = constructSPtr<OpcUaNodeId>();
+				OpcUaNodeId::SPtr value = boost::make_shared<OpcUaNodeId>();
 				if (value->fromString(sourceVariant.getSPtr<OpcUaString>()->toStdString())) {
 					targetVariant.variant(value);
 					return true;
@@ -475,7 +479,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaSByte:	return castStringToInteger<OpcUaSByte>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaLocalizedText:
 			{
-				OpcUaLocalizedText::SPtr value = constructSPtr<OpcUaLocalizedText>();
+				OpcUaLocalizedText::SPtr value = boost::make_shared<OpcUaLocalizedText>();
 				if (value->fromString(sourceVariant.getSPtr<OpcUaString>()->toStdString())) {
 					targetVariant.variant(value);
 					return true;
@@ -485,7 +489,7 @@ namespace OpcUaStackCore
 			}
 			case OpcUaBuildInType_OpcUaQualifiedName:
 			{
-				OpcUaQualifiedName::SPtr value = constructSPtr<OpcUaQualifiedName>();
+				OpcUaQualifiedName::SPtr value = boost::make_shared<OpcUaQualifiedName>();
 				if (value->fromString(sourceVariant.getSPtr<OpcUaString>()->toStdString())) {
 					targetVariant.variant(value);
 					return true;
@@ -524,7 +528,7 @@ namespace OpcUaStackCore
 			}
 			case OpcUaBuildInType_OpcUaLocalizedText:
 			{
-				OpcUaLocalizedText::SPtr value = constructSPtr<OpcUaLocalizedText>("", sourceVariant.getSPtr<OpcUaQualifiedName>()->toString());
+				OpcUaLocalizedText::SPtr value = boost::make_shared<OpcUaLocalizedText>("", sourceVariant.getSPtr<OpcUaQualifiedName>()->toString());
 				targetVariant.variant(value);
 				return true;
 			}
@@ -553,7 +557,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaString:  return castToString<OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt32:	return cast<OpcUaUInt16, OpcUaUInt32>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt64:	return cast<OpcUaUInt16, OpcUaUInt64>(sourceVariant, targetVariant);
-			default:							false;
+			default:							return false;
 			}
 		}
 		case OpcUaBuildInType_OpcUaUInt32:
@@ -572,7 +576,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaString:  return castToString<OpcUaUInt32>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt16:	return castIntegerToInteger<OpcUaUInt32, OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt64:	return cast<OpcUaUInt32, OpcUaUInt64>(sourceVariant, targetVariant);
-			default:							false;
+			default:							return false;
 			}
 		}
 		case OpcUaBuildInType_OpcUaUInt64:
@@ -591,7 +595,7 @@ namespace OpcUaStackCore
 			case OpcUaBuildInType_OpcUaString:  return castToString<OpcUaUInt64>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt16:	return castIntegerToInteger<OpcUaUInt64, OpcUaUInt16>(sourceVariant, targetVariant);
 			case OpcUaBuildInType_OpcUaUInt32:	return castIntegerToInteger<OpcUaUInt64, OpcUaUInt32>(sourceVariant, targetVariant);
-			default:							false;
+			default:							return false;
 			}
 		}
 		default:	return false;

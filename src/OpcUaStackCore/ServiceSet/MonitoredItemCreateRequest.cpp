@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -76,21 +76,49 @@ namespace OpcUaStackCore
 		return requestedParameters_;
 	}
 
-	void 
+	bool
 	MonitoredItemCreateRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		itemToMonitor_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)monitoringMode_);
-		requestedParameters_.opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= itemToMonitor_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)monitoringMode_);
+		rc &= requestedParameters_.opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	MonitoredItemCreateRequest::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaUInt32 tmp;
-		itemToMonitor_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= itemToMonitor_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
 		monitoringMode_ = (MonitoringMode)tmp;
-		requestedParameters_.opcUaBinaryDecode(is);
+		rc &= requestedParameters_.opcUaBinaryDecode(is);
+
+		return rc;
+	}
+
+	bool
+	MonitoredItemCreateRequest::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonObjectEncode(pt, itemToMonitor_, "ItemToMonitor");
+		rc = rc & jsonNumberEncode(pt, (uint32_t)monitoringMode_, "MonitoringMode", true, (uint32_t)MonitoringMode::MonitoringMode_Sampling);
+		rc = rc & jsonObjectEncode(pt, requestedParameters_, "RequestedParameters");
+		return true;
+	}
+
+	bool
+	MonitoredItemCreateRequest::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		bool rc = true;
+		rc = rc & jsonObjectDecode(pt, itemToMonitor_, "ItemToMonitor");
+		rc = rc & jsonNumberDecode(pt, *(uint32_t*)&monitoringMode_, "MonitoringMode", true, (uint32_t)MonitoringMode::MonitoringMode_Sampling);
+		rc = rc & jsonObjectDecode(pt, requestedParameters_, "RequestedParameters");
+		return true;
 	}
 }

@@ -1,9 +1,24 @@
+/*
+   Copyright 2019-2020 Kai Huebl (kai@huebl-sgh.de)
+
+   Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
+   Datei nur in Übereinstimmung mit der Lizenz erlaubt.
+   Eine Kopie der Lizenz erhalten Sie auf http://www.apache.org/licenses/LICENSE-2.0.
+
+   Sofern nicht gemäß geltendem Recht vorgeschrieben oder schriftlich vereinbart,
+   erfolgt die Bereitstellung der im Rahmen der Lizenz verbreiteten Software OHNE
+   GEWÄHR ODER VORBEHALTE – ganz gleich, ob ausdrücklich oder stillschweigend.
+
+   Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
+   im Rahmen der Lizenz finden Sie in der Lizenz.
+
+   Autor: Kai Huebl (kai@huebl-sgh.de)
+ */
+
 #ifndef __OpcUaStackCore_PendingQueue_h__
 #define __OpcUaStackCore_PendingQueue_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Base/Object.h"
-#include "OpcUaStackCore/Base/Callback.h"
 #include "OpcUaStackCore/Utility/Timer.h"
 
 namespace OpcUaStackCore
@@ -35,11 +50,14 @@ namespace OpcUaStackCore
 	{
 	  public:
 		typedef boost::shared_ptr<PendingQueue> SPtr;
+		using TimeoutCallback = std::function<void (Object::SPtr&)>;
 
+		PendingQueue(void);
 		PendingQueue(IOService& ioService);
 		~PendingQueue(void);
 
-		Callback& timeoutCallback(void);
+		void ioService(IOService& ioService);
+		void timeoutCallback(const TimeoutCallback timeoutCallback);
 
 		bool insert(uint32_t key, Object::SPtr object, uint32_t timeoutMSec);
 		Object::SPtr remove(uint32_t key);
@@ -52,7 +70,7 @@ namespace OpcUaStackCore
 		IOService* ioService_;
 		typedef std::map<uint32_t, PendingQueueElement::SPtr> PendingQueueMap;
 		PendingQueueMap pendingQueueMap_;
-		Callback timeoutCallback_;
+		TimeoutCallback timeoutCallback_;
 	};
 
 }

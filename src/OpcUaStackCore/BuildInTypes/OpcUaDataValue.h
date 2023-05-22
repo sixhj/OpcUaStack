@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,9 +24,7 @@
 #include "OpcUaStackCore/BuildInTypes/OpcUaVariant.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaStatusCode.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaDateTime.h"
-#include "OpcUaStackCore/BuildInTypes/DataChangeTrigger.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
-#include "OpcUaStackCore/Base/os.h"
+#include "OpcUaStackCore/BuildInTypes/JsonFormatter.h"
 
 namespace OpcUaStackCore
 {
@@ -41,12 +39,14 @@ namespace OpcUaStackCore
 
 	class DLLEXPORT OpcUaDataValue
 	: public Object
+	, public JsonFormatter
 	{
 	  public:
 		typedef boost::shared_ptr<OpcUaDataValue> SPtr;
 		typedef std::vector<OpcUaDataValue::SPtr> Vec;
 
 	    OpcUaDataValue(void);
+	    OpcUaDataValue(const OpcUaDataValue& value);
 	    OpcUaDataValue(const OpcUaNullValue& value, OpcUaStatusCode statusCode, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    OpcUaDataValue(const OpcUaBoolean& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    OpcUaDataValue(const OpcUaByte& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
@@ -118,7 +118,8 @@ namespace OpcUaStackCore
 	    OpcUaDataValue(const std::vector<OpcUaExtensionObject::SPtr>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 
 
-		~OpcUaDataValue(void);
+
+	    ~OpcUaDataValue(void);
 
 		bool exist(void);
 		bool isNullVariant(void);
@@ -284,6 +285,8 @@ namespace OpcUaStackCore
 	    void set(const OpcUaUInt32& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaInt64& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaUInt64& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+	    void set(const OpcUaFloat& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+	    void set(const OpcUaDouble& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaString& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaDateTime& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaGuid& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
@@ -305,6 +308,8 @@ namespace OpcUaStackCore
 	    void set(const OpcUaUInt32Array& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaInt64Array& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaUInt64Array& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+	    void set(const OpcUaFloatArray& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+	    void set(const OpcUaDoubleArray& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaStringArray& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaDateTimeArray& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const OpcUaGuidArray& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
@@ -326,6 +331,11 @@ namespace OpcUaStackCore
 	    void set(const std::vector<OpcUaUInt32>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const std::vector<OpcUaInt64>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const std::vector<OpcUaUInt64>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+
+	    void set(const std::vector<OpcUaFloat>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+	    void set(const std::vector<OpcUaDouble>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
+
+
 	    void set(const std::vector<OpcUaString::SPtr>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const std::vector<OpcUaDateTime>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
 	    void set(const std::vector<OpcUaGuid::SPtr>& value, OpcUaStatusCode statusCode = Success, const OpcUaDateTime& sourceTimestamp = OpcUaDateTime(boost::posix_time::microsec_clock::universal_time()));
@@ -341,10 +351,9 @@ namespace OpcUaStackCore
 
 		void copyFrom(OpcUaDataValue& dataValue);
 		void copyTo(OpcUaDataValue& dataValue);
+		bool operator<(const OpcUaDataValue& dataValue) const;
 		bool operator!=(const OpcUaDataValue& opcUaDataValue) const;
 		bool operator==(const OpcUaDataValue& opcUaDataValue) const;
-		bool trigger(OpcUaDataValue::SPtr dataValue, DataChangeTrigger dataChangeTrigger = DCT_StatusValue);
-		bool trigger(OpcUaDataValue& dataValue, DataChangeTrigger dataChangeTrigger = DCT_StatusValue);
 
 		void out(std::ostream& os) const;
 		friend std::ostream& operator<<(std::ostream& os, const OpcUaDataValue& value) {
@@ -352,13 +361,15 @@ namespace OpcUaStackCore
 			return os;
 		}
 
-		void opcUaBinaryEncode(std::ostream& os) const;
-		void opcUaBinaryDecode(std::istream& is);
-		bool encode(boost::property_tree::ptree& pt) const;
-		bool decode(boost::property_tree::ptree& pt, OpcUaBuildInType type, bool isArray);
+		bool opcUaBinaryEncode(std::ostream& os) const;
+		bool opcUaBinaryDecode(std::istream& is);
 		bool xmlEncode(boost::property_tree::ptree& pt, const std::string& element, Xmlns& xmlns);
 		bool xmlEncode(boost::property_tree::ptree& pt, Xmlns& xmlns);
 		bool xmlDecode(boost::property_tree::ptree& pt, Xmlns& xmlns);
+
+      protected:
+        bool jsonEncodeImpl(boost::property_tree::ptree &pt) const override;
+        bool jsonDecodeImpl(const boost::property_tree::ptree &pt) override;
 
 	  private:
 		OpcUaVariant::SPtr opcUaVariantSPtr_;
@@ -370,7 +381,7 @@ namespace OpcUaStackCore
 	};
 
 
-	class OpcUaDataValueArray
+	class DLLEXPORT OpcUaDataValueArray
 	: public OpcUaArray<OpcUaDataValue::SPtr, SPtrTypeCoder<OpcUaDataValue> >
 	, public Object
 	{

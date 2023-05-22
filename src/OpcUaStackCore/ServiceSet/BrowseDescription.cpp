@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,7 +12,7 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include "OpcUaStackCore/ServiceSet/BrowseDescription.h"
@@ -30,9 +30,9 @@ namespace OpcUaStackCore
 
 	BrowseDescription::BrowseDescription(void)
 	: Object()
-	, nodeIdSPtr_(constructSPtr<OpcUaNodeId>())
+	, nodeIdSPtr_(boost::make_shared<OpcUaNodeId>())
 	, browseDirection_()
-	, referenceTypeIdSPtr_(constructSPtr<OpcUaNodeId>())
+	, referenceTypeIdSPtr_(boost::make_shared<OpcUaNodeId>())
 	, includeSubtypes_()
 	, nodeClassMask_()
 	, resultMask_()
@@ -115,28 +115,76 @@ namespace OpcUaStackCore
 		return resultMask_;
 	}
 
-	void 
+	void
+	BrowseDescription::copyTo(BrowseDescription& browseDescription)
+	{
+		nodeIdSPtr_->copyTo(*browseDescription.nodeId().get());
+		browseDescription.browseDirection(browseDirection_);
+		referenceTypeIdSPtr_->copyTo(*browseDescription.referenceTypeId().get());
+		browseDescription.includeSubtypes(includeSubtypes_);
+		browseDescription.nodeClassMask(nodeClassMask_);
+		browseDescription.resultMask(resultMask_);
+	}
+
+	bool
 	BrowseDescription::opcUaBinaryEncode(std::ostream& os) const
 	{
-		nodeIdSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)browseDirection_);
-		referenceTypeIdSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, includeSubtypes_);
-		OpcUaNumber::opcUaBinaryEncode(os, nodeClassMask_);
-		OpcUaNumber::opcUaBinaryEncode(os, resultMask_);
+		bool rc = true;
+
+		rc &= nodeIdSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)browseDirection_);
+		rc &= referenceTypeIdSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, includeSubtypes_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, nodeClassMask_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, resultMask_);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	BrowseDescription::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaUInt32 tmp;
-		nodeIdSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= nodeIdSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
 		browseDirection_ = (BrowseDirectionEnum)tmp;
-		referenceTypeIdSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, includeSubtypes_);
-		OpcUaNumber::opcUaBinaryDecode(is, nodeClassMask_);
-		OpcUaNumber::opcUaBinaryDecode(is, resultMask_);
+		rc &= referenceTypeIdSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, includeSubtypes_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, nodeClassMask_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, resultMask_);
+
+		return rc;
 	}
+
+	bool
+	BrowseDescription::jsonEncodeImpl(boost::property_tree::ptree &pt) const {
+		bool rc = jsonObjectSPtrEncode(pt, nodeIdSPtr_, "NodeId");
+		rc &= jsonNumberEncode(pt, (OpcUaUInt32)browseDirection_, "BrowseDirection");
+		rc &= jsonObjectSPtrEncode(pt, referenceTypeIdSPtr_, "ReferenceTypeId", true);
+		rc &= jsonNumberEncode(pt, includeSubtypes_, "IncludeSubtypes");
+		rc &= jsonNumberEncode(pt, nodeClassMask_, "NodeClassMask");
+		rc &= jsonNumberEncode(pt, resultMask_, "ResultMask");
+
+		return rc;
+	}
+
+	bool
+	BrowseDescription::jsonDecodeImpl(const boost::property_tree::ptree &pt) {
+		bool rc = jsonObjectSPtrDecode(pt, nodeIdSPtr_, "NodeId");
+
+		OpcUaUInt32 tmp;
+		rc &= jsonNumberDecode(pt, tmp, "BrowseDirection");
+		browseDirection_ = (BrowseDirectionEnum)tmp;
+
+		rc &= jsonObjectSPtrDecode(pt, referenceTypeIdSPtr_, "ReferenceTypeId", true);
+		rc &= jsonNumberDecode(pt, includeSubtypes_, "IncludeSubtypes");
+		rc &= jsonNumberDecode(pt, nodeClassMask_, "NodeClassMask");
+		rc &= jsonNumberDecode(pt, resultMask_, "ResultMask");
+
+		return rc;
+	}
+
 
 }

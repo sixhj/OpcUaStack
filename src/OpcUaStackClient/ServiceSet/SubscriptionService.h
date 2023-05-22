@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,9 +18,11 @@
 #ifndef __OpcUaStackClient_SubscriptionManager_h__
 #define __OpcUaStackClient_SubscriptionManager_h__
 
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include <set>
 #include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackClient/ServiceSet/SubscriptionServiceBase.h"
+#include "OpcUaStackClient/ServiceSet/SubscriptionServiceHandler.h"
 
 namespace OpcUaStackClient
 {
@@ -32,56 +34,73 @@ namespace OpcUaStackClient
 	  public:
 		typedef boost::shared_ptr<SubscriptionService> SPtr;
 
-		SubscriptionService(IOThread* ioThread);
+		SubscriptionService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread* ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		virtual ~SubscriptionService(void);
 
 		void setConfiguration(
-			Component* componentSession,
+			OpcUaStackCore::MessageBusMember::WPtr& sessionMember,
+			const DataChangeNotificationHandler& dataChangeNotificationHandler,
+			boost::shared_ptr<boost::asio::io_service::strand>& dataChangeNotificationHandlerStrand,
+			const EventNotificationHandler& eventNotificationHandler,
+			boost::shared_ptr<boost::asio::io_service::strand>& eventNotificationHandlerStrand,
+			const SubscriptionStateUpdateHandler& subscriptionStateUpdateHandler,
+			boost::shared_ptr<boost::asio::io_service::strand>& subscriptionStateUpdateHandlerStrand,
 			uint32_t publishCount,
-			uint32_t requestTimeout,
-			SubscriptionServiceIf* subscriptionServiceIf
+			uint32_t requestTimeout
 		);
 		void publishCount(uint32_t publishCount);
 		uint32_t publishCount(void);
 
-		void syncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
-		void asyncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
-		void syncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
-		void asyncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
-		void syncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
-		void asyncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
-		void syncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
-		void asyncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
-		void syncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
-		void asyncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
-		void syncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish);
-		void asyncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish);
-		void syncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
-		void asyncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
-
-		//- Component -----------------------------------------------------------------
-		virtual void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
+		void syncSend(const OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription);
+		void syncSend(const OpcUaStackCore::ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription);
+		void syncSend(const OpcUaStackCore::ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions);
+		void syncSend(const OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
+		void syncSend(const OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode);
+		void syncSend(const OpcUaStackCore::ServiceTransactionPublish::SPtr& serviceTransactionPublish);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionPublish::SPtr& serviceTransactionPublish);
+		void syncSend(const OpcUaStackCore::ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
+		void asyncSend(const OpcUaStackCore::ServiceTransactionRepublish::SPtr& serviceTransactionRepublish);
 
 	    //- SubscriptionServicePublish ----------------------------------------
-	    virtual void subscriptionServiceSetPublishingModeResponse(ServiceTransactionSetPublishingMode::SPtr serviceTransactionSetPublishingMode);
-	    virtual void subscriptionServicePublishResponse(ServiceTransactionPublish::SPtr serviceTransactionPublish);
-	    virtual void subscriptionServiceRepublishResponse(ServiceTransactionRepublish::SPtr serviceTransactionRepublish);
+	    virtual void subscriptionServiceSetPublishingModeResponse(OpcUaStackCore::ServiceTransactionSetPublishingMode::SPtr serviceTransactionSetPublishingMode);
+	    virtual void subscriptionServicePublishResponse(OpcUaStackCore::ServiceTransactionPublish::SPtr serviceTransactionPublish);
+	    virtual void subscriptionServiceRepublishResponse(OpcUaStackCore::ServiceTransactionRepublish::SPtr serviceTransactionRepublish);
 		//- SubscriptionServicePublishIf --------------------------------------
 
 	  private:
-	    void subscriptionServiceCreateSubscriptionResponse(ServiceTransactionCreateSubscription::SPtr serviceTransactionCreateSubscription);
-	    void subscriptionServiceDeleteSubscriptionsResponse(ServiceTransactionDeleteSubscriptions::SPtr serviceTransactionDeleteSubscriptions);
+	    void receive(
+	    	const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+	    	OpcUaStackCore::Message::SPtr message
+		);
 
-	    void sendDeleteSubscriptions(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
+	    void subscriptionServiceCreateSubscriptionResponse(OpcUaStackCore::ServiceTransactionCreateSubscription::SPtr serviceTransactionCreateSubscription);
+	    void subscriptionServiceDeleteSubscriptionsResponse(OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr serviceTransactionDeleteSubscriptions);
+
+	    void sendDeleteSubscriptions(const OpcUaStackCore::ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions);
 	    void createSubscription(uint32_t subscriptionId);
 	    void deleteSubscriptionRequest(uint32_t subscriptionId);
 	    void deleteSubscriptionResponse(uint32_t subscriptionId);
 	    void sendPublishRequests(void);
 
-	    void receivePublishResponse(const PublishResponse::SPtr& publishResponse);
-	    void dataChangeNotification(const ExtensibleParameter::SPtr& extensibleParameter);
+	    void receivePublishResponse(const OpcUaStackCore::PublishResponse::SPtr& publishResponse);
+	    void dataChangeNotification(const OpcUaStackCore::OpcUaExtensibleParameter::SPtr& extensibleParameter);
+	    void eventNotification(const OpcUaStackCore::OpcUaExtensibleParameter::SPtr& extensibleParameter);
 
+	    DataChangeNotificationHandler dataChangeNotificationHandler_ = nullptr;
+	    boost::shared_ptr<boost::asio::io_service::strand> dataChangeNotificationHandlerStrand_ = nullptr;
+		EventNotificationHandler eventNotificationHandler_ = nullptr;
+		boost::shared_ptr<boost::asio::io_service::strand> eventNotificationHandlerStrand_ = nullptr;
+		SubscriptionStateUpdateHandler subscriptionStateUpdateHandler_ = nullptr;
+		boost::shared_ptr<boost::asio::io_service::strand> subscriptionStateUpdateHandlerStrand_ = nullptr;
 	    uint32_t publishCount_;
 	    uint32_t actPublishCount_;
 	    uint32_t requestTimeout_;

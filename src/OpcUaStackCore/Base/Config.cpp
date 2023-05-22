@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -158,12 +158,23 @@ namespace OpcUaStackCore
 		cfg->getValues(valueName, valueVec);
 	}
 
+	bool
+	Config::existChild(const std::string& path)
+	{
+		auto config = getChild(path);
+		if (!config) {
+			return false;
+		}
+		return true;
+	}
+
 	boost::optional<Config>
 	Config::getChild(const std::string& path)
 	{
 		boost::optional<boost::property_tree::ptree&> child = child_.get_child_optional(path);
 		if (!child) return boost::none;
 		Config config(*child);
+		config.aliasMap(aliasMap());
 		return config;
 	}
 
@@ -181,6 +192,90 @@ namespace OpcUaStackCore
 		boost::optional<Config> cfg = getChild(prefixPath);
 		if (!cfg) return;
 		return cfg->getChilds(valueName, configVec);
+	}
+
+	bool
+	Config::getConfigParameter(uint8_t& value)
+	{
+		uint32_t valueTemp;
+		if (!getConfigParameter(valueTemp)) {
+			return false;
+		}
+		if (valueTemp > 0xFF) {
+			return false;
+		}
+		value = (uint8_t)valueTemp;
+		return true;
+	}
+
+	bool
+	Config::getConfigParameter(int8_t& value)
+	{
+		int32_t valueTemp;
+		if (!getConfigParameter(valueTemp)) {
+			return false;
+		}
+		if (valueTemp > 127 || valueTemp < -128) {
+			return false;
+		}
+		value = (int8_t)valueTemp;
+		return true;
+	}
+
+	bool
+	Config::getConfigParameter(const std::string& path, uint8_t& value)
+	{
+		uint32_t valueTemp;
+		if (!getConfigParameter(path, valueTemp)) {
+			return false;
+		}
+		if (valueTemp > 0xFF) {
+			return false;
+		}
+		value = (uint8_t)valueTemp;
+		return true;
+	}
+
+	bool
+	Config::getConfigParameter(const std::string& path, int8_t& value)
+	{
+		int32_t valueTemp;
+		if (!getConfigParameter(path, valueTemp)) {
+			return false;
+		}
+		if (valueTemp > 127 || valueTemp < -128) {
+			return false;
+		}
+		value = (int8_t)valueTemp;
+		return true;
+	}
+
+	bool
+	Config::getConfigParameter(const std::string& path, uint8_t& value, const std::string& defaultValue)
+	{
+		uint32_t valueTemp;
+		if (!getConfigParameter(path, valueTemp, defaultValue)) {
+			return false;
+		}
+		if (valueTemp > 0xFF) {
+			return false;
+		}
+		value = (uint8_t)valueTemp;
+		return true;
+	}
+
+	bool
+	Config::getConfigParameter(const std::string& path, int8_t& value, const std::string& defaultValue)
+	{
+		int32_t valueTemp;
+		if (!getConfigParameter(path, valueTemp, defaultValue)) {
+			return false;
+		}
+		if (valueTemp > 127 || valueTemp < -128) {
+			return false;
+		}
+		value = (int8_t)valueTemp;
+		return true;
 	}
 
 	bool 
@@ -232,6 +327,7 @@ namespace OpcUaStackCore
 				if (it->second.begin() == it->second.end()) continue;
 
 				Config cfg(it->second);
+				cfg.aliasMap(aliasMap());
 				valueVec.push_back(cfg);
 			}
 		}
@@ -281,9 +377,34 @@ namespace OpcUaStackCore
 	}
 
 	void
+	Config::aliasMap(AliasMap& aliasMap)
+	{
+		aliasMap_.insert(aliasMap_.begin(), aliasMap.end());
+	}
+
+	Config::AliasMap&
+	Config::aliasMap(void)
+	{
+		return aliasMap_;
+	}
+
+	void
 	Config::out(std::ostream& os)
 	{
 		out(os, child_, 0);
+	}
+
+	void
+	Config::outAliasMap(std::ostream& os)
+	{
+		out(os, aliasMap_);
+	}
+
+	void
+	Config::outAll(std::ostream& os)
+	{
+		out(os, child_, 0);
+		out(os, aliasMap_);
 	}
 
 	void
@@ -296,14 +417,24 @@ namespace OpcUaStackCore
 		}
 
 		// write data
-		boost::property_tree::ptree::iterator it;
-		for (it = ptree.begin(); it != ptree.end(); it++) {
+		for (auto it = ptree.begin(); it != ptree.end(); it++) {
 			boost::optional<std::string> value = it->second.data();
 			if (value) {
 				os << prefix << it->first << " = " << *value << std::endl;
 			}
 
 			out(os, it->second, depth+1);
+		}
+	}
+
+	void
+	Config::out(std::ostream& os, AliasMap& aliasMap)
+	{
+		os << "AliasMap:" << std::endl;
+
+		// write alias map
+		for (auto it = aliasMap.begin(); it != aliasMap.end(); it++) {
+			os << it->first << " = " << it->second << std::endl;
 		}
 	}
 

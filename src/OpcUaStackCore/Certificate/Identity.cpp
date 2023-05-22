@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,6 +15,7 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include <iostream>
 #include "OpcUaStackCore/Certificate/Identity.h"
 
 namespace OpcUaStackCore
@@ -120,6 +121,19 @@ namespace OpcUaStackCore
 		return domainComponent_;
 	}
 
+	Identity&
+	Identity::operator=(const Identity& value)
+	{
+   		organization_ = value.organization_;
+		organizationUnit_ = value.organizationUnit_;
+		locality_ = value.locality_;
+		state_ = value.state_;
+		country_ = value.country_;
+		commonName_ = value.commonName_;
+		domainComponent_ = value.domainComponent_;
+		return *this;
+	}
+
     bool
 	Identity::operator==(const Identity &identity) const
 	{
@@ -151,6 +165,19 @@ namespace OpcUaStackCore
 			commonName_.size() == 0							&&
 			domainComponent_.size() == 0
 		);
+    }
+
+    void
+	Identity::log(const std::string& message)
+    {
+    	Log(Debug, message)
+    	    .parameter("CommonName", commonName_)
+			.parameter("Organization", organization_)
+			.parameter("OrganizationUnit", organizationUnit_)
+			.parameter("Locality", locality_)
+			.parameter("State", state_)
+			.parameter("Countery", country_)
+			.parameter("DomainComponent", domainComponent_);
     }
 
     X509_NAME*
@@ -209,19 +236,28 @@ namespace OpcUaStackCore
     bool
 	Identity::decodeX509(X509_NAME* name)
     {
-    	if (!decodeX509(name, NID_domainComponent, domainComponent_)) return false;
-    	if (!decodeX509(name, NID_countryName, country_)) return false;
-    	if (!decodeX509(name, NID_stateOrProvinceName, state_)) return false;
-    	if (!decodeX509(name, NID_localityName, locality_)) return false;
-    	if (!decodeX509(name, NID_organizationName, organization_)) return false;
-    	if (!decodeX509(name, NID_organizationalUnitName, organizationUnit_)) return false;
+    	if (!decodeX509(name, NID_domainComponent, domainComponent_, true)) return false;
+    	if (!decodeX509(name, NID_countryName, country_, true)) return false;
+    	if (!decodeX509(name, NID_stateOrProvinceName, state_, true)) return false;
+    	if (!decodeX509(name, NID_localityName, locality_, true)) return false;
+    	if (!decodeX509(name, NID_organizationName, organization_, true)) return false;
+    	if (!decodeX509(name, NID_organizationalUnitName, organizationUnit_, true)) return false;
     	if (!decodeX509(name, NID_commonName, commonName_)) return false;
     	return true;
     }
 
     int32_t
-	Identity::encodeX509(X509_NAME* name, const std::string& key, const std::string& value)
+	Identity::encodeX509(
+		X509_NAME* name,
+		const std::string& key,
+		const std::string& value,
+		bool optional
+	)
     {
+    	if (optional && value.empty()) {
+    		return 1;
+    	}
+
     	int32_t result = 1;
         if (key.length() > 0) {
             result = X509_NAME_add_entry_by_txt(name, key.c_str(), MBSTRING_UTF8, (const unsigned char*)value.c_str(), -1, -1, 0);
@@ -233,23 +269,42 @@ namespace OpcUaStackCore
     }
 
     bool
-	Identity::decodeX509(X509_NAME* name, int32_t id, std::string& value)
+	Identity::decodeX509(
+		X509_NAME* name,
+		int32_t id,
+		std::string& value,
+		bool optional
+	)
     {
     	int32_t entryId = X509_NAME_get_index_by_NID(name, id, -1);
     	if (entryId == -1) {
+    		if (optional) {
+    		    value = "";
+    		    return true;
+    		}
+
     		addOpenSSLError();
+    		std::stringstream message;
+    		message << "object " << id << " not found in identity decoder";
+    		addError(message.str());
     		return false;
     	}
 
     	 X509_NAME_ENTRY* entry = X509_NAME_get_entry(name, entryId);
     	 if (!entry) {
     		 addOpenSSLError();
+     		 std::stringstream message;
+     		 message << "entry " << id << " not found in identity decoder";
+     		 addError(message.str());
     		 return false;
     	 }
 
     	 ASN1_STRING* asn1String = X509_NAME_ENTRY_get_data(entry);
     	 if (!asn1String) {
     		 addOpenSSLError();
+     		 std::stringstream message;
+     		 message << "data " << id << " not found in identity decoder";
+     		 addError(message.str());
     		 return false;
     	 }
 

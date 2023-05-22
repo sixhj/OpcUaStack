@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,66 +18,156 @@
 #ifndef __OpcUaStackServer_AttributeService_h__
 #define __OpcUaStackServer_AttributeService_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaStackCore/ServiceSet/ServiceTransactionIf.h"
 #include "OpcUaStackCore/ServiceSet/AttributeServiceTransaction.h"
-#include "OpcUaStackCore/ServiceSet/ReadRawModifiedDetails.h"
-#include "OpcUaStackCore/ServiceSet/UpdateStructureDataDetails.h"
+#include "OpcUaStackCore/StandardDataTypes/UpdateStructureDataDetails.h"
 #include "OpcUaStackServer/ServiceSet/ServiceSetBase.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/ServiceSet/ServerServiceBase.h"
+#include "OpcUaStackServer/Forward/ForwardManager.h"
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT AttributeService 
 	: public ServiceSetBase
-	, public Object
+	, public OpcUaStackCore::Object
+	, public OpcUaStackServer::ServerServiceBase
 	{
 	  public:
 		typedef boost::shared_ptr<AttributeService> SPtr;
 
-		AttributeService(void);
+		AttributeService(
+			const std::string& serviceName,
+			OpcUaStackCore::IOThread::SPtr& ioThread,
+			OpcUaStackCore::MessageBus::SPtr& messageBus
+		);
 		~AttributeService(void);
 
-		//- Component -----------------------------------------------------------------
-		void receive(Message::SPtr message);
-		//- Component -----------------------------------------------------------------
-
 	  private:
-		void receiveReadRequest(ServiceTransaction::SPtr serviceTransaction);
-		void forwardRead(
-			UserContext::SPtr& userContext,
-			BaseNodeClass::SPtr baseNodeClass,
-			ReadRequest::SPtr readRequest,
-			ReadValueId::SPtr readValueId
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
 		);
-		OpcUaStatusCode forwardAuthorizationRead(UserContext::SPtr& userContext, ReadValueId::SPtr& readValueId);
-		void receiveWriteRequest(ServiceTransaction::SPtr serviceTransaction);
-		OpcUaStatusCode forwardWrite(
-			UserContext::SPtr& userContext,
-			BaseNodeClass::SPtr baseNodeClass,
-			WriteRequest::SPtr writeRequest,
-			WriteValue::SPtr writeValue
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackServer::ForwardTransaction::SPtr& forwardTransaction
 		);
-		OpcUaStatusCode forwardAuthorizationWrite(UserContext::SPtr& userContext, WriteValue::SPtr& writeValue);
-		void receiveHistoryReadRequest(ServiceTransaction::SPtr serviceTransaction);
+		void receive(
+			const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+			OpcUaStackCore::Message::SPtr& message
+		);
+
+		void sendAnswer(
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// The following functions are used for asynchronously communication
+		// with the application.
+		//
+		// --------------------------------------------------------------------
+		void sendTrxForwardAsync(
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		void recvTrxForwardAsync(
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		void finishTrxForwardAsync(
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// read service
+		//
+		// --------------------------------------------------------------------
+		void receiveReadRequest(
+			OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction
+		);
+		void forwardReadAsyncResponse(
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		bool forwardReadAsync(
+			ForwardJob::SPtr& forwardJob,
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			BaseNodeClass::SPtr baseNodeClass,
+			uint32_t idx,
+			OpcUaStackCore::ServiceTransactionRead::SPtr& readTrx
+		);
+		void forwardReadSync(
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			BaseNodeClass::SPtr baseNodeClass,
+			OpcUaStackCore::ReadRequest::SPtr readRequest,
+			OpcUaStackCore::ReadValueId::SPtr readValueId
+		);
+		OpcUaStackCore::OpcUaStatusCode forwardAuthorizationRead(
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			OpcUaStackCore::ReadValueId::SPtr& readValueId
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// write service
+		//
+		// --------------------------------------------------------------------
+		void receiveWriteRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		OpcUaStackCore::OpcUaStatusCode forwardWrite(
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			BaseNodeClass::SPtr baseNodeClass,
+			OpcUaStackCore::WriteRequest::SPtr writeRequest,
+			OpcUaStackCore::WriteValue::SPtr writeValue
+		);
+		void forwardWriteAsyncResponse(
+			OpcUaStackCore::OpcUaStatusCode statusCode,
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			ForwardTransaction::SPtr& forwardTransaction
+		);
+		bool forwardWriteAsync(
+			ForwardJob::SPtr& forwardJob,
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			BaseNodeClass::SPtr baseNodeClass,
+			uint32_t idx,
+			OpcUaStackCore::ServiceTransactionWrite::SPtr& writeTrx
+		);
+		OpcUaStackCore::OpcUaStatusCode forwardAuthorizationWrite(
+			OpcUaStackCore::UserContext::SPtr& userContext,
+			OpcUaStackCore::WriteValue::SPtr& writeValue
+		);
+
+		// --------------------------------------------------------------------
+		//
+		// read history service
+		//
+		// --------------------------------------------------------------------
+		void receiveHistoryReadRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
 		void receiveHistoryReadRawRequest(
-			ServiceTransaction::SPtr& serviceTransaction,
-			ServiceTransactionHistoryRead::SPtr& trx,
-			HistoryReadRequest::SPtr readRequest,
-			HistoryReadResponse::SPtr readResponse
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			OpcUaStackCore::ServiceTransactionHistoryRead::SPtr& trx,
+			OpcUaStackCore::HistoryReadRequest::SPtr readRequest,
+			OpcUaStackCore::HistoryReadResponse::SPtr readResponse
 		);
 		void receiveHistoryReadEventRequest(
-			ServiceTransaction::SPtr& serviceTransaction,
-			ServiceTransactionHistoryRead::SPtr& trx,
-			HistoryReadRequest::SPtr readRequest,
-			HistoryReadResponse::SPtr readResponse
+			OpcUaStackCore::ServiceTransaction::SPtr& serviceTransaction,
+			OpcUaStackCore::ServiceTransactionHistoryRead::SPtr& trx,
+			OpcUaStackCore::HistoryReadRequest::SPtr readRequest,
+			OpcUaStackCore::HistoryReadResponse::SPtr readResponse
 		);
-		OpcUaStatusCode forwardAuthorizationHistoricalRead(UserContext::SPtr& userContext, HistoryReadValueId::SPtr& readValueId);
-		void receiveHistoryUpdateRequest(ServiceTransaction::SPtr serviceTransaction);
-		OpcUaStatusCode forwardAuthorizationHistoricalWrite(UserContext::SPtr& userContext, UpdateStructureDataDetails::SPtr& updateStructureDataDetails);
+		OpcUaStackCore::OpcUaStatusCode forwardAuthorizationHistoricalRead(OpcUaStackCore::UserContext::SPtr& userContext, OpcUaStackCore::HistoryReadValueId::SPtr& readValueId);
+
+		// --------------------------------------------------------------------
+		//
+		// write history service
+		//
+		// --------------------------------------------------------------------
+		void receiveHistoryUpdateRequest(OpcUaStackCore::ServiceTransaction::SPtr serviceTransaction);
+		OpcUaStackCore::OpcUaStatusCode forwardAuthorizationHistoricalWrite(OpcUaStackCore::UserContext::SPtr& userContext, OpcUaStackCore::UpdateStructureDataDetails::SPtr& updateStructureDataDetails);
+
+		ForwardManager::SPtr forwardManager_;
 	};
 
 }

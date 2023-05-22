@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,9 @@
 #ifndef __OpcUaStackClient_ClientConfig_h__
 #define __OpcUaStackClient_ClientConfig_h__
 
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/Base/ConfigXmlManager.h"
-#include "OpcUaStackCore/BuildInTypes/DataChangeTrigger.h"
+#include "OpcUaStackCore/StandardDataTypes/DataChangeTrigger.h"
 #include "OpcUaStackClient/ApplicationUtility/ConfigBase.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackClient
 {
@@ -43,16 +40,16 @@ namespace OpcUaStackClient
 		void samplingInterval(uint32_t samplingInterval);
 		uint32_t queueSize(void);
 		void queueSize(uint32_t queueSize);
-		DataChangeTrigger dataChangeFilter(void);
-		void dataChangeFilter(DataChangeTrigger dataChangeFilter);
+		OpcUaStackCore::DataChangeTrigger dataChangeFilter(void);
+		void dataChangeFilter(OpcUaStackCore::DataChangeTrigger dataChangeFilter);
 
-		bool decode(Config& config, ConfigBase& configBase);
+		bool decode(OpcUaStackCore::Config& config, ConfigBase& configBase);
 
 	  private:
 		std::string id_;
 		uint32_t samplingInterval_;
 		uint32_t queueSize_;
-		DataChangeTrigger dataChangeFilter_;
+		OpcUaStackCore::DataChangeTrigger dataChangeFilter_;
 	};
 
 
@@ -77,7 +74,7 @@ namespace OpcUaStackClient
 		void maxNotificationsPerPublish(uint32_t maxNotificationsPerPublish);
 		ClientMonitoredItemConfig::Map& clientNodeConfigMap(void);
 
-		bool decode(Config& config, ConfigBase& configBase);
+		bool decode(OpcUaStackCore::Config& config, ConfigBase& configBase);
 
 	  private:
 		std::string id_;
@@ -102,7 +99,7 @@ namespace OpcUaStackClient
 		void reconnectTimeout(uint32_t reconnectTimeout);
 		uint32_t reconnectTimeout(void);
 
-		bool decode(Config& config, ConfigBase& configBase);
+		bool decode(OpcUaStackCore::Config& config, ConfigBase& configBase);
 
 	  private:
 		std::string serverUrn_;
@@ -122,13 +119,13 @@ namespace OpcUaStackClient
 		ClientEndpointConfig& clientEndpointConfig(void);
 		ClientSubscriptionConfig::Map& clientSubscriptionMap(void);
 
-		bool decode(const std::string& configFileName, ConfigXmlManager& configXmlManager);
+		bool decode(const std::string& configFileName, OpcUaStackCore::ConfigXmlManager& configXmlManager);
 
 	  private:
-		bool decodeEndpoint(Config::SPtr& config);
-		bool decodeSubscriptions(Config::SPtr& config);
-		bool decodeSubscription(Config& config);
-		bool decodeMonitoredItems(Config& config, ClientMonitoredItemConfig::Map& clientMonitoredItemConfigMap);
+		bool decodeEndpoint(OpcUaStackCore::Config::SPtr& config);
+		bool decodeSubscriptions(OpcUaStackCore::Config::SPtr& config);
+		bool decodeSubscription(OpcUaStackCore::Config& config);
+		bool decodeMonitoredItems(OpcUaStackCore::Config& config, ClientMonitoredItemConfig::Map& clientMonitoredItemConfigMap);
 
 		std::string id_;
 		ClientEndpointConfig clientEndpointConfig_;

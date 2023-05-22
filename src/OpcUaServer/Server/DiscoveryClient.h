@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,36 +12,36 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
+   Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
 #ifndef __OpcUaServer_DiscoveryClient_h__
 #define __OpcUaServer_DiscoveryClient_h__
 
+#include <OpcUaStackCore/MessageBus/MessageBus.h>
 #include "OpcUaStackCore/Base/Config.h"
 #include "OpcUaStackClient/ApplicationUtility/DiscoveryClientRegisteredServers.h"
-
-using namespace OpcUaStackCore;
-using namespace OpcUaStackClient;
 
 namespace OpcUaServer
 {
 
-	class DiscoveryClient
+	class DLLEXPORT DiscoveryClient
 	{
 	  public:
+		using SPtr = boost::shared_ptr<DiscoveryClient>;
+
 		DiscoveryClient(void);
 		~DiscoveryClient(void);
 
-		void applicationCertificate(const ApplicationCertificate::SPtr &applicationCertificate);
+		void cryptoManager(OpcUaStackCore::CryptoManager::SPtr& cryptoManager);
+		void ioThread(const OpcUaStackCore::IOThread::SPtr& ioThread);
+		void messageBus(const OpcUaStackCore::MessageBus::SPtr& messageBus);
 
-		void cryptoManager(const CryptoManager::SPtr &cryptoManager);
-
-		bool startup(Config& config);
+		bool startup(OpcUaStackCore::Config& config);
 		void shutdown(void);
 		
 	  private:
-		bool parseEndpointConfiguration(Config& config);
+		bool parseEndpointConfiguration(OpcUaStackCore::Config& config);
 		bool createRegisteredServers(
 			const std::string& applicationUri,
 			const std::string& productUri,
@@ -54,13 +54,15 @@ namespace OpcUaServer
 		std::string discoveryServerUrl_;
 		uint32_t registerInterval_;
 
-		Config* config_;
-		IOThread::SPtr ioThread_;
-		DiscoveryClientRegisteredServers discoveryClient_;
-		RegisteredServer::Vec registeredServerVec_;
+		bool ioThreadInt_ = false;
+		bool messageBusInt_ = false;
 
-		ApplicationCertificate::SPtr applicationCertificate_;
-		CryptoManager::SPtr cryptoManager_;
+		OpcUaStackCore::Config* config_;
+		OpcUaStackCore::IOThread::SPtr ioThread_;
+		OpcUaStackCore::MessageBus::SPtr messageBus_;
+		OpcUaStackClient::DiscoveryClientRegisteredServers discoveryClient_;
+		OpcUaStackCore::RegisteredServer::Vec registeredServerVec_;
+		OpcUaStackCore::CryptoManager::SPtr cryptoManager_;
 	};
 
 }

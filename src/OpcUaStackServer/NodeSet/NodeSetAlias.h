@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,11 +18,8 @@
 #ifndef __OpcUaStackServer_NodeSetAlias_h__
 #define __OpcUaStackServer_NodeSetAlias_h__
 
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
 #include <map>
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackCore/BuildInTypes/OpcUaNodeId.h"
 
 namespace OpcUaStackServer
 {
@@ -33,12 +30,13 @@ namespace OpcUaStackServer
 		NodeSetAlias(void);
 		~NodeSetAlias(void);
 
-		bool insert(const std::string& aliasString, OpcUaNodeId& nodeId);
-		bool map(const std::string& aliasString, OpcUaNodeId& nodeId);
+		bool aliasExist(const std::string& aliasString, OpcUaStackCore::OpcUaNodeId& nodeId);
+		bool insert(const std::string& aliasString, OpcUaStackCore::OpcUaNodeId& nodeId);
+		bool map(const std::string& aliasString, OpcUaStackCore::OpcUaNodeId& nodeId);
 		bool encodeAliases(boost::property_tree::ptree& ptree);
 
 	  private: 
-		typedef std::map<std::string, OpcUaNodeId> AliasMap;
+		typedef std::map<std::string, OpcUaStackCore::OpcUaNodeId> AliasMap;
 		AliasMap aliasMap_;
 	};
 

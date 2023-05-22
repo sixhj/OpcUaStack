@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,11 +17,13 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/ObjectTypeNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	ObjectTypeNodeClass::ObjectTypeNodeClass(void)
-	: BaseNodeClass(NodeClassType_ObjectType)
+	: BaseNodeClass(NodeClass::EnumObjectType)
 	, isAbstract_()
 	{
 	}
@@ -58,7 +60,7 @@ namespace OpcUaStackServer
 	BaseNodeClass::SPtr
 	ObjectTypeNodeClass::clone(void)
 	{
-		ObjectTypeNodeClass::SPtr objectTypeNodeClass = constructSPtr<ObjectTypeNodeClass>();
+		ObjectTypeNodeClass::SPtr objectTypeNodeClass = boost::make_shared<ObjectTypeNodeClass>();
 		copyTo(objectTypeNodeClass);
 		return objectTypeNodeClass;
 	}

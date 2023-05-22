@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,12 +24,10 @@
 #include "OpcUaStackCore/BuildInTypes/OpcUaDataValue.h"
 #include "OpcUaClient/ClientCommand/CommandBase.h"
 
-using namespace OpcUaStackCore;
-
 namespace OpcUaClient
 {
 
-	class CommandWriteH
+	class DLLEXPORT CommandWriteH
 	: public CommandBase
 	{
 	  public:
@@ -50,20 +48,20 @@ namespace OpcUaClient
 		virtual std::string help(void);
 		//- CommandWriteH interface ---------------------------------------------
 
-		OpcUaNodeId& nodeId(void);
-		OpcUaDataValue::Vec& dataValueVec(void);
+		OpcUaStackCore::OpcUaNodeId& nodeId(void);
+		OpcUaStackCore::OpcUaDataValue::Vec& dataValueVec(void);
 
 		std::string& csvFileName(void);
 		InputType inputType(void);
-		OpcUaBuildInType valueType(void);
+		OpcUaStackCore::OpcUaBuildInType valueType(void);
 
 	  private:
-		OpcUaNodeId nodeId_;
-		OpcUaDataValue::Vec dataValueVec_;
-		OpcUaDataValue::SPtr actDataValue_;
+		OpcUaStackCore::OpcUaNodeId nodeId_;
+		OpcUaStackCore::OpcUaDataValue::Vec dataValueVec_;
+		OpcUaStackCore::OpcUaDataValue::SPtr actDataValue_;
 
 		std::string csvFileName_;
-		OpcUaBuildInType valueType_;
+		OpcUaStackCore::OpcUaBuildInType valueType_;
 		InputType inputType_;
 	};
 

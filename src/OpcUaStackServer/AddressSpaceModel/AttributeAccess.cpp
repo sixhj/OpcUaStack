@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,7 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
+#include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
+#include "OpcUaStackCore/ServiceSet/DataValueTrigger.h"
 #include "OpcUaStackServer/AddressSpaceModel/AttributeAccess.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -27,7 +31,7 @@ namespace OpcUaStackServer
 		{
 			case AttributeId_NodeId:
 			{
-				OpcUaNodeId::SPtr nodeId = constructSPtr<OpcUaNodeId>();
+				OpcUaNodeId::SPtr nodeId = boost::make_shared<OpcUaNodeId>();
 				NodeIdAttribute* nodeIdAttribute = reinterpret_cast<NodeIdAttribute*>(&attribute);
 				nodeIdAttribute->data().copyTo(*nodeId);
 				variant.variant(nodeId);
@@ -41,7 +45,7 @@ namespace OpcUaStackServer
 			}
 			case AttributeId_BrowseName:
 			{
-				OpcUaQualifiedName::SPtr browseName = constructSPtr<OpcUaQualifiedName>();
+				OpcUaQualifiedName::SPtr browseName = boost::make_shared<OpcUaQualifiedName>();
 				BrowseNameAttribute* browseNameAttribute = reinterpret_cast<BrowseNameAttribute*>(&attribute);
 				browseNameAttribute->data().copyTo(*browseName);
 				variant.variant(browseName);
@@ -49,7 +53,7 @@ namespace OpcUaStackServer
 			}
 			case AttributeId_DisplayName:
 			{
-				OpcUaLocalizedText::SPtr displayName = constructSPtr<OpcUaLocalizedText>();
+				OpcUaLocalizedText::SPtr displayName = boost::make_shared<OpcUaLocalizedText>();
 				DisplayNameAttribute* displayNameAttribute = reinterpret_cast<DisplayNameAttribute*>(&attribute);
 				displayNameAttribute->data().copyTo(*displayName);
 				variant.variant(displayName);
@@ -57,7 +61,7 @@ namespace OpcUaStackServer
 			}
 			case AttributeId_Description:
 			{
-				OpcUaLocalizedText::SPtr description = constructSPtr<OpcUaLocalizedText>();
+				OpcUaLocalizedText::SPtr description = boost::make_shared<OpcUaLocalizedText>();
 				DescriptionAttribute* descriptionAttribute = reinterpret_cast<DescriptionAttribute*>(&attribute);
 				descriptionAttribute->data().copyTo(*description);
 				variant.variant(description);
@@ -89,7 +93,7 @@ namespace OpcUaStackServer
 			}
 			case AttributeId_InverseName:
 			{
-				OpcUaLocalizedText::SPtr inverseName = constructSPtr<OpcUaLocalizedText>();
+				OpcUaLocalizedText::SPtr inverseName = boost::make_shared<OpcUaLocalizedText>();
 				InverseNameAttribute* inverseNameAttribute = reinterpret_cast<InverseNameAttribute*>(&attribute);
 				inverseNameAttribute->data().copyTo(*inverseName);
 				variant.variant(inverseName);
@@ -115,7 +119,7 @@ namespace OpcUaStackServer
 			}
 			case AttributeId_DataType:
 			{
-				OpcUaNodeId::SPtr nodeId = constructSPtr<OpcUaNodeId>();
+				OpcUaNodeId::SPtr nodeId = boost::make_shared<OpcUaNodeId>();
  				DataTypeAttribute* dataTypeAttribute = reinterpret_cast<DataTypeAttribute*>(&attribute);
 				dataTypeAttribute->data().copyTo(*nodeId);
 				variant.variant(nodeId);
@@ -173,6 +177,47 @@ namespace OpcUaStackServer
 				variant.variant(userExecutableAttribute->data());
 				break;
 			}
+			case AttributeId_DataTypeDefinition:
+			{
+				auto dataTypeDefinitionAttribute = reinterpret_cast<DataTypeDefinitionAttribute*>(&attribute);
+				auto extensionObject = boost::make_shared<OpcUaExtensionObject>();
+				dataTypeDefinitionAttribute->data().copyTo(*extensionObject->parameter<DataTypeDefinition>(OpcUaId_OpcUa_BinarySchema_DataTypeDefinitionType).get());
+				variant.variant(extensionObject);
+				break;
+			}
+			case AttributeId_RolePermissions:
+			{
+				auto rolePermissionsAttribute = reinterpret_cast<RolePermissionsAttribute*>(&attribute);
+				RolePermissionType x;
+				for (auto rolePermission : rolePermissionsAttribute->data()) {
+					auto extensionObject = boost::make_shared<OpcUaExtensionObject>();
+					rolePermission->copyTo(*extensionObject->parameter<RolePermissionType>(OpcUaId_OpcUa_BinarySchema_RolePermissionType).get());
+					variant.pushBack(extensionObject);
+				}
+				break;
+			}
+			case AttributeId_UserRolePermissions:
+			{
+				auto userRolePermissionsAttribute = reinterpret_cast<UserRolePermissionsAttribute*>(&attribute);
+				for (auto userRolePermission : userRolePermissionsAttribute->data()) {
+					auto extensionObject = boost::make_shared<OpcUaExtensionObject>();
+					userRolePermission->copyTo(*extensionObject->parameter<RolePermissionType>(OpcUaId_OpcUa_BinarySchema_RolePermissionType).get());
+					variant.pushBack(extensionObject);
+				}
+				break;
+			}
+			case AttributeId_AccessRestrictions:
+			{
+				AccessRestrictionsAttribute* accessRestrictionsAttribute = reinterpret_cast<AccessRestrictionsAttribute*>(&attribute);
+				variant.variant(accessRestrictionsAttribute->data());
+				break;
+			}
+			case AttributeId_AccessLevelEx:
+			{
+				AccessLevelExAttribute* accessLevelExAttribute = reinterpret_cast<AccessLevelExAttribute*>(&attribute);
+				variant.variant(accessLevelExAttribute->data());
+				break;
+			}
 			default:
 			{
 				return false;
@@ -199,7 +244,7 @@ namespace OpcUaStackServer
 			{
 				if (variant.variantType() != OpcUaBuildInType_OpcUaUInt32) return false;
 				NodeClassAttribute* nodeClassAttribute = reinterpret_cast<NodeClassAttribute*>(&attribute);
-				nodeClassAttribute->data((NodeClassType)variant.variant<OpcUaUInt32>());
+				nodeClassAttribute->data((NodeClass::Enum)variant.variant<OpcUaUInt32>());
 				break;
 			}
 			case AttributeId_BrowseName:
@@ -356,6 +401,66 @@ namespace OpcUaStackServer
 				userExecutableAttribute->data(variant.variant<OpcUaBoolean>());
 				break;
 			}
+			case AttributeId_DataTypeDefinition:
+			{
+				if (variant.variantType() != OpcUaBuildInType_OpcUaExtensionObject) return false;
+				auto dataTypeDefinitionAttribut = reinterpret_cast<DataTypeDefinitionAttribute*>(&attribute);
+
+				auto extensionObject = variant.variantSPtr<OpcUaExtensionObject>();
+				if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_DataTypeDefinitionType)) {
+					return false;
+				}
+				auto dataTypeDefinition = extensionObject->parameter<DataTypeDefinition>();
+
+				dataTypeDefinitionAttribut->data(*dataTypeDefinition);
+				break;
+			}
+			case AttributeId_RolePermissions:
+			{
+				if (variant.variantType() != OpcUaBuildInType_OpcUaExtensionObject) return false;
+				auto rolePermissionsAttribut = reinterpret_cast<RolePermissionsAttribute*>(&attribute);
+
+				for (uint32_t idx=0; idx < variant.arrayLength(); idx++) {
+					auto extensionObject = variant.variantSPtr<OpcUaExtensionObject>(idx);
+					if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_RolePermissionType)) {
+						return false;
+					}
+					auto rolePermission = extensionObject->parameter<RolePermissionType>();
+
+					rolePermissionsAttribut->data().push_back(rolePermission);
+				}
+				break;
+			}
+			case AttributeId_UserRolePermissions:
+			{
+				if (variant.variantType() != OpcUaBuildInType_OpcUaExtensionObject) return false;
+				auto userRolePermissionsAttribut = reinterpret_cast<UserRolePermissionsAttribute*>(&attribute);
+
+				for (uint32_t idx=0; idx < variant.arrayLength(); idx++) {
+					auto extensionObject = variant.variantSPtr<OpcUaExtensionObject>(idx);
+					if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_RolePermissionType)) {
+						return false;
+					}
+					auto rolePermission = extensionObject->parameter<RolePermissionType>();
+
+					userRolePermissionsAttribut->data().push_back(rolePermission);
+				}
+				break;
+			}
+			case AttributeId_AccessRestrictions:
+			{
+				if (variant.variantType() != OpcUaBuildInType_OpcUaUInt16) return false;
+				auto accessRestrictionsAttribute = reinterpret_cast<AccessRestrictionsAttribute*>(&attribute);
+				accessRestrictionsAttribute->data(variant.variant<OpcUaUInt16>());
+				break;
+			}
+			case AttributeId_AccessLevelEx:
+			{
+				if (variant.variantType() != OpcUaBuildInType_OpcUaUInt32) return false;
+				auto accessLevelExAttribute = reinterpret_cast<AccessLevelExAttribute*>(&attribute);
+				accessLevelExAttribute->data(variant.variant<OpcUaUInt32>());
+				break;
+			}
 			default:
 			{
 				return false;
@@ -393,14 +498,18 @@ namespace OpcUaStackServer
 	}
 
 	bool 
-	AttributeAccess::trigger(OpcUaDataValue& dataValue, Attribute& attribute, DataChangeTrigger dataChangeTrigger)
+	AttributeAccess::trigger(
+		OpcUaDataValue& dataValue,
+		Attribute& attribute,
+		DataChangeTrigger::Enum dataChangeTrigger
+	)
 	{
 		if (attribute.id() == AttributeId_Value) {
-			ValueAttribute* valueAttribute = reinterpret_cast<ValueAttribute*>(&attribute);
-			return valueAttribute->data().trigger(dataValue, dataChangeTrigger);
+			auto valueAttribute = reinterpret_cast<ValueAttribute*>(&attribute);
+			return DataValueTrigger::run(valueAttribute->data(), dataValue, dataChangeTrigger);
 		}
 		
-		OpcUaVariant::SPtr variant = dataValue.variant();
+		auto variant = dataValue.variant();
 		switch (attribute.id())
 		{
 			case AttributeId_NodeId:
@@ -550,6 +659,71 @@ namespace OpcUaStackServer
 				UserExecutableAttribute* userExecutableAttribute = reinterpret_cast<UserExecutableAttribute*>(&attribute);
 				OpcUaBoolean userExecutable = variant->variant<OpcUaBoolean>();
 				return userExecutable == userExecutableAttribute->data();
+			}
+			case AttributeId_DataTypeDefinition:
+			{
+				if (variant->variantType() != OpcUaBuildInType_OpcUaExtensionObject) return true;
+				auto dataTypeDefinitionAttribut = reinterpret_cast<DataTypeDefinitionAttribute*>(&attribute);
+
+				auto extensionObject = variant->variantSPtr<OpcUaExtensionObject>();
+				if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_DataTypeDefinitionType)) {
+					return true;
+				}
+				auto dataTypeDefinition = extensionObject->parameter<DataTypeDefinition>();
+
+				return *dataTypeDefinition == dataTypeDefinitionAttribut->data();
+			}
+			case AttributeId_RolePermissions:
+			{
+				RolePermissionTypeArray rolePermissions;
+
+				if (variant->variantType() != OpcUaBuildInType_OpcUaExtensionObject) return true;
+				auto rolePermissionsAttribut = reinterpret_cast<RolePermissionsAttribute*>(&attribute);
+
+				for (uint32_t idx=0; idx < variant->arrayLength(); idx++) {
+					auto extensionObject = variant->variantSPtr<OpcUaExtensionObject>(idx);
+					if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_RolePermissionType)) {
+						return true;
+					}
+					auto rolePermission = extensionObject->parameter<RolePermissionType>();
+
+					rolePermissions.push_back(rolePermission);
+				}
+
+				return rolePermissions == rolePermissionsAttribut->data();
+			}
+			case AttributeId_UserRolePermissions:
+			{
+				RolePermissionTypeArray userRolePermissions;
+
+				if (variant->variantType() != OpcUaBuildInType_OpcUaExtensionObject) return true;
+				auto userRolePermissionsAttribut = reinterpret_cast<UserRolePermissionsAttribute*>(&attribute);
+
+				for (uint32_t idx=0; idx < variant->arrayLength(); idx++) {
+					auto extensionObject = variant->variantSPtr<OpcUaExtensionObject>(idx);
+					if (extensionObject->typeId() != OpcUaNodeId(OpcUaId_OpcUa_BinarySchema_RolePermissionType)) {
+						return true;
+					}
+					auto userRolePermission = extensionObject->parameter<RolePermissionType>();
+
+					userRolePermissions.push_back(userRolePermission);
+				}
+
+				return userRolePermissions == userRolePermissionsAttribut->data();
+			}
+			case AttributeId_AccessRestrictions:
+			{
+				if (variant->variantType() != OpcUaBuildInType_OpcUaUInt16) return true;
+				auto accessRestrictionsAttribute = reinterpret_cast<AccessRestrictionsAttribute*>(&attribute);
+				auto accessRestrictions = variant->variant<OpcUaUInt16>();
+				return accessRestrictions == accessRestrictionsAttribute->data();
+			}
+			case AttributeId_AccessLevelEx:
+			{
+				if (variant->variantType() != OpcUaBuildInType_OpcUaUInt32) return true;
+				auto accessLevelExAttribute = reinterpret_cast<AccessLevelExAttribute*>(&attribute);
+				auto accessLevelEx = variant->variant<OpcUaUInt32>();
+				return accessLevelEx == accessLevelExAttribute->data();
 			}
 			default:
 			{

@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,15 +23,8 @@ namespace OpcUaStackCore
 
 	SecureChannelSecuritySettings::SecureChannelSecuritySettings(void)
 	: cryptoBase_()
-	, partnerCertificate_()
-	, clientNonce_()
-	, serverNonce_()
-	, securityKeySetClient_()
-	, securityKeySetServer_()
-	{
-	}
-
-	SecureChannelSecuritySettings::~SecureChannelSecuritySettings(void)
+	, partnerNonce_()
+	, ownNonce_()
 	{
 	}
 
@@ -41,46 +34,134 @@ namespace OpcUaStackCore
 		cryptoBase_ = cryptoBase;
 	}
 
+	SecureChannelSecuritySettings::~SecureChannelSecuritySettings(void)
+	{
+	}
+
 	CryptoBase::SPtr&
 	SecureChannelSecuritySettings::cryptoBase(void)
 	{
 		return cryptoBase_;
 	}
 
+	EndpointDescription::SPtr&
+	SecureChannelSecuritySettings::endpointDescription(void)
+	{
+		return endpointDescription_;
+	}
+
+	SecureChannelKeys&
+	SecureChannelSecuritySettings::secureChannelKeys(void)
+	{
+		return secureChannelKeys_;
+	}
+
+	OpcUaByteString&
+	SecureChannelSecuritySettings::ownCertificateThumbprint(void)
+	{
+		return ownCertificateThumbprint_;
+	}
+
 	void
-	SecureChannelSecuritySettings::partnerCertificate(Certificate::SPtr& partnerCertificate)
+	SecureChannelSecuritySettings::ownSecurityPolicyUri(const OpcUaByteString& ownSecurityPolicyUri)
 	{
-		partnerCertificate_ = partnerCertificate;
+		ownSecurityPolicyUri_ = ownSecurityPolicyUri;
 	}
 
-	Certificate::SPtr&
-	SecureChannelSecuritySettings::partnerCertificate(void)
+	const OpcUaByteString&
+	SecureChannelSecuritySettings::ownSecurityPolicyUri(void)
 	{
-		return partnerCertificate_;
+		return ownSecurityPolicyUri_;
+	}
+
+	void
+	SecureChannelSecuritySettings::ownSecurityPolicy(SecurityPolicy::Enum ownSecurityPolicy)
+	{
+		ownSecurityPolicyUri_ = SecurityPolicy::enum2Str(ownSecurityPolicy);
+	}
+
+	SecurityPolicy::Enum
+	SecureChannelSecuritySettings::ownSecurityPolicy(void)
+	{
+		return SecurityPolicy::str2Enum(ownSecurityPolicyUri_.toString());
+	}
+
+	void
+	SecureChannelSecuritySettings::ownSecurityMode(MessageSecurityMode::Enum ownSecurityMode)
+	{
+		ownSecurityMode_ = ownSecurityMode;
+	}
+
+	MessageSecurityMode::Enum
+	SecureChannelSecuritySettings::ownSecurityMode(void)
+	{
+		return ownSecurityMode_;
+	}
+
+	CertificateChain&
+	SecureChannelSecuritySettings::ownCertificateChain(void)
+	{
+		return ownCertificateChain_;
 	}
 
 	MemoryBuffer&
-	SecureChannelSecuritySettings::clientNonce(void)
+	SecureChannelSecuritySettings::ownNonce(void)
 	{
-		return clientNonce_;
+		return ownNonce_;
+	}
+
+	OpcUaByteString&
+	SecureChannelSecuritySettings::partnerCertificateThumbprint(void)
+	{
+		return partnerCertificateThumbprint_;
+	}
+
+	void
+	SecureChannelSecuritySettings::partnerSecurityPolicyUri(const OpcUaByteString& partnerSecurityPolicyUri)
+	{
+		partnerSecurityPolicyUri_ = partnerSecurityPolicyUri;
+	}
+
+	const OpcUaByteString&
+	SecureChannelSecuritySettings::partnerSecurityPolicyUri(void)
+	{
+		return partnerSecurityPolicyUri_;
+	}
+
+	void
+	SecureChannelSecuritySettings::partnerSecurityPolicy(SecurityPolicy::Enum partnerSecurityPolicy)
+	{
+		partnerSecurityPolicyUri_ = SecurityPolicy::enum2Str(partnerSecurityPolicy);
+	}
+
+	SecurityPolicy::Enum
+	SecureChannelSecuritySettings::partnerSecurityPolicy(void)
+	{
+		return SecurityPolicy::str2Enum(partnerSecurityPolicyUri_.toString());
+	}
+
+	void
+	SecureChannelSecuritySettings::partnerSecurityMode(MessageSecurityMode::Enum partnerSecurityMode)
+	{
+		partnerSecurityMode_ = partnerSecurityMode;
+	}
+
+	MessageSecurityMode::Enum
+	SecureChannelSecuritySettings::partnerSecurityMode(void)
+	{
+		return partnerSecurityMode_;
+	}
+
+	CertificateChain&
+	SecureChannelSecuritySettings::partnerCertificateChain(void)
+	{
+		return partnerCertificateChain_;
 	}
 
 	MemoryBuffer&
-	SecureChannelSecuritySettings::serverNonce(void)
+	SecureChannelSecuritySettings::partnerNonce(void)
 	{
-		return serverNonce_;
-	}
-
-	SecurityKeySet&
-	SecureChannelSecuritySettings::securityKeySetClient(void)
-	{
-		return securityKeySetClient_;
-	}
-
-	SecurityKeySet&
-	SecureChannelSecuritySettings::securityKeySetServer(void)
-	{
-		return securityKeySetServer_;
+		return partnerNonce_;
 	}
 
 }

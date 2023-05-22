@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,18 +18,14 @@
 #ifndef __OpcUaStackServer_ChannelSessionHandle_h__
 #define __OpcUaStackServer_ChannelSessionHandle_h__
 
-#include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackCore/SecureChannel/SecureChannelServer.h"
 #include "OpcUaStackServer/ServiceSet/Session.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
 	class DLLEXPORT ChannelSessionHandle
-	: public Object
+	: public OpcUaStackCore::Object
 	{
 	  public:
 
@@ -53,10 +49,10 @@ namespace OpcUaStackServer
 
 		SecureChannelState secureChannelState(void);
 		bool secureChannelIsValid(void);
-		void secureChannel(SecureChannel* secureChannel);
-		SecureChannel* secureChannel(void);
-		void secureChannelServer(SecureChannelServer::SPtr& secureChannelServer);
-		SecureChannelServer::SPtr& secureChannelServer(void);
+		void secureChannel(OpcUaStackCore::SecureChannel* secureChannel);
+		OpcUaStackCore::SecureChannel* secureChannel(void);
+		void secureChannelServer(OpcUaStackCore::SecureChannelServer::SPtr& secureChannelServer);
+		OpcUaStackCore::SecureChannelServer::SPtr& secureChannelServer(void);
 
 		SessionState sessionState(void);
 		bool sessionIsValid(void);
@@ -66,8 +62,8 @@ namespace OpcUaStackServer
 
 	  private:
 		SecureChannelState secureChannelState_;
-		SecureChannel* secureChannel_;
-		SecureChannelServer::SPtr secureChannelServer_;
+		OpcUaStackCore::SecureChannel* secureChannel_;
+		OpcUaStackCore::SecureChannelServer::SPtr secureChannelServer_;
 
 		SessionState sessionState_;
 		Session::SPtr session_;

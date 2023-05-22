@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -31,7 +31,7 @@ namespace OpcUaStackCore
 	DeleteMonitoredItemsRequest::DeleteMonitoredItemsRequest(void)
 	: Object()
 	, subscriptionId_()
-	, monitoredItemIdArraySPtr_(constructSPtr<OpcUaUInt32Array>())
+	, monitoredItemIdArraySPtr_(boost::make_shared<OpcUaUInt32Array>())
 	{
 	}
 
@@ -63,17 +63,44 @@ namespace OpcUaStackCore
 		return monitoredItemIdArraySPtr_;
 	}
 	
-	void 
+	bool
 	DeleteMonitoredItemsRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
-		monitoredItemIdArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, subscriptionId_);
+		rc &= monitoredItemIdArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	DeleteMonitoredItemsRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
-		monitoredItemIdArraySPtr_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, subscriptionId_);
+		rc &= monitoredItemIdArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
+
+	bool
+	DeleteMonitoredItemsRequest::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		bool rc = true;
+		rc = rc & jsonNumberEncode(pt, subscriptionId_, "SubscriptionId");
+		rc = rc & jsonArraySPtrEncode(pt, monitoredItemIdArraySPtr_, "MonitoredItemIds");
+		return rc;
+	}
+
+	bool
+	DeleteMonitoredItemsRequest::jsonDecodeImpl(const boost::property_tree::ptree& pt)
+	{
+		bool rc = true;
+		rc = rc & jsonNumberDecode(pt, subscriptionId_, "SubscriptionId");
+		rc = rc & jsonArraySPtrDecode(pt, monitoredItemIdArraySPtr_, "MonitoredItemIds");
+		return rc;
+	}
+
 }

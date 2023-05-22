@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -30,8 +30,8 @@ namespace OpcUaStackCore
 
 	CallRequest::CallRequest(void)
 	: Object()
-	, requestHeaderSPtr_(constructSPtr<RequestHeader>())
-	, callMethodRequestArraySPtr_(constructSPtr<CallMethodRequestArray>())
+	, requestHeaderSPtr_(boost::make_shared<RequestHeader>())
+	, callMethodRequestArraySPtr_(boost::make_shared<CallMethodRequestArray>())
 	{
 	}
 
@@ -63,15 +63,28 @@ namespace OpcUaStackCore
 		return callMethodRequestArraySPtr_;
 	}
 	
-	void 
+	bool
 	CallRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		callMethodRequestArraySPtr_->opcUaBinaryEncode(os);
+		return callMethodRequestArraySPtr_->opcUaBinaryEncode(os);
 	}
 	
-	void 
+	bool
 	CallRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		callMethodRequestArraySPtr_->opcUaBinaryDecode(is);
+		return callMethodRequestArraySPtr_->opcUaBinaryDecode(is);
 	}
+
+	bool
+	CallRequest::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		return jsonArraySPtrEncode(pt, callMethodRequestArraySPtr_, "MethodsToCall");
+	}
+
+	bool
+	CallRequest::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		return jsonArraySPtrDecode(pt, callMethodRequestArraySPtr_, "MethodsToCall");
+	}
+
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -22,6 +22,9 @@
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
 #include <iostream>
 #include "BuildConfig.h"
+
+using namespace OpcUaStackCore;
+using namespace OpcUaStackServer;
 
 namespace ProjectName
 {
@@ -56,6 +59,18 @@ namespace ProjectName
 
 		version << LIBRARY_VERSION_MAJOR << "." << LIBRARY_VERSION_MINOR << "." << LIBRARY_VERSION_PATCH;
 		return version.str();
+	}
+
+	std::string
+	Library::gitCommit(void)
+	{
+		return LIBRARY_GIT_COMMIT;
+	}
+
+	std::string
+	Library::gitBranch(void)
+	{
+		return LIBRARY_GIT_BRANCH;
 	}
 
 }

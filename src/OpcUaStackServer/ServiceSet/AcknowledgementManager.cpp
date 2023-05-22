@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,6 +16,8 @@
  */
 
 #include "OpcUaStackServer/ServiceSet/AcknowledgementManager.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -50,12 +52,12 @@ namespace OpcUaStackServer
 	}
 
 	void
-	AcknowledgementElement::notification(ExtensibleParameter::SPtr& notification)
+	AcknowledgementElement::notification(OpcUaExtensibleParameter::SPtr& notification)
 	{
 		notification_ = notification;
 	}
 
-	ExtensibleParameter::SPtr
+	OpcUaExtensibleParameter::SPtr
 	AcknowledgementElement::notification(void)
 	{
 		return notification_;
@@ -127,10 +129,10 @@ namespace OpcUaStackServer
 	void
 	AcknowledgementManager::addNotification(
 		uint32_t sequenceNumber,
-		ExtensibleParameter::SPtr& notification
+		OpcUaExtensibleParameter::SPtr& notification
 	)
 	{
-		AcknowledgementElement::SPtr acknowledgementElement = constructSPtr<AcknowledgementElement>();
+		AcknowledgementElement::SPtr acknowledgementElement = boost::make_shared<AcknowledgementElement>();
 		acknowledgementElement->sequenceNumber(sequenceNumber);
 		acknowledgementElement->notification(notification);
 		acknowledgementList_.push_back(acknowledgementElement);
@@ -158,7 +160,7 @@ namespace OpcUaStackServer
 	bool
 	AcknowledgementManager::firstNotification(
 		uint32_t& sequenceNumber,
-		ExtensibleParameter::SPtr& notification
+		OpcUaExtensibleParameter::SPtr& notification
 	)
 	{
 		if (acknowledgementList_.size() == 0) {
@@ -173,7 +175,7 @@ namespace OpcUaStackServer
 	bool
 	AcknowledgementManager::getNotification(
 		uint32_t sequenceNumber,
-		ExtensibleParameter::SPtr& notification
+		OpcUaExtensibleParameter::SPtr& notification
 	)
 	{
 		AcknowledgementList::iterator it;

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -16,9 +16,12 @@
  */
 
 #include <boost/thread.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lexical_cast.hpp>
+
 #include <iostream>
 #include "OpcUaStackCore/Base/Log.h"
+#include "OpcUaStackCore/Base/ThreadStorage.h"
 
 namespace OpcUaStackCore
 {
@@ -98,7 +101,8 @@ namespace OpcUaStackCore
 	Log::~Log(void)
 	{
 		if (!activate_) return;
-		std::string threadId = boost::lexical_cast<std::string>(boost::this_thread::get_id());
+
+		std::string threadId = ThreadStorage::getInstance()->name();
 
 		if (logIf() != nullptr) {
 			std::string message = "[" + threadId + "] " + message_;
@@ -110,11 +114,38 @@ namespace OpcUaStackCore
 			}
 		}
 
-		std::cout << logLevel() << " [" << threadId << "] " << message_;
+		boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+		std::cout << now << " " << logLevel() << " [" << threadId << "] " << message_;
 		if  (parameter_ != "") {
 			std::cout << ": " << parameter_;
 		}
 		std::cout << std::endl; 
+	}
+
+	Log&
+	Log::parameter(
+	    const std::string& parameterName,
+		uint8_t parameterValue
+	)
+	{
+		  if (!activate_) return *this;
+		  std::stringstream ss;
+		  ss << (uint32_t)parameterValue;
+		  format(parameterName, ss.str());
+		  return *this;
+	}
+
+	Log&
+	Log::parameter(
+	    const std::string& parameterName,
+		int8_t parameterValue
+	)
+	{
+		  if (!activate_) return *this;
+		  std::stringstream ss;
+		  ss << (uint32_t)parameterValue;
+		  format(parameterName, ss.str());
+		  return *this;
 	}
 
 	std::string 

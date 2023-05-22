@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,14 +17,31 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/ObjectNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
 	ObjectNodeClass::ObjectNodeClass(void)
-	: BaseNodeClass(NodeClassType_Object)
+	: BaseNodeClass(NodeClass::EnumObject)
 	, eventNotifier_()
-	, nodeVersion_()
 	{
+	}
+
+	ObjectNodeClass::ObjectNodeClass(OpcUaNodeId& nodeId, ObjectNodeClass& objectNodeClass)
+	: BaseNodeClass(NodeClass::EnumObject, nodeId, &objectNodeClass)
+	, eventNotifier_()
+	{
+		OpcUaByte eventNotifier;
+		if (objectNodeClass.getEventNotifier(eventNotifier)) setEventNotifier(eventNotifier);
+	}
+
+	ObjectNodeClass::ObjectNodeClass(OpcUaNodeId& nodeId, ObjectTypeNodeClass& objectTypeNodeClass)
+	: BaseNodeClass(NodeClass::EnumObject, nodeId, &objectTypeNodeClass)
+	, eventNotifier_()
+	{
+		OpcUaByte eventNotifier;
+		if (objectTypeNodeClass.getEventNotifier(eventNotifier)) setEventNotifier(eventNotifier);
 	}
 
 	ObjectNodeClass::~ObjectNodeClass(void)
@@ -59,7 +76,7 @@ namespace OpcUaStackServer
 	BaseNodeClass::SPtr
 	ObjectNodeClass::clone(void)
 	{
-		ObjectNodeClass::SPtr objectNodeClass = constructSPtr<ObjectNodeClass>();
+		ObjectNodeClass::SPtr objectNodeClass = boost::make_shared<ObjectNodeClass>();
 		copyTo(objectNodeClass);
 		return objectNodeClass;
 	}

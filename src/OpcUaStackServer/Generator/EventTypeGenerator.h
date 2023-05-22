@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,12 +18,7 @@
 #ifndef __OpcUaStackCore_EventTypeGenerator_h__
 #define __OpcUaStackCore_EventTypeGenerator_h__
 
-#include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/os.h"
-#include "OpcUaStackCore/BuildInTypes/BuildInTypes.h"
 #include "OpcUaStackServer/InformationModel/InformationModel.h"
-
-using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -40,10 +35,10 @@ namespace OpcUaStackServer
     	void log(void);
     	void prefix(const std::string& prefix);
     	std::string prefix(void);
-    	void nodeId(const OpcUaNodeId& nodeId);
-    	OpcUaNodeId& nodeId(void);
-    	void browseName(const OpcUaQualifiedName& browseName);
-    	OpcUaQualifiedName& browseName(void);
+    	void nodeId(const OpcUaStackCore::OpcUaNodeId& nodeId);
+    	OpcUaStackCore::OpcUaNodeId& nodeId(void);
+    	void browseName(const OpcUaStackCore::OpcUaQualifiedName& browseName);
+    	OpcUaStackCore::OpcUaQualifiedName& browseName(void);
     	void fullName(const std::string& fullName);
     	std::string& fullName(void);
     	void globalVariableName(const std::string& globalVariableName);
@@ -57,8 +52,8 @@ namespace OpcUaStackServer
 
 	  private:
     	std::string prefix_;
-    	OpcUaNodeId nodeId_;
-    	OpcUaQualifiedName browseName_;
+    	OpcUaStackCore::OpcUaNodeId nodeId_;
+    	OpcUaStackCore::OpcUaQualifiedName browseName_;
     	std::string fullName_;
     	std::string globalVariableName_;
     	std::string localVariableName_;
@@ -75,7 +70,7 @@ namespace OpcUaStackServer
 		~EventTypeGenerator(void);
 
 		void informationModel(InformationModel::SPtr& informationModel);
-		void eventType(OpcUaNodeId& eventType);
+		void eventType(OpcUaStackCore::OpcUaNodeId& eventType);
 		void projectNamespace(const std::string& projectNamespace);
 		void parentProjectNamespace(const std::string& parentProjectNamespace);
 		std::string& sourceContent(void);
@@ -84,8 +79,8 @@ namespace OpcUaStackServer
 		bool generate(void);
 
 	  private:
-		std::string getTypeNameFromNodeId(OpcUaNodeId& typeNodeId);
-		bool createVariableElementVec(const std::string& prefix, OpcUaNodeId& nodeId);
+		std::string getTypeNameFromNodeId(OpcUaStackCore::OpcUaNodeId& typeNodeId);
+		bool createVariableElementVec(const std::string& prefix, OpcUaStackCore::OpcUaNodeId& nodeId);
 
 		//
 		// header functions
@@ -117,8 +112,8 @@ namespace OpcUaStackServer
 		InformationModel::SPtr informationModel_;
 		BaseNodeClass::SPtr eventTypeNode_;
 		BaseNodeClass::SPtr parentEventTypeNode_;
-		OpcUaNodeId eventTypeNodeId_;
-		OpcUaNodeId parentEventTypeNodeId_;
+		OpcUaStackCore::OpcUaNodeId eventTypeNodeId_;
+		OpcUaStackCore::OpcUaNodeId parentEventTypeNodeId_;
 		uint32_t eventTypeNumber_;
 		std::string eventTypeName_;
 		std::string parentEventTypeName_;

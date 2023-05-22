@@ -1,5 +1,5 @@
 /*
-   Copyright 2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -18,8 +18,6 @@
 #ifndef __OpcUaStackServer_ChannelSessionHandleMap_h__
 #define __OpcUaStackServer_ChannelSessionHandleMap_h__
 
-#include <boost/shared_ptr.hpp>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackServer/ServiceSet/ChannelSessionHandle.h"
 
 namespace OpcUaStackServer
@@ -35,20 +33,21 @@ namespace OpcUaStackServer
 		~ChannelSessionHandleMap(void);
 
 		ChannelSessionHandle::SPtr createSecureChannel(
-			SecureChannelServer::SPtr& secureChannelServer,
-			SecureChannel* secureChannel
+			OpcUaStackCore::SecureChannelServer::SPtr& secureChannelServer,
+			OpcUaStackCore::SecureChannel* secureChannel
 		);
-		void deleteSecureChannel(SecureChannel* secureChannel);
-		void getSecureChannelList(std::vector<SecureChannel*>& secureChannelList);
+		void deleteSecureChannel(OpcUaStackCore::SecureChannel* secureChannel);
+		void getSecureChannelList(std::vector<OpcUaStackCore::SecureChannel*>& secureChannelList);
 		uint32_t secureChannelSize(void);
 
-		ChannelSessionHandle::SPtr createSession(Session::SPtr& session, SecureChannel* secureChannel);
+		ChannelSessionHandle::SPtr createSession(Session::SPtr& session, OpcUaStackCore::SecureChannel* secureChannel);
+		void deleteSession(void);
 		void deleteSession(Session::SPtr& session);
 		void deleteSession(uint32_t authenticationToken);
 		uint32_t sessionSize(void);
 
 	  private:
-		ChannelSessionHandle::Map channelIdMap_;
+		ChannelSessionHandle::Map channelIdMap_;	// All secure channels identified by the channel id
 		ChannelSessionHandle::Map sessionMap_;
 	};
 

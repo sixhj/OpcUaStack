@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,127 +23,116 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	MonitoredItemService::MonitoredItemService(IOThread* ioThread)
-	: componentSession_(nullptr)
-	, monitoredItemServiceIf_(nullptr)
+	MonitoredItemService::MonitoredItemService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	MonitoredItemService::~MonitoredItemService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	MonitoredItemService::setConfiguration(
-		Component* componentSession,
-		MonitoredItemServiceIf* monitoredItemServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		monitoredItemServiceIf_ = monitoredItemServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message){
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void
-	MonitoredItemService::componentSession(Component* componentSession)
+	MonitoredItemService::syncSend(const ServiceTransactionCreateMonitoredItems::SPtr& serviceTransactionCreateMonitoredItems)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionCreateMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::monitoredItemServiceIf(MonitoredItemServiceIf* monitoredItemServiceIf)
+	MonitoredItemService::asyncSend(const ServiceTransactionCreateMonitoredItems::SPtr& serviceTransactionCreateMonitoredItems)
 	{
-		monitoredItemServiceIf_ = monitoredItemServiceIf;
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionCreateMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::syncSend(ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems)
+	MonitoredItemService::syncSend(const ServiceTransactionDeleteMonitoredItems::SPtr& serviceTransactionDeleteMonitoredItems)
 	{
-		serviceTransactionCreateMonitoredItems->sync(true);
-		serviceTransactionCreateMonitoredItems->conditionBool().conditionInit();
-		asyncSend(serviceTransactionCreateMonitoredItems);
-		serviceTransactionCreateMonitoredItems->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionDeleteMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::asyncSend(ServiceTransactionCreateMonitoredItems::SPtr serviceTransactionCreateMonitoredItems)
+	MonitoredItemService::asyncSend(const ServiceTransactionDeleteMonitoredItems::SPtr& serviceTransactionDeleteMonitoredItems)
 	{
-		serviceTransactionCreateMonitoredItems->componentService(this);
-		componentSession_->sendAsync(serviceTransactionCreateMonitoredItems);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionDeleteMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::syncSend(ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems)
+	MonitoredItemService::syncSend(const ServiceTransactionModifyMonitoredItems::SPtr& serviceTransactionModifyMonitoredItems)
 	{
-		serviceTransactionDeleteMonitoredItems->sync(true);
-		serviceTransactionDeleteMonitoredItems->conditionBool().conditionInit();
-		asyncSend(serviceTransactionDeleteMonitoredItems);
-		serviceTransactionDeleteMonitoredItems->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionModifyMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::asyncSend(ServiceTransactionDeleteMonitoredItems::SPtr serviceTransactionDeleteMonitoredItems)
+	MonitoredItemService::asyncSend(const ServiceTransactionModifyMonitoredItems::SPtr& serviceTransactionModifyMonitoredItems)
 	{
-		serviceTransactionDeleteMonitoredItems->componentService(this);
-		componentSession_->sendAsync(serviceTransactionDeleteMonitoredItems);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionModifyMonitoredItems);
 	}
 
 	void
-	MonitoredItemService::syncSend(ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems)
+	MonitoredItemService::syncSend(const ServiceTransactionSetMonitoringMode::SPtr& serviceTransactionSetMonitoringMode)
 	{
-		serviceTransactionModifyMonitoredItems->sync(true);
-		serviceTransactionModifyMonitoredItems->conditionBool().conditionInit();
-		asyncSend(serviceTransactionModifyMonitoredItems);
-		serviceTransactionModifyMonitoredItems->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionSetMonitoringMode);
 	}
 
 	void
-	MonitoredItemService::asyncSend(ServiceTransactionModifyMonitoredItems::SPtr serviceTransactionModifyMonitoredItems)
+	MonitoredItemService::asyncSend(const ServiceTransactionSetMonitoringMode::SPtr& serviceTransactionSetMonitoringMode)
 	{
-		serviceTransactionModifyMonitoredItems->componentService(this);
-		componentSession_->sendAsync(serviceTransactionModifyMonitoredItems);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionSetMonitoringMode);
 	}
 
 	void
-	MonitoredItemService::syncSend(ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode)
+	MonitoredItemService::syncSend(const ServiceTransactionSetTriggering::SPtr& serviceTransactionSetTriggering)
 	{
-		serviceTransactionSetMonitoringMode->sync(true);
-		serviceTransactionSetMonitoringMode->conditionBool().conditionInit();
-		asyncSend(serviceTransactionSetMonitoringMode);
-		serviceTransactionSetMonitoringMode->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionSetTriggering);
 	}
 
 	void
-	MonitoredItemService::asyncSend(ServiceTransactionSetMonitoringMode::SPtr serviceTransactionSetMonitoringMode)
+	MonitoredItemService::asyncSend(const ServiceTransactionSetTriggering::SPtr& serviceTransactionSetTriggering)
 	{
-		serviceTransactionSetMonitoringMode->componentService(this);
-		componentSession_->sendAsync(serviceTransactionSetMonitoringMode);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionSetTriggering);
 	}
 
 	void
-	MonitoredItemService::syncSend(ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering)
-	{
-		serviceTransactionSetTriggering->sync(true);
-		serviceTransactionSetTriggering->conditionBool().conditionInit();
-		asyncSend(serviceTransactionSetTriggering);
-		serviceTransactionSetTriggering->conditionBool().waitForCondition();
-	}
-
-	void
-	MonitoredItemService::asyncSend(ServiceTransactionSetTriggering::SPtr serviceTransactionSetTriggering)
-	{
-		serviceTransactionSetTriggering->componentService(this);
-		componentSession_->sendAsync(serviceTransactionSetTriggering);
-	}
-
-	void
-	MonitoredItemService::receive(Message::SPtr message)
+	MonitoredItemService::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
 		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 
@@ -151,50 +140,100 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_CreateMonitoredItemsResponse_Encoding_DefaultBinary:
 			{
-				if (monitoredItemServiceIf_ != nullptr) {
-					monitoredItemServiceIf_->monitoredItemServiceCreateMonitoredItemsResponse(
-						boost::static_pointer_cast<ServiceTransactionCreateMonitoredItems>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionCreateMonitoredItems>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_DeleteMonitoredItemsResponse_Encoding_DefaultBinary:
 			{
-				if (monitoredItemServiceIf_ != nullptr) {
-					monitoredItemServiceIf_->monitoredItemServiceDeleteMonitoredItemsResponse(
-						boost::static_pointer_cast<ServiceTransactionDeleteMonitoredItems>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionDeleteMonitoredItems>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_ModifyMonitoredItemsResponse_Encoding_DefaultBinary:
 			{
-				if (monitoredItemServiceIf_ != nullptr) {
-					monitoredItemServiceIf_->monitoredItemServiceModifyMonitoredItemsResponse(
-						boost::static_pointer_cast<ServiceTransactionModifyMonitoredItems>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionModifyMonitoredItems>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_SetMonitoringModeResponse_Encoding_DefaultBinary:
 			{
-				if (monitoredItemServiceIf_ != nullptr) {
-					monitoredItemServiceIf_->monitoredItemServiceSetMonitoringModeResponse(
-						boost::static_pointer_cast<ServiceTransactionSetMonitoringMode>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionSetMonitoringMode>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_SetTriggeringResponse_Encoding_DefaultBinary:
 			{
-				if (monitoredItemServiceIf_ != nullptr) {
-					monitoredItemServiceIf_->monitoredItemServiceSetTriggeringResponse(
-						boost::static_pointer_cast<ServiceTransactionSetTriggering>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionSetTriggering>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

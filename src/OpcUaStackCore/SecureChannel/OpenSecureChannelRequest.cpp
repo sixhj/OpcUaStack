@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -28,10 +28,10 @@ namespace OpcUaStackCore
 	// ------------------------------------------------------------------------
 	// ------------------------------------------------------------------------
 	OpenSecureChannelRequest::OpenSecureChannelRequest(void)
-	: requestHeaderSPtr_(constructSPtr<RequestHeader>())
+	: requestHeaderSPtr_(boost::make_shared<RequestHeader>())
 	, clientProtocolVersion_(0)
 	, requestType_()
-	, securityMode_()
+	, securityMode_(MessageSecurityMode::EnumInvalid)
 	, clientNonce_()
 	, requestedLifetime_()
 	{
@@ -78,12 +78,12 @@ namespace OpcUaStackCore
 	}
 
 	void  
-	OpenSecureChannelRequest::securityMode(const SecurityMode& securityMode)
+	OpenSecureChannelRequest::securityMode(MessageSecurityMode::Enum securityMode)
 	{
 		securityMode_ = securityMode;
 	}
 
-	SecurityMode  
+	MessageSecurityMode::Enum
 	OpenSecureChannelRequest::securityMode(void) const
 	{
 		return securityMode_;
@@ -113,27 +113,35 @@ namespace OpcUaStackCore
 		return requestedLifetime_;
 	}
 
-	void 
+	bool
 	OpenSecureChannelRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		requestHeaderSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, clientProtocolVersion_);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)requestType_);
-		OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)securityMode_);
-		clientNonce_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, requestedLifetime_);
+		bool rc = true;
+
+		rc &= requestHeaderSPtr_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, clientProtocolVersion_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)requestType_);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (OpcUaUInt32)securityMode_);
+		rc &= clientNonce_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, requestedLifetime_);
+
+		return rc;
 	}
 
-	void 
+	bool
 	OpenSecureChannelRequest::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaUInt32 tmp;
-		requestHeaderSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, clientProtocolVersion_);
-		OpcUaNumber::opcUaBinaryDecode(is, tmp); requestType_ = (RequestType)tmp;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp); securityMode_ = (SecurityMode)tmp;
-		clientNonce_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, requestedLifetime_);
+		rc &= requestHeaderSPtr_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, clientProtocolVersion_);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp); requestType_ = (RequestType)tmp;
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp); securityMode_ = (MessageSecurityMode::Enum)tmp;
+		rc &= clientNonce_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, requestedLifetime_);
+
+		return rc;
 	}
 
 }

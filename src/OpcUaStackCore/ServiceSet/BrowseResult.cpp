@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2021 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -32,7 +32,7 @@ namespace OpcUaStackCore
 	: Object()
 	, statusCode_()
 	, continuationPoint_()
-	, referenceArraySPtr_(constructSPtr<ReferenceDescriptionArray>())
+	, referenceArraySPtr_(boost::make_shared<ReferenceDescriptionArray>())
 	{
 	}
 
@@ -76,21 +76,49 @@ namespace OpcUaStackCore
 		return referenceArraySPtr_;
 	}
 
-	void 
+	bool
 	BrowseResult::opcUaBinaryEncode(std::ostream& os) const
 	{
-		OpcUaNumber::opcUaBinaryEncode(os, statusCode_);
-		continuationPoint_.opcUaBinaryEncode(os);
-		referenceArraySPtr_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, statusCode_);
+		rc &= continuationPoint_.opcUaBinaryEncode(os);
+		rc &= referenceArraySPtr_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 	
-	void 
+	bool
 	BrowseResult::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaUInt32 tmp;
-		OpcUaNumber::opcUaBinaryDecode(is, tmp);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, tmp);
 		statusCode_ = (OpcUaStatusCode)tmp;
-		continuationPoint_.opcUaBinaryDecode(is);
-		referenceArraySPtr_->opcUaBinaryDecode(is);
+		rc &= continuationPoint_.opcUaBinaryDecode(is);
+		rc &= referenceArraySPtr_->opcUaBinaryDecode(is);
+
+		return rc;
+	}
+
+	bool
+	BrowseResult::jsonEncodeImpl(boost::property_tree::ptree &pt) const
+	{
+		bool rc =  jsonNumberEncode(pt, statusCode_, "StatusCode");
+		rc &= jsonObjectEncode(pt, continuationPoint_, "ContinuationPoint", true);
+		referenceArraySPtr_->jsonEncode(pt, "References");
+		return rc;
+	}
+
+	bool
+	BrowseResult::jsonDecodeImpl(const boost::property_tree::ptree &pt)
+	{
+		OpcUaUInt32 tmp;
+		bool rc =  jsonNumberDecode(pt, tmp, "StatusCode");
+		statusCode_ = (OpcUaStatusCode)tmp;
+		rc &= jsonObjectDecode(pt, continuationPoint_, "ContinuationPoint", true);
+		referenceArraySPtr_->jsonDecode(pt, "References");
+		return rc;
 	}
 }

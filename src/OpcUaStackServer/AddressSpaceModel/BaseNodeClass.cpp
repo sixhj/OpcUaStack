@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,6 +17,8 @@
 
 #include "OpcUaStackServer/AddressSpaceModel/BaseNodeClass.h"
 
+using namespace OpcUaStackCore;
+
 namespace OpcUaStackServer
 {
 
@@ -29,10 +31,13 @@ namespace OpcUaStackServer
 	, writeMask_()
 	, userWriteMask_()
 	, forwardNodeSync_()
+	, rolePermissionsAttribute_()
+	, userRolePermissionsAttribute_()
+	, accessRestrictionsAttribute_()
 	{
 	}
 
-	BaseNodeClass::BaseNodeClass(NodeClassType nodeClass)
+	BaseNodeClass::BaseNodeClass(NodeClass::Enum nodeClass)
 	: nodeId_()
 	, nodeClass_(nodeClass)
 	, browseName_()
@@ -41,7 +46,50 @@ namespace OpcUaStackServer
 	, writeMask_()
 	, userWriteMask_()
 	, forwardNodeSync_()
+	, rolePermissionsAttribute_()
+	, userRolePermissionsAttribute_()
+	, accessRestrictionsAttribute_()
 	{
+	}
+
+	BaseNodeClass::BaseNodeClass(NodeClass::Enum nodeClass, OpcUaNodeId& nodeId, BaseNodeClass* baseNodeClass)
+	: nodeId_(0)
+	, nodeClass_(nodeClass)
+	, browseName_()
+	, displayName_()
+	, description_()
+	, writeMask_()
+	, userWriteMask_()
+	, forwardNodeSync_()
+	, rolePermissionsAttribute_()
+	, userRolePermissionsAttribute_()
+	, accessRestrictionsAttribute_()
+	{
+		setNodeId(nodeId);
+
+		OpcUaQualifiedName browseName;
+		if (baseNodeClass->getBrowseName(browseName)) setBrowseName(browseName);
+
+		OpcUaLocalizedText displayName;
+		if (baseNodeClass->getDisplayName(displayName)) setDisplayName(displayName);
+
+		OpcUaLocalizedText description;
+		if (baseNodeClass->getDescription(description)) setDescription(description);
+
+		OpcUaUInt32 writeMask;
+		if (baseNodeClass->getWriteMask(writeMask)) setWriteMask(writeMask);
+
+		OpcUaUInt32 userWriteMask;
+		if (baseNodeClass->getUserWriteMask(userWriteMask)) setUserWriteMask(userWriteMask);
+
+		RolePermissionTypeArray rolePermissionArray;
+		if (baseNodeClass->getRolePermissions(rolePermissionArray)) setRolePermissions(rolePermissionArray);
+
+		RolePermissionTypeArray userRolePermissionArray;
+		if (baseNodeClass->getUserRolePermissions(userRolePermissionArray)) setUserRolePermissions(userRolePermissionArray);
+
+		AccessLevelExType accessLevelEx;
+		if (baseNodeClass->getAccessLevelEx(accessLevelEx)) setAccessLevelEx(accessLevelEx);
 	}
 
 	BaseNodeClass::~BaseNodeClass(void)
@@ -90,6 +138,24 @@ namespace OpcUaStackServer
 		return userWriteMask_;
 	}
 
+	RolePermissionsAttribute&
+	BaseNodeClass::rolePermissions(void)
+	{
+		return rolePermissionsAttribute_;
+	}
+
+	UserRolePermissionsAttribute&
+	BaseNodeClass::userRolePermissions(void)
+	{
+		return userRolePermissionsAttribute_;
+	}
+
+	AccessRestrictionsAttribute&
+	BaseNodeClass::accessRestrictions(void)
+	{
+		return accessRestrictionsAttribute_;
+	}
+
 	Attribute* 
 	BaseNodeClass::nodeIdAttribute(void)
 	{
@@ -132,6 +198,24 @@ namespace OpcUaStackServer
 		return &userWriteMask_;
 	}
 
+	Attribute*
+	BaseNodeClass::rolePermissionsAttribute(void)
+	{
+		return &rolePermissionsAttribute_;
+	}
+
+	Attribute*
+	BaseNodeClass::userRolePermissionsAttribute(void)
+	{
+		return &userRolePermissionsAttribute_;
+	}
+
+	Attribute*
+	BaseNodeClass::accessRestrictionsAttribute(void)
+	{
+		return &accessRestrictionsAttribute_;
+	}
+
 	ReferenceItemMap& 
 	BaseNodeClass::referenceItemMap(void)
 	{
@@ -153,6 +237,9 @@ namespace OpcUaStackServer
 		descriptionAttribute()->copyTo(baseNodeClass.descriptionAttribute());
 		writeMaskAttribute()->copyTo(baseNodeClass.writeMaskAttribute());
 		userWriteMaskAttribute()->copyTo(baseNodeClass.userWriteMaskAttribute());
+		rolePermissionsAttribute()->copyTo(baseNodeClass.rolePermissionsAttribute());
+		userRolePermissionsAttribute()->copyTo(baseNodeClass.userRolePermissionsAttribute());
+		accessRestrictionsAttribute()->copyTo(baseNodeClass.accessRestrictionsAttribute());
 
 		referenceItemMap_.copyTo(baseNodeClass.referenceItemMap());
 	}
@@ -167,6 +254,18 @@ namespace OpcUaStackServer
 	BaseNodeClass::forwardNodeSync(void)
 	{
 		return forwardNodeSync_;
+	}
+
+	void
+	BaseNodeClass::forwardNodeAsync(ForwardNodeAsync::SPtr forwardNodeAsync)
+	{
+		forwardNodeAsync_ = forwardNodeAsync;
+	}
+
+	ForwardNodeAsync::SPtr
+	BaseNodeClass::forwardNodeAsync(void)
+	{
+		return forwardNodeAsync_;
 	}
 
 }

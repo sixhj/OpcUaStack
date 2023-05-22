@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -21,7 +21,7 @@ namespace OpcUaStackCore
 {
 
 	CancelRequest::CancelRequest(void)
-	: requestHeaderSPtr_(constructSPtr<RequestHeader>())
+	: requestHeaderSPtr_(boost::make_shared<RequestHeader>())
 	, requestHandle_()
 	{
 	}
@@ -43,29 +43,27 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	CancelRequest::requestHandle(const IntegerId requestHandle)
+	CancelRequest::requestHandle(const OpcUaIntegerId requestHandle)
 	{
 		requestHandle_ = requestHandle;
 	}
 
-	IntegerId 
+	OpcUaIntegerId
 	CancelRequest::requestHandle(void) const
 	{
 		return requestHandle_;
 	}
 
-	void 
+	bool
 	CancelRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		//requestHeaderSPtr_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
+		return OpcUaNumber::opcUaBinaryEncode(os, requestHandle_);
 	}
 
-	void 
+	bool
 	CancelRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		//requestHeaderSPtr_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
+		return OpcUaNumber::opcUaBinaryDecode(is, requestHandle_);
 	}
 
 }

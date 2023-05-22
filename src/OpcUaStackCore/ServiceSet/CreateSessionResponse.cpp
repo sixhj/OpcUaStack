@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,15 +23,15 @@ namespace OpcUaStackCore
 
 	CreateSessionResponse::CreateSessionResponse(void)
 	: Object()
-	, responseHeader_(constructSPtr<ResponseHeader>())
+	, responseHeader_(boost::make_shared<ResponseHeader>())
 	, sessionId_()
 	, authenticationToken_()
 	, receivedSessionTimeout_()
 	, serverNonce_()
 	, serverCertificate_()
-	, serverEndpoints_(constructSPtr<EndpointDescriptionArray>())
+	, serverEndpoints_(boost::make_shared<EndpointDescriptionArray>())
 	, serverSoftwareCertificate_()
-	, signatureData_(constructSPtr<SignatureData>())
+	, signatureData_(boost::make_shared<SignatureData>())
 	, maxRequestMessageSize_(65536)
 	{
 	}
@@ -65,23 +65,31 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	CreateSessionResponse::receivedSessionTimeout(const Duration receivedSessionTimeout)
+	CreateSessionResponse::receivedSessionTimeout(const OpcUaDuration receivedSessionTimeout)
 	{
 		receivedSessionTimeout_ = receivedSessionTimeout;
 	}
 
-	Duration 
+	OpcUaDuration
 	CreateSessionResponse::receivedSessionTimeout(void) const
 	{
 		return receivedSessionTimeout_;
 	}
 
-	void CreateSessionResponse::serverNonce(const OpcUaByte* buf, OpcUaInt32 bufLen)
+	OpcUaByteString&
+	CreateSessionResponse::serverNonce(void)
+	{
+		return serverNonce_;
+	}
+
+	void
+	CreateSessionResponse::serverNonce(const OpcUaByte* buf, OpcUaInt32 bufLen)
 	{
 		serverNonce_.value(buf, bufLen);
 	}
 	
-	void CreateSessionResponse::serverNonce(OpcUaByte** buf, OpcUaInt32* bufLen) const
+	void
+	CreateSessionResponse::serverNonce(OpcUaByte** buf, OpcUaInt32* bufLen) const
 	{
 		serverNonce_.value(buf, bufLen);
 	}
@@ -158,32 +166,40 @@ namespace OpcUaStackCore
 		return maxRequestMessageSize_;
 	}
 
-	void 
+	bool
 	CreateSessionResponse::opcUaBinaryEncode(std::ostream& os) const
 	{
-		sessionId_.opcUaBinaryEncode(os);
-		authenticationToken_.opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, receivedSessionTimeout_);
-		serverNonce_.opcUaBinaryEncode(os);
-		serverCertificate_.opcUaBinaryEncode(os);
-		serverEndpoints_->opcUaBinaryEncode(os);
-		serverSoftwareCertificate_.opcUaBinaryEncode(os);
-		signatureData_->opcUaBinaryEncode(os);
-		OpcUaNumber::opcUaBinaryEncode(os, maxRequestMessageSize_);
+		bool rc = true;
+
+		rc &= sessionId_.opcUaBinaryEncode(os);
+		rc &= authenticationToken_.opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, receivedSessionTimeout_);
+		rc &= serverNonce_.opcUaBinaryEncode(os);
+		rc &= serverCertificate_.opcUaBinaryEncode(os);
+		rc &= serverEndpoints_->opcUaBinaryEncode(os);
+		rc &= serverSoftwareCertificate_.opcUaBinaryEncode(os);
+		rc &= signatureData_->opcUaBinaryEncode(os);
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, maxRequestMessageSize_);
+
+		return rc;
 	}
 
-	void 
+	bool
 	CreateSessionResponse::opcUaBinaryDecode(std::istream& is)
 	{
-		sessionId_.opcUaBinaryDecode(is);
-		authenticationToken_.opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, receivedSessionTimeout_);
-		serverNonce_.opcUaBinaryDecode(is);
-		serverCertificate_.opcUaBinaryDecode(is);
-		serverEndpoints_->opcUaBinaryDecode(is);
-		serverSoftwareCertificate_.opcUaBinaryDecode(is);
-		signatureData_->opcUaBinaryDecode(is);
-		OpcUaNumber::opcUaBinaryDecode(is, maxRequestMessageSize_);
+		bool rc = true;
+
+		rc &= sessionId_.opcUaBinaryDecode(is);
+		rc &= authenticationToken_.opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, receivedSessionTimeout_);
+		rc &= serverNonce_.opcUaBinaryDecode(is);
+		rc &= serverCertificate_.opcUaBinaryDecode(is);
+		rc &= serverEndpoints_->opcUaBinaryDecode(is);
+		rc &= serverSoftwareCertificate_.opcUaBinaryDecode(is);
+		rc &= signatureData_->opcUaBinaryDecode(is);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, maxRequestMessageSize_);
+
+		return rc;
 	}
 
 }

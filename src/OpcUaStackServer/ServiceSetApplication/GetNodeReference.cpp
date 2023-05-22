@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,9 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 #include "OpcUaStackServer/ServiceSetApplication/GetNodeReference.h"
 #include "OpcUaStackServer/ServiceSetApplication/NodeReferenceApplication.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
@@ -100,9 +102,9 @@ namespace OpcUaStackServer
 		nodeReferences_.clear();
 
 		// create request
-		auto trx = constructSPtr<ServiceTransactionGetNodeReference>();
+		auto trx = boost::make_shared<ServiceTransactionGetNodeReference>();
 		trx->request()->nodes()->resize(nodes_.size());
-		for (auto node : nodes_) trx->request()->nodes()->push_back(constructSPtr<OpcUaNodeId>(node));
+		for (auto node : nodes_) trx->request()->nodes()->push_back(boost::make_shared<OpcUaNodeId>(node));
 
 		// send query to application service
 		applicationServiceIf->sendSync(trx);

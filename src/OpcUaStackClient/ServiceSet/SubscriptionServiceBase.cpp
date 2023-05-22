@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -24,8 +24,7 @@ namespace OpcUaStackClient
 {
 
 	SubscriptionServiceBase::SubscriptionServiceBase(void)
-	: componentSession_(nullptr)
-	, subscriptionServiceIf_(nullptr)
+	: ClientServiceBase()
 	, subscriptionServicePublishIf_(nullptr)
 	{
 	}
@@ -35,143 +34,106 @@ namespace OpcUaStackClient
 	}
 
 	void
-	SubscriptionServiceBase::componentSession(Component* componentSession)
-	{
-		componentSession_ = componentSession;
-	}
-
-	void
-	SubscriptionServiceBase::subscriptionServiceIf(SubscriptionServiceIf* subscriptionServiceIf)
-	{
-		subscriptionServiceIf_ = subscriptionServiceIf;
-	}
-
-	void
 	SubscriptionServiceBase::subscriptionServicePublishIf(SubscriptionServicePublishIf* subscriptionServicePublishIf)
 	{
 		subscriptionServicePublishIf_ = subscriptionServicePublishIf;
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
 	{
-		serviceTransactionCreateSubscription->sync(true);
-		serviceTransactionCreateSubscription->conditionBool().conditionInit();
-		asyncSend(serviceTransactionCreateSubscription);
-		serviceTransactionCreateSubscription->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionCreateSubscription);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionCreateSubscription::SPtr& serviceTransactionCreateSubscription)
 	{
-		serviceTransactionCreateSubscription->componentService(this);
-		componentSession_->sendAsync(serviceTransactionCreateSubscription);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionCreateSubscription);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
 	{
-		serviceTransactionModifySubscription->sync(true);
-		serviceTransactionModifySubscription->conditionBool().conditionInit();
-		asyncSend(serviceTransactionModifySubscription);
-		serviceTransactionModifySubscription->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionModifySubscription);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionModifySubscription::SPtr& serviceTransactionModifySubscription)
 	{
-		serviceTransactionModifySubscription->componentService(this);
-		componentSession_->sendAsync(serviceTransactionModifySubscription);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionModifySubscription);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
 	{
-		serviceTransactionTransferSubscriptions->sync(true);
-		serviceTransactionTransferSubscriptions->conditionBool().conditionInit();
-		asyncSend(serviceTransactionTransferSubscriptions);
-		serviceTransactionTransferSubscriptions->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionTransferSubscriptions);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionTransferSubscriptions::SPtr& serviceTransactionTransferSubscriptions)
 	{
-		serviceTransactionTransferSubscriptions->componentService(this);
-		componentSession_->sendAsync(serviceTransactionTransferSubscriptions);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionTransferSubscriptions);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
 	{
-		serviceTransactionDeleteSubscriptions->sync(true);
-		serviceTransactionDeleteSubscriptions->conditionBool().conditionInit();
-		asyncSend(serviceTransactionDeleteSubscriptions);
-		serviceTransactionDeleteSubscriptions->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionDeleteSubscriptions);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionDeleteSubscriptions::SPtr& serviceTransactionDeleteSubscriptions)
 	{
-		serviceTransactionDeleteSubscriptions->componentService(this);
-		componentSession_->sendAsync(serviceTransactionDeleteSubscriptions);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionDeleteSubscriptions);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
 	{
-		serviceTransactionSetPublishingMode->sync(true);
-		serviceTransactionSetPublishingMode->conditionBool().conditionInit();
-		asyncSend(serviceTransactionSetPublishingMode);
-		serviceTransactionSetPublishingMode->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionSetPublishingMode);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionSetPublishingMode::SPtr& serviceTransactionSetPublishingMode)
 	{
-		serviceTransactionSetPublishingMode->componentService(this);
-		componentSession_->sendAsync(serviceTransactionSetPublishingMode);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionSetPublishingMode);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionPublish::SPtr& serviceTransactionPublish)
 	{
-		serviceTransactionPublish->sync(true);
-		serviceTransactionPublish->conditionBool().conditionInit();
-		asyncSend(serviceTransactionPublish);
-		serviceTransactionPublish->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionPublish);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionPublish::SPtr& serviceTransactionPublish)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionPublish::SPtr& serviceTransactionPublish)
 	{
-		serviceTransactionPublish->componentService(this);
-		componentSession_->sendAsync(serviceTransactionPublish);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionPublish);
 	}
 
 	void
-	SubscriptionServiceBase::syncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
+	SubscriptionServiceBase::syncSend(const ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
 	{
-		serviceTransactionRepublish->sync(true);
-		serviceTransactionRepublish->conditionBool().conditionInit();
-		asyncSend(serviceTransactionRepublish);
-		serviceTransactionRepublish->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionRepublish);
 	}
 
 	void
-	SubscriptionServiceBase::asyncSend(ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
+	SubscriptionServiceBase::asyncSend(const ServiceTransactionRepublish::SPtr& serviceTransactionRepublish)
 	{
-		serviceTransactionRepublish->componentService(this);
-		componentSession_->sendAsync(serviceTransactionRepublish);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionRepublish);
 	}
 
 	void
-	SubscriptionServiceBase::receive(Message::SPtr message)
+	SubscriptionServiceBase::receive(
+		const OpcUaStackCore::MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
 
 		// check if transaction is synchron
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
 
@@ -179,40 +141,80 @@ namespace OpcUaStackClient
 		{
 			case OpcUaId_CreateSubscriptionResponse_Encoding_DefaultBinary:
 			{
-				if (subscriptionServiceIf_ != nullptr) {
- 					subscriptionServiceIf_->subscriptionServiceCreateSubscriptionResponse(
-						boost::static_pointer_cast<ServiceTransactionCreateSubscription>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionCreateSubscription>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_ModifySubscriptionResponse_Encoding_DefaultBinary:
 			{
-				if (subscriptionServiceIf_ != nullptr) {
-					subscriptionServiceIf_->subscriptionServiceModifySubscriptionResponse(
-						boost::static_pointer_cast<ServiceTransactionModifySubscription>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionModifySubscription>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_TransferSubscriptionsResponse_Encoding_DefaultBinary:
 			{
-				if (subscriptionServiceIf_ != nullptr) {
-					subscriptionServiceIf_->subscriptionServiceTransferSubscriptionsResponse(
-						boost::static_pointer_cast<ServiceTransactionTransferSubscriptions>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionTransferSubscriptions>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 
 			case OpcUaId_DeleteSubscriptionsResponse_Encoding_DefaultBinary:
 			{
-				if (subscriptionServiceIf_ != nullptr) {
-					subscriptionServiceIf_->subscriptionServiceDeleteSubscriptionsResponse(
-						boost::static_pointer_cast<ServiceTransactionDeleteSubscriptions>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionDeleteSubscriptions>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}

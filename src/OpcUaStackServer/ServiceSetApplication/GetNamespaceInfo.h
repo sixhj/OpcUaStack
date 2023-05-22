@@ -1,5 +1,5 @@
 /*
-   Copyright 2018 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2018-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -19,11 +19,8 @@
 #define __OpcUaStackServer_GetNamespaceInfo_h__
 
 #include <vector>
-#include "OpcUaStackCore/Base/os.h"
 #include "OpcUaStackServer/Application/ApplicationIf.h"
-#include "OpcUaStackCore/ServiceSetApplication/ApplicationServiceTransaction.h"
-
-using namespace OpcUaStackCore;
+#include "OpcUaStackServer/ServiceSetApplication/ApplicationServiceTransaction.h"
 
 namespace OpcUaStackServer
 {
@@ -31,18 +28,20 @@ namespace OpcUaStackServer
 	class DLLEXPORT GetNamespaceInfo
 	{
 	  public:
-		typedef boost::shared_ptr<GetNamespaceInfo> SPtr;
+		using SPtr = boost::shared_ptr<GetNamespaceInfo>;
 
 		GetNamespaceInfo(void);
 		virtual ~GetNamespaceInfo(void);
 
 		bool query(ApplicationServiceIf* applicationServiceIf);
-		OpcUaStatusCode resultCode(void);
+		OpcUaStackCore::OpcUaStatusCode resultCode(void);
 
+		void newNamespaceUri(const std::string& newNamespaceUri);
 		int32_t getNamespaceIndex(const std::string& namespaceUri);
 
 	  private:
-		OpcUaStatusCode resultCode_;
+		std::string newNamespaceUri_ = "";
+		OpcUaStackCore::OpcUaStatusCode resultCode_ = OpcUaStackCore::Success;
 		NamespaceInfoResponse::Index2NamespaceMap index2NamespaceMap_;
 		NamespaceInfoResponse::Namespace2IndexMap namespace2IndexMap_;
 	};

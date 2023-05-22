@@ -1,5 +1,5 @@
 /*
-   Copyright 2017-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2017-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,7 +12,7 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
+   Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
 #include "OpcUaStackCore/Base/Log.h"
@@ -31,11 +31,30 @@ namespace OpcUaServer
 	, discoveryClient_()
 	, discoveryServerUrl_("")
 	, enable_(false)
+	, cryptoManager_()
 	{
 	}
 
 	DiscoveryClient::~DiscoveryClient(void)
 	{
+	}
+
+	void
+	DiscoveryClient::cryptoManager(CryptoManager::SPtr& cryptoManager)
+	{
+		cryptoManager_ = cryptoManager;
+	}
+
+	void
+	DiscoveryClient::ioThread(const IOThread::SPtr& ioThread)
+	{
+		ioThread_ = ioThread;
+	}
+
+	void
+	DiscoveryClient::messageBus(const MessageBus::SPtr& messageBus)
+	{
+		messageBus_ = messageBus;
 	}
 
 	bool
@@ -51,8 +70,8 @@ namespace OpcUaServer
 		//
 
 		// check if the discovery registered service is enabled
-		boost::optional<Config> dicoveryServerConfig = config.getChild("OpcUaServer.DiscoveryServer");
-		if (!dicoveryServerConfig) {
+		boost::optional<Config> discoveryServerConfig = config.getChild("OpcUaServer.DiscoveryServer");
+		if (!discoveryServerConfig) {
 			Log(Info, "discovery registered service is disabled");
 			return true;
 		}
@@ -60,7 +79,7 @@ namespace OpcUaServer
 		Log(Info, "discovery registered service is enabled");
 
 		// get element discovery url
-		success = dicoveryServerConfig->getConfigParameter("DiscoveryUrl", discoveryServerUrl_);
+		success = discoveryServerConfig->getConfigParameter("DiscoveryUrl", discoveryServerUrl_);
 		if (!success) {
 			Log(Error, "element missing in config file")
 				.parameter("Element", "OpcUaServer.DiscoveryServer.DiscoveryUrl")
@@ -69,7 +88,7 @@ namespace OpcUaServer
 		}
 
 		// get element register interval url
-		dicoveryServerConfig->getConfigParameter("RegisterInterval", registerInterval_, "40000");
+		discoveryServerConfig->getConfigParameter("RegisterInterval", registerInterval_, "40000");
 
 		//
 		// read endpoint configuration
@@ -78,17 +97,27 @@ namespace OpcUaServer
 			return false;
 		}
 
+		// create message bus
+		if (!messageBus_) {
+			messageBusInt_ = true;
+			messageBus_ = boost::make_shared<MessageBus>();
+		}
+
+		// create io thread
+		if (!ioThread_) {
+			ioThreadInt_ = true;
+		    ioThread_ = boost::make_shared<IOThread>();
+		    ioThread_->startup();
+		}
+
 		//
 		// startup discovery client service process
 		//
-		ioThread_ = constructSPtr<IOThread>();
-		ioThread_->startup();
-
 		discoveryClient_.ioThread(ioThread_);
+		discoveryClient_.messageBus(messageBus_);
+		discoveryClient_.cryptoManager(cryptoManager_);
 		discoveryClient_.discoveryUri(discoveryServerUrl_);
 		discoveryClient_.registerInterval(registerInterval_);
-		discoveryClient_.applicationCertificate(applicationCertificate_);
-		discoveryClient_.cryptoManager(cryptoManager_);
 		discoveryClient_.startup();
 
 		return true;
@@ -101,8 +130,17 @@ namespace OpcUaServer
 
 		if (!enable_) return;
 
-		discoveryClient_.shutdown();
-		ioThread_->shutdown();
+		discoveryClient_.syncShutdown();
+
+		// delete io thread
+		if (ioThreadInt_) {
+		    ioThread_->shutdown();
+		}
+
+		// delete message bus
+		if (messageBusInt_) {
+			messageBus_.reset();
+		}
 	}
 
 	bool
@@ -205,32 +243,28 @@ namespace OpcUaServer
 			addressList.push_back(url_discoveryUrl.host());
 		}
 
-		// create register Server entrie
-		RegisteredServer::SPtr registeredServer = constructSPtr<RegisteredServer>();
-		registeredServer->serverUri(applicationUri);
-		registeredServer->productUri(productUri);
-		OpcUaLocalizedText::SPtr serverName = constructSPtr<OpcUaLocalizedText>();
+		// create register Server entries
+		RegisteredServer::SPtr registeredServer = boost::make_shared<RegisteredServer>();
+		registeredServer->serverUri() = applicationUri;
+		registeredServer->productUri() = productUri;
+		OpcUaLocalizedText::SPtr serverName = boost::make_shared<OpcUaLocalizedText>();
 		serverName->set("en", applicationName);
-		OpcUaLocalizedTextArray::SPtr serverNames = constructSPtr<OpcUaLocalizedTextArray>();
-		serverNames->resize(1);
-		serverNames->push_back(serverName);
-		registeredServer->serverNames(serverNames);
-		registeredServer->serverType(AT_Server);
-		registeredServer->gatewayServerUri(gatewayServerUri);
-		registeredServer->isOnline(true);
+		registeredServer->serverNames().resize(1);
+		registeredServer->serverNames().push_back(serverName);
+		registeredServer->serverType().enumeration(ApplicationType::EnumServer);
+		registeredServer->gatewayServerUri() = gatewayServerUri;
+		registeredServer->isOnline() =  true;
 
-		OpcUaStringArray::SPtr discoveryUrls = constructSPtr<OpcUaStringArray>();
-		discoveryUrls->resize(addressList.size());
-		registeredServer->discoveryUrls(discoveryUrls);
+		registeredServer->discoveryUrls().resize(addressList.size());
 
 		std::vector<std::string>::iterator it;
 		for (it=addressList.begin(); it!=addressList.end(); it++) {
 
 			url_discoveryUrl.host(*it);
-			OpcUaString::SPtr url = constructSPtr<OpcUaString>();
+			OpcUaString::SPtr url = boost::make_shared<OpcUaString>();
 			url->value(url_discoveryUrl.url());
 
-			discoveryUrls->push_back(url);
+			registeredServer->discoveryUrls().push_back(url);
 		}
 
 		registeredServerVec_.push_back(registeredServer);
@@ -241,14 +275,6 @@ namespace OpcUaServer
 		discoveryClient_.addRegisteredServer(applicationName, registeredServer);
 
 		return true;
-	}
-
-	void DiscoveryClient::applicationCertificate(const ApplicationCertificate::SPtr &applicationCertificate) {
-		applicationCertificate_ = applicationCertificate;
-	}
-
-	void DiscoveryClient::cryptoManager(const CryptoManager::SPtr &cryptoManager) {
-		cryptoManager_ = cryptoManager;
 	}
 
 }

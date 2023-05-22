@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -21,12 +21,12 @@ namespace OpcUaStackCore
 {
 
 	ActivateSessionRequest::ActivateSessionRequest(void)
-	: requestHeaderSPtr_(constructSPtr<RequestHeader>())
-	, clientSignature_(constructSPtr<SignatureData>())
-	, signedSoftwareCertificate_(constructSPtr<SignedSoftwareCertificateArray>())
-	, localeIds_(constructSPtr<LocaleIdArray>())
-	, userIdentityToken_(constructSPtr<ExtensibleParameter>())
-	, userTokenSignature_(constructSPtr<SignatureData>())
+	: requestHeaderSPtr_(boost::make_shared<RequestHeader>())
+	, clientSignature_(boost::make_shared<SignatureData>())
+	, signedSoftwareCertificate_(boost::make_shared<SignedSoftwareCertificateArray>())
+	, localeIds_(boost::make_shared<OpcUaLocaleIdArray>())
+	, userIdentityToken_(boost::make_shared<OpcUaExtensibleParameter>())
+	, userTokenSignature_(boost::make_shared<SignatureData>())
 	{
 	}
 
@@ -71,24 +71,24 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	ActivateSessionRequest::localeIds(const LocaleIdArray::SPtr localeIds)
+	ActivateSessionRequest::localeIds(const OpcUaLocaleIdArray::SPtr localeIds)
 	{
 		localeIds_ = localeIds;
 	}
 
-	LocaleIdArray::SPtr 
+	OpcUaLocaleIdArray::SPtr
 	ActivateSessionRequest::localeIds(void) const
 	{
 		return localeIds_;
 	}
 
 	void 
-	ActivateSessionRequest::userIdentityToken(const ExtensibleParameter::SPtr userIdentityToken)
+	ActivateSessionRequest::userIdentityToken(const OpcUaExtensibleParameter::SPtr userIdentityToken)
 	{
 		userIdentityToken_ = userIdentityToken;
 	}
 
-	ExtensibleParameter::SPtr 
+	OpcUaExtensibleParameter::SPtr
 	ActivateSessionRequest::userIdentityToken(void) const
 	{
 		return userIdentityToken_;
@@ -106,26 +106,32 @@ namespace OpcUaStackCore
 		return userTokenSignature_;
 	}
 
-	void 
+	bool
 	ActivateSessionRequest::opcUaBinaryEncode(std::ostream& os) const
 	{
-		//requestHeaderSPtr_->opcUaBinaryEncode(os);
-		clientSignature_->opcUaBinaryEncode(os);
-		signedSoftwareCertificate_->opcUaBinaryEncode(os);
-		localeIds_->opcUaBinaryEncode(os);
-		userIdentityToken_->opcUaBinaryEncode(os);
-		userTokenSignature_->opcUaBinaryEncode(os);
+		bool rc = true;
+
+		rc &= clientSignature_->opcUaBinaryEncode(os);
+		rc &= signedSoftwareCertificate_->opcUaBinaryEncode(os);
+		rc &= localeIds_->opcUaBinaryEncode(os);
+		rc &= userIdentityToken_->opcUaBinaryEncode(os);
+		rc &= userTokenSignature_->opcUaBinaryEncode(os);
+
+		return rc;
 	}
 
-	void 
+	bool
 	ActivateSessionRequest::opcUaBinaryDecode(std::istream& is)
 	{
-		//requestHeaderSPtr_->opcUaBinaryDecode(is);
-		clientSignature_->opcUaBinaryDecode(is);
-		signedSoftwareCertificate_->opcUaBinaryDecode(is);
-		localeIds_->opcUaBinaryDecode(is);
-		userIdentityToken_->opcUaBinaryDecode(is);
-		userTokenSignature_->opcUaBinaryDecode(is);
+		bool rc = true;
+
+		rc &= clientSignature_->opcUaBinaryDecode(is);
+		rc &= signedSoftwareCertificate_->opcUaBinaryDecode(is);
+		rc &= localeIds_->opcUaBinaryDecode(is);
+		rc &= userIdentityToken_->opcUaBinaryDecode(is);
+		rc &= userTokenSignature_->opcUaBinaryDecode(is);
+
+		return rc;
 	}
 
 }

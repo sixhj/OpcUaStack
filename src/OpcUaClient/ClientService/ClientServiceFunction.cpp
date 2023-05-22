@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2016-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -15,11 +15,11 @@
    Autor: Kai Huebl (kai@huebl-sgh.de)
  */
 
-#include "OpcUaStackCore/Base/ObjectPool.h"
 #include "OpcUaClient/ClientCommand/CommandFunction.h"
 #include "OpcUaClient/ClientService/ClientServiceFunction.h"
 
 using namespace OpcUaStackCore;
+using namespace OpcUaStackClient;
 
 namespace OpcUaClient
 {
@@ -36,7 +36,7 @@ namespace OpcUaClient
 	ClientServiceBase::SPtr
 	ClientServiceFunction::createClientService(void)
 	{
-		return constructSPtr<ClientServiceFunction>();
+		return boost::make_shared<ClientServiceFunction>();
 	}
 
 	bool
@@ -76,10 +76,10 @@ namespace OpcUaClient
 		}
 
 		// create method request
-		ServiceTransactionCall::SPtr trx = constructSPtr<ServiceTransactionCall>();
+		ServiceTransactionCall::SPtr trx = boost::make_shared<ServiceTransactionCall>();
 		CallRequest::SPtr req = trx->request();
 
-		CallMethodRequest::SPtr callMethodRequest = constructSPtr<CallMethodRequest>();
+		CallMethodRequest::SPtr callMethodRequest = boost::make_shared<CallMethodRequest>();
 		callMethodRequest->objectId()->copyFrom(commandFunction->objectNodeId());
 		callMethodRequest->methodId()->copyFrom(commandFunction->functionNodeId());
 		callMethodRequest->inputArguments()->resize(commandFunction->inputVariantVec().size());

@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2022 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -17,16 +17,20 @@
 
 #include "OpcUaStackServer/NodeSet/NodeSetXmlParser.h"
 #include "OpcUaStackServer/NodeSet/NodeSetValueParser.h"
-#include "OpcUaStackCore/DataType/DataTypeDefinition.h"
+#include "OpcUaStackServer/NodeSet/NodeSetDefinitionParser.h"
+#include "OpcUaStackCore/StandardDataTypes/StructureDefinition.h"
+#include <OpcUaStackCore/StandardDataTypes/EnumDefinitionExpand.h>
 #include "OpcUaStackCore/Base/Log.h"
 #include "OpcUaStackCore/BuildInTypes/OpcUaIdentifier.h"
+
+using namespace OpcUaStackCore;
 
 namespace OpcUaStackServer
 {
 
 	NodeSetXmlParser::NodeSetXmlParser(void)
 	: nodeSetAlias_()
-	, xmlnsTypes_("")
+	, xmlns_()
 	, enableDefinition_(true)
 	{
 	}
@@ -76,7 +80,7 @@ namespace OpcUaStackServer
 		}
 
 		decodeNamespaces(*uaNodeSetTree);
-		decodeXmlnsTypes(*uaNodeSetTree);
+		xmlns_.addNamespaceFromNodeSetElement(*uaNodeSetTree);
 		
 		boost::property_tree::ptree::iterator it;
 		for (it = uaNodeSetTree->begin(); it != uaNodeSetTree->end(); it++) {
@@ -114,6 +118,9 @@ namespace OpcUaStackServer
 			else if (it->first == "UAMethod") {
 				if (!decodeUAMethod(it->second)) return false;
 			}
+			else if (it->first == "Models") {
+				// ignore
+			}
 			else {
 				Log(Error, "unknown element found in node set")
 					.parameter("ElementName", it->first);
@@ -122,25 +129,6 @@ namespace OpcUaStackServer
 		}
 
 		return true;
-	}
-
-	void 
-	NodeSetXmlParser::decodeXmlnsTypes(boost::property_tree::ptree& ptree)
-	{
-		boost::optional<boost::property_tree::ptree&> xmlAttrPtree = ptree.get_child_optional("<xmlattr>");
-		if (!xmlAttrPtree) return;
-
-		boost::property_tree::ptree::iterator it;
-		for (it = xmlAttrPtree->begin(); it != xmlAttrPtree->end(); it++) {
-			std::string attr = it->first;
-			std::string value = it->second.data();
-
-			if (value != "http://opcfoundation.org/UA/2008/02/Types.xsd") continue;
-			if (attr.substr(0, 6) != "xmlns:") continue;
-
-			xmlnsTypes_ = attr.substr(6);
-			return;
-		}
 	}
 
 	void 
@@ -286,9 +274,9 @@ namespace OpcUaStackServer
 		boost::optional<boost::property_tree::ptree&> refpTree = ptree.get_child_optional("References");
 
 		if (!refpTree) {
-			Log(Error, "references not exist in node set")
+			Log(Info, "references not exist in node set")
 				.parameter("NodeId", nodeId);
-			return false;
+			return true;
 		}
 
 		boost::property_tree::ptree::iterator it;
@@ -301,7 +289,7 @@ namespace OpcUaStackServer
 				return false;
 			}
 
-			ReferenceItem::SPtr referenceItem = constructSPtr<ReferenceItem>();
+			ReferenceItem::SPtr referenceItem = boost::make_shared<ReferenceItem>();
 			
 			//
 			// attribute reference type (mandatory)
@@ -314,7 +302,7 @@ namespace OpcUaStackServer
 			}
 
 			// check if the reference is included in the alias map 
-			OpcUaNodeId::SPtr referenceTypeNodeId = constructSPtr<OpcUaNodeId>();
+			OpcUaNodeId::SPtr referenceTypeNodeId = boost::make_shared<OpcUaNodeId>();
 			bool alias = nodeSetAlias_.map(*referenceTypeString, *referenceTypeNodeId);
 			
 			// check if the reference is an standard reference type
@@ -394,11 +382,13 @@ namespace OpcUaStackServer
 				return false;
 			}
 
-			if (!nodeSetAlias_.insert(*aliasName, opcUaNodeId)) {
-				Log(Error, "alias already exist")
-					.parameter("AliasName", *aliasName)
-					.parameter("NodeId", opcUaNodeId);
-				return false;
+			if (!nodeSetAlias_.aliasExist(*aliasName, opcUaNodeId)) {
+				if (!nodeSetAlias_.insert(*aliasName, opcUaNodeId)) {
+					Log(Error, "alias already exist")
+						.parameter("AliasName", *aliasName)
+						.parameter("NodeId", opcUaNodeId);
+					return false;
+				}
 			}
 			
 		}
@@ -409,13 +399,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAObject(boost::property_tree::ptree& ptree)
 	{
-		ObjectNodeClass::SPtr objectNodeClassSPtr = constructSPtr<ObjectNodeClass>();
+		ObjectNodeClass::SPtr objectNodeClassSPtr = boost::make_shared<ObjectNodeClass>();
 
 		//
 		// decode NodeBase 
 		//
 		if (!decodeNodeBase(objectNodeClassSPtr, ptree)) return false;
-		objectNodeClassSPtr->nodeClass().data(NodeClassType_Object);
+		objectNodeClassSPtr->nodeClass().data(NodeClass::EnumObject);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -445,13 +435,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAObjectType(boost::property_tree::ptree& ptree)
 	{
-		ObjectTypeNodeClass::SPtr objectTypeNodeClassSPtr = constructSPtr<ObjectTypeNodeClass>();
+		ObjectTypeNodeClass::SPtr objectTypeNodeClassSPtr = boost::make_shared<ObjectTypeNodeClass>();
 
 		//
 		// decode NodeBase 
 		//
 		if (!decodeNodeBase(objectTypeNodeClassSPtr, ptree)) return false;
-		objectTypeNodeClassSPtr->nodeClass().data(NodeClassType_ObjectType);
+		objectTypeNodeClassSPtr->nodeClass().data(NodeClass::EnumObjectType);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -481,13 +471,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAVariable(boost::property_tree::ptree& ptree)
 	{
-		VariableNodeClass::SPtr variableNodeClassSPtr = constructSPtr<VariableNodeClass>();
+		VariableNodeClass::SPtr variableNodeClassSPtr = boost::make_shared<VariableNodeClass>();
 
 		//
 		// decode NodeBase
 		//
 		if (!decodeNodeBase(variableNodeClassSPtr, ptree)) return false;
-		variableNodeClassSPtr->nodeClass().data(NodeClassType_Variable);
+		variableNodeClassSPtr->nodeClass().data(NodeClass::EnumVariable);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -515,12 +505,12 @@ namespace OpcUaStackServer
 		//
 		// decode Value (mandatory)
 		//
-		OpcUaVariant::SPtr variant = constructSPtr<OpcUaVariant>();
+		OpcUaVariant::SPtr variant = boost::make_shared<OpcUaVariant>();
 		OpcUaDataValue dataValue;
 		dataValue.sourceTimestamp().dateTime(boost::posix_time::microsec_clock::local_time());
 		dataValue.serverTimestamp().dateTime(boost::posix_time::microsec_clock::local_time());
 		NodeSetValueParser nodeSetValueParser;
-		if (nodeSetValueParser.decodeValue(nodeId, ptree, *dataValue.variant(), xmlnsTypes_)) {
+		if (nodeSetValueParser.xmlDecodeValue(nodeId, ptree, *dataValue.variant(), xmlns_)) {
 			dataValue.statusCode(Success);
 		}
 		else {
@@ -620,13 +610,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAVariableType(boost::property_tree::ptree& ptree)
 	{
-		VariableTypeNodeClass::SPtr variableTypeNodeClassSPtr = constructSPtr<VariableTypeNodeClass>();
+		VariableTypeNodeClass::SPtr variableTypeNodeClassSPtr = boost::make_shared<VariableTypeNodeClass>();
 
 		//
 		// decode NodeBase
 		//
 		if (!decodeNodeBase(variableTypeNodeClassSPtr, ptree)) return false;
-		variableTypeNodeClassSPtr->nodeClass().data(NodeClassType_VariableType);
+		variableTypeNodeClassSPtr->nodeClass().data(NodeClass::EnumVariableType);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -650,12 +640,12 @@ namespace OpcUaStackServer
 		//
 		// decode Value (mandatory)
 		//
-		OpcUaVariant::SPtr variant = constructSPtr<OpcUaVariant>();
+		OpcUaVariant::SPtr variant = boost::make_shared<OpcUaVariant>();
 		OpcUaDataValue dataValue;
 		dataValue.sourceTimestamp().dateTime(boost::posix_time::microsec_clock::local_time());
 		dataValue.serverTimestamp().dateTime(boost::posix_time::microsec_clock::local_time());
 		NodeSetValueParser nodeSetValueParser;
-		if (nodeSetValueParser.decodeValue(nodeId, ptree, *dataValue.variant(), xmlnsTypes_)) {
+		if (nodeSetValueParser.xmlDecodeValue(nodeId, ptree, *dataValue.variant(), xmlns_)) {
 			dataValue.statusCode(Success);
 		}
 		else {
@@ -734,13 +724,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUADataType(boost::property_tree::ptree& ptree)
 	{
-		DataTypeNodeClass::SPtr dataTypeNodeClassSPtr = constructSPtr<DataTypeNodeClass>();
+		auto dataTypeNodeClassSPtr = boost::make_shared<DataTypeNodeClass>();
 
 		//
 		// decode NodeBase
 		//
 		if (!decodeNodeBase(dataTypeNodeClassSPtr, ptree)) return false;
-		dataTypeNodeClassSPtr->nodeClass().data(NodeClassType_DataType);
+		dataTypeNodeClassSPtr->nodeClass().data(NodeClass::EnumDataType);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -761,9 +751,9 @@ namespace OpcUaStackServer
 		if (!decodeReferences(dataTypeNodeClassSPtr, ptree)) return false;
 
 		//
-		// decode data type definitons
+		// decode data type definitions
 		//
-		if (enableDefinition_) {
+		if (enableDefinition_ && !dataTypeNodeClassSPtr->isAbstract().data()) {
 			if (!decodeDataTypeDefinition(dataTypeNodeClassSPtr, ptree)) return false;
 		}
 
@@ -778,13 +768,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAReferenceType(boost::property_tree::ptree& ptree)
 	{
-		ReferenceTypeNodeClass::SPtr referenceTypeNodeClassSPtr = constructSPtr<ReferenceTypeNodeClass>();
+		ReferenceTypeNodeClass::SPtr referenceTypeNodeClassSPtr = boost::make_shared<ReferenceTypeNodeClass>();
 
 		//
 		// decode NodeBase
 		//
 		if (!decodeNodeBase(referenceTypeNodeClassSPtr, ptree)) return false;
-		referenceTypeNodeClassSPtr->nodeClass().data(NodeClassType_ReferenceType);
+		referenceTypeNodeClassSPtr->nodeClass().data(NodeClass::EnumReferenceType);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -841,13 +831,13 @@ namespace OpcUaStackServer
 	bool 
 	NodeSetXmlParser::decodeUAMethod(boost::property_tree::ptree& ptree)
 	{
-		MethodNodeClass::SPtr methodeNodeClassSPtr = constructSPtr<MethodNodeClass>();
+		MethodNodeClass::SPtr methodeNodeClassSPtr = boost::make_shared<MethodNodeClass>();
 
 		//
 		// decode NodeBase (Id, BrowseName, SymbolicName, DisplayName, ...)
 		//
 		if (!decodeNodeBase(methodeNodeClassSPtr, ptree)) return false;
-		methodeNodeClassSPtr->nodeClass().data(NodeClassType_Method);
+		methodeNodeClassSPtr->nodeClass().data(NodeClass::EnumMethod);
 		std::string nodeId = ptree.get<std::string>("<xmlattr>.NodeId");
 
 		//
@@ -855,9 +845,9 @@ namespace OpcUaStackServer
 		//
 		boost::optional<std::string> methodDeclarationId = ptree.get_optional<std::string>("<xmlattr>.MethodDeclarationId");
 		if (methodDeclarationId) {
-			ReferenceItem::SPtr referenceItem = constructSPtr<ReferenceItem>();
+			ReferenceItem::SPtr referenceItem = boost::make_shared<ReferenceItem>();
 
-			OpcUaNodeId::SPtr referenceTypeNodeId = constructSPtr<OpcUaNodeId>();
+			OpcUaNodeId::SPtr referenceTypeNodeId = boost::make_shared<OpcUaNodeId>();
 			referenceTypeNodeId = ReferenceTypeMap::stringToNodeId("HasTypeDefinition");
 			referenceItem->isForward_ = true;
 
@@ -919,32 +909,49 @@ namespace OpcUaStackServer
 
 
 	bool
-	NodeSetXmlParser::decodeDataTypeDefinition(DataTypeNodeClass::SPtr& dataTypeNodeClass, boost::property_tree::ptree& ptree)
+	NodeSetXmlParser::decodeDataTypeDefinition(
+		DataTypeNodeClass::SPtr& dataTypeNodeClass,
+		boost::property_tree::ptree& ptree
+	)
 	{
+		NodeSetDefinitionParser parser(&nodeSetAlias_);
+
 		// get optional Definition element
-		boost::optional<boost::property_tree::ptree&> definitionTree = ptree.get_child_optional("Definition");
+		auto definitionTree = ptree.get_child_optional("Definition");
 		if (!definitionTree) {
 			return true;
 		}
 
 		// find out whether a enum or data strucure exists
-		DataTypeDefinition::SPtr definition = constructSPtr<DataTypeDefinition>();
-		boost::optional<std::string> value = ptree.get_optional<std::string>("Definition.Field.<xmlattr>.Value");
+		auto value = ptree.get_optional<std::string>("Definition.Field.<xmlattr>.Value");
 		if (value) {
-			definition->dataSubType(Enumeration);
+
+			// decode enum definition
+
+			auto enumDefinition = boost::make_shared<EnumDefinitionExpand>();
+
+			if (!parser.decode(*definitionTree, enumDefinition, false)) {
+				Log(Error, "invalid enum definiton - ignore enum definiton section")
+					.parameter("NodeId", dataTypeNodeClass->nodeId().data());
+				return true;
+			}
+
+			dataTypeNodeClass->dataTypeDefinition(enumDefinition);
 		}
 		else {
-			definition->dataSubType(Structure);
-		}
 
-		// decode definition
-		if (!definition->decode(ptree)) {
-			Log(Error, "invalid definiton - ignore definiton section")
-				.parameter("NodeId", dataTypeNodeClass->nodeId().data());
-			return true;
-		}
+			// decode structure definition
 
-		dataTypeNodeClass->dataTypeDefinition(definition);
+			auto structureDefinition = boost::make_shared<StructureDefinitionExpand>();
+
+			if (!parser.decode(*definitionTree, structureDefinition, false)) {
+				Log(Error, "invalid structure definiton - ignore structure definiton section")
+					.parameter("NodeId", dataTypeNodeClass->nodeId().data());
+				return true;
+			}
+
+			dataTypeNodeClass->dataTypeDefinition(structureDefinition);
+		}
 
 		return true;
 	}
@@ -960,6 +967,10 @@ namespace OpcUaStackServer
 	NodeSetXmlParser::encode(boost::property_tree::ptree& ptree)
 	{
 		OpcUaNodeId nodeId;
+
+		xmlns_.addNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+		xmlns_.addNamespace("xsd", "http://www.w3.org/2001/XMLSchema");
+		xmlns_.addNamespace("uax", "http://opcfoundation.org/UA/2008/02/Types.xsd");
 
 		nodeId.set((uint32_t)OpcUaId_HasComponent);
 		nodeSetAlias_.insert("HasComponent", nodeId);
@@ -1302,7 +1313,7 @@ namespace OpcUaStackServer
 				else {
 					if (dataValue->statusCode() == Success) {
 						NodeSetValueParser nodeSetValueParser;
-						nodeSetValueParser.encodeValue(nodeId, node, *(dataValue->variant()), "uax");
+						nodeSetValueParser.xmlEncodeValue(nodeId, node, *(dataValue->variant()), xmlns_);
 					}
 				}
 			}
@@ -1384,7 +1395,7 @@ namespace OpcUaStackServer
 				else {
 					if (dataValue->statusCode() == Success) {
 						NodeSetValueParser nodeSetValueParser;
-						nodeSetValueParser.encodeValue(nodeId, node, *(dataValue->variant()), "uax");
+						nodeSetValueParser.xmlEncodeValue(nodeId, node, *(dataValue->variant()), xmlns_);
 					}
 				}
 			}
@@ -1435,9 +1446,9 @@ namespace OpcUaStackServer
 			if (!encodeReferences(dataTypeNodeClassSPtr, node)) return false;
 
 			//
-			// encode data type definitons
+			// encode data type definitions
 			//
-			if (enableDefinition_) {
+			if (enableDefinition_ && !dataTypeNodeClassSPtr->isAbstract().data()) {
 				if (!encodeDataTypeDefinition(dataTypeNodeClassSPtr, node)) return false;
 			}
 
@@ -1565,17 +1576,40 @@ namespace OpcUaStackServer
 	bool
 	NodeSetXmlParser::encodeDataTypeDefinition(DataTypeNodeClass::SPtr& dataTypeNodeClass, boost::property_tree::ptree& ptree)
 	{
-		Object::SPtr definitionObject = dataTypeNodeClass->dataTypeDefinition();
-		if (definitionObject.get() == nullptr) return true;
-		DataTypeDefinition::SPtr definition = boost::static_pointer_cast<DataTypeDefinition>(definitionObject);
+		NodeSetDefinitionParser parser;
 
-		// encode definition
-		if (!definition->encode(ptree)) {
-			Log(Error, "invalid definiton - ignore definiton section")
-				.parameter("NodeId", dataTypeNodeClass->nodeId().data());
+		// get data type definition from node class
+		Object::SPtr definitionObject = dataTypeNodeClass->dataTypeDefinition();
+		if (definitionObject.get() == nullptr) {
 			return true;
 		}
 
+		if (dynamic_cast<StructureDefinition*>(definitionObject.get()) != 0) {
+
+			// encode structure definition
+
+			auto structureDefinition = boost::static_pointer_cast<StructureDefinitionExpand>(definitionObject);
+			if (!parser.encode(structureDefinition, ptree)) {
+				Log(Error, "invalid structure definiton - ignore structure definiton section")
+					.parameter("NodeId", dataTypeNodeClass->nodeId().data());
+				return true;
+			}
+		}
+
+		if (dynamic_cast<EnumDefinitionExpand*>(definitionObject.get()) != 0) {
+
+			// encode enum definition
+
+			auto enumDefinition = boost::static_pointer_cast<EnumDefinitionExpand>(definitionObject);
+			if (!parser.encode(enumDefinition, ptree)) {
+				Log(Error, "invalid enum definiton - ignore structure enum section")
+					.parameter("NodeId", dataTypeNodeClass->nodeId().data());
+				return true;
+			}
+		}
+
+		// Log(Error, "invalid data type definition class found in node set encoder")
+		//	 .parameter("NodeId", dataTypeNodeClass->nodeId().data());
 		return true;
 	}
 

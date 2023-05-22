@@ -1,5 +1,5 @@
 /*
-   Copyright 2015-2017 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2019 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -12,7 +12,7 @@
    Informationen über die jeweiligen Bedingungen für Genehmigungen und Einschränkungen
    im Rahmen der Lizenz finden Sie in der Lizenz.
 
-   Autor: Kai Huebl (kai@huebl-sgh.de)
+   Autor: Kai Huebl (kai@huebl-sgh.de), Aleksey Timin (atimin@gmail.com)
  */
 
 #include "OpcUaStackCore/BuildInTypes/OpcUaString.h"
@@ -35,6 +35,14 @@ namespace OpcUaStackCore
 	, exist_(false)
 	, value_()
 	{
+	}
+
+	OpcUaString::OpcUaString(const OpcUaString& value)
+	: Object()
+	, exist_(false)
+	, value_()
+	{
+		const_cast<OpcUaString*>(&value)->copyTo(*this);
 	}
 
 	OpcUaString::OpcUaString(const std::string& value)
@@ -104,7 +112,7 @@ namespace OpcUaStackCore
 	}
 
 	void 
-	OpcUaString::copyTo(OpcUaString& opcUaString)
+	OpcUaString::copyTo(OpcUaString& opcUaString) const
 	{
 		opcUaString.value(value());
 	}
@@ -143,34 +151,43 @@ namespace OpcUaStackCore
 		}
 	}
 
-	void 
+	bool
 	OpcUaString::opcUaBinaryEncode(std::ostream& os) const
 	{
+		bool rc = true;
+
 		if (!exist_) {
-			OpcUaNumber::opcUaBinaryEncode(os, (const OpcUaInt32)-1);
-			return;
+			rc &= OpcUaNumber::opcUaBinaryEncode(os, (const OpcUaInt32)-1);
+			return rc;
 		}
 
-		OpcUaNumber::opcUaBinaryEncode(os, (const OpcUaInt32)value_.size());
-		os.write(value_.c_str(), value_.size());
+		rc &= OpcUaNumber::opcUaBinaryEncode(os, (const OpcUaInt32)value_.size());
+		if (rc) {
+		    os.write(value_.c_str(), value_.size());
+		    rc = os.good();
+		}
+
+		return rc;
 	}
 		
-	void 
+	bool
 	OpcUaString::opcUaBinaryDecode(std::istream& is)
 	{
+		bool rc = true;
+
 		OpcUaInt32 length = 0;
-		OpcUaNumber::opcUaBinaryDecode(is, length);
+		rc &= OpcUaNumber::opcUaBinaryDecode(is, length);
 
 		if (length < 0) {
 			value_ = "";
 			exist_ = false;
-			return;
+			return rc;
 		}
 
 		if (length == 0) {
 			value_ = "";
 			exist_ = true;
-			return;
+			return rc;
 		}
 
 		value_ = "";
@@ -180,31 +197,24 @@ namespace OpcUaStackCore
 		uint32_t sizeToRead;
 		do 
 		{
-			sizeToRead = MAX_STREAMBUF_SIZE;
-			if (length < MAX_STREAMBUF_SIZE) {
-				sizeToRead = length;
+			if (rc) {
+			    sizeToRead = MAX_STREAMBUF_SIZE;
+			    if (length < MAX_STREAMBUF_SIZE) {
+				    sizeToRead = length;
+			    }
+
+			    is.read(buf, sizeToRead);
+			    rc = is.good();
+			    value_.append(buf, sizeToRead);
+
+			    length -= sizeToRead;
 			}
-
-			is.read(buf, sizeToRead);
-			value_.append(buf, sizeToRead);
-
-			length -= sizeToRead;
+			else {
+				length = 0;
+			}
 		} while (length > 0);
-	}
 
-	bool
-	OpcUaString::encode(boost::property_tree::ptree& pt) const
-	{
-		if (exist_) pt.put_value<std::string>(value_);
-		return true;
-	}
-
-	bool
-	OpcUaString::decode(boost::property_tree::ptree& pt)
-	{
-		value_ = pt.get_value<std::string>();
-		exist_ = true;
-		return true;
+		return rc;
 	}
 
 	bool
@@ -216,7 +226,7 @@ namespace OpcUaStackCore
 				.parameter("Element", element);
 			return false;
 		}
-		pt.push_back(std::make_pair(xmlns.addxmlns(element), elementTree));
+		pt.push_back(std::make_pair(xmlns.addPrefix(element), elementTree));
 		return true;
 	}
 
@@ -229,6 +239,24 @@ namespace OpcUaStackCore
 
 	bool
 	OpcUaString::xmlDecode(boost::property_tree::ptree& pt, Xmlns& xmlns)
+	{
+		std::string sourceValue = pt.get_value<std::string>();
+		value(sourceValue);
+		return true;
+	}
+
+
+	bool
+	OpcUaString::jsonEncodeImpl(boost::property_tree::ptree& pt) const
+	{
+		pt.put_value(value());
+		return true;
+	}
+
+
+
+	bool
+	OpcUaString::jsonDecodeImpl(const boost::property_tree::ptree& pt)
 	{
 		std::string sourceValue = pt.get_value<std::string>();
 		value(sourceValue);

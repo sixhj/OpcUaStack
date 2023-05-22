@@ -1,5 +1,5 @@
 /*
-   Copyright 2015 Kai Huebl (kai@huebl-sgh.de)
+   Copyright 2015-2020 Kai Huebl (kai@huebl-sgh.de)
 
    Lizenziert gemäß Apache Licence Version 2.0 (die „Lizenz“); Nutzung dieser
    Datei nur in Übereinstimmung mit der Lizenz erlaubt.
@@ -23,150 +23,183 @@ using namespace OpcUaStackCore;
 namespace OpcUaStackClient
 {
 
-	AttributeService::AttributeService(IOThread* ioThread)
-	: Component()
-	, componentSession_(nullptr)
-	, attributeServiceIf_(nullptr)
+	AttributeService::AttributeService(
+		const std::string& serviceName,
+		IOThread* ioThread,
+		MessageBus::SPtr& messageBus
+	)
+	: ClientServiceBase()
 	{
-		Component::ioThread(ioThread);
+		// set parameter in client service base
+		serviceName_ = serviceName;
+		ClientServiceBase::ioThread_ = ioThread;
+		strand_ = ioThread->createStrand();
+		messageBus_ = messageBus;
 	}
 
 	AttributeService::~AttributeService(void)
 	{
+		// deactivate receiver
+		deactivateReceiver();
 	}
 
 	void
 	AttributeService::setConfiguration(
-		Component* componentSession,
-		AttributeServiceIf* attributeServiceIf
+		MessageBusMember::WPtr& sessionMember
 	)
 	{
-		this->componentSession(componentSession);
-		attributeServiceIf_ = attributeServiceIf;
+		sessionMember_ = sessionMember;
+
+		// register message bus receiver
+		MessageBusMemberConfig messageBusMemberConfig;
+		messageBusMemberConfig.strand(strand_);
+		messageBusMember_ = messageBus_->registerMember(serviceName_, messageBusMemberConfig);
+
+		// activate receiver
+		activateReceiver(
+			[this](const OpcUaStackCore::MessageBusMember::WPtr& handleFrom, Message::SPtr& message) {
+				receive(handleFrom, message);
+			}
+		);
 	}
 
 	void 
-	AttributeService::componentSession(Component* componentSession)
+	AttributeService::syncSend(const ServiceTransactionRead::SPtr& serviceTransactionRead)
 	{
-		componentSession_ = componentSession;
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionRead);
 	}
 
 	void 
-	AttributeService::attributeServiceIf(AttributeServiceIf* attributeServiceIf)
+	AttributeService::asyncSend(const ServiceTransactionRead::SPtr& serviceTransactionRead)
 	{
-		attributeServiceIf_ = attributeServiceIf;
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionRead);
 	}
 
 	void 
-	AttributeService::syncSend(ServiceTransactionRead::SPtr serviceTransactionRead)
+	AttributeService::syncSend(const ServiceTransactionWrite::SPtr& serviceTransactionWrite)
 	{
-		serviceTransactionRead->sync(true);
-		serviceTransactionRead->conditionBool().conditionInit();
-		asyncSend(serviceTransactionRead);
-		serviceTransactionRead->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionWrite);
 	}
 
 	void 
-	AttributeService::asyncSend(ServiceTransactionRead::SPtr serviceTransactionRead)
+	AttributeService::asyncSend(const ServiceTransactionWrite::SPtr& serviceTransactionWrite)
 	{
-		serviceTransactionRead->componentService(this); 
-		componentSession_->sendAsync(serviceTransactionRead);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionWrite);
 	}
 
 	void 
-	AttributeService::syncSend(ServiceTransactionWrite::SPtr serviceTransactionWrite)
+	AttributeService::syncSend(const ServiceTransactionHistoryRead::SPtr& serviceTransactionHistoryRead)
 	{
-		serviceTransactionWrite->sync(true);
-		serviceTransactionWrite->conditionBool().conditionInit();
-		asyncSend(serviceTransactionWrite);
-		serviceTransactionWrite->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionHistoryRead);
 	}
 
 	void 
-	AttributeService::asyncSend(ServiceTransactionWrite::SPtr serviceTransactionWrite)
+	AttributeService::asyncSend(const ServiceTransactionHistoryRead::SPtr& serviceTransactionHistoryRead)
 	{
-		serviceTransactionWrite->componentService(this); 
-		componentSession_->sendAsync(serviceTransactionWrite);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionHistoryRead);
 	}
 
 	void 
-	AttributeService::syncSend(ServiceTransactionHistoryRead::SPtr serviceTransactionHistoryRead)
+	AttributeService::syncSend(const ServiceTransactionHistoryUpdate::SPtr& serviceTransactionHistoryUpdate)
 	{
-		serviceTransactionHistoryRead->sync(true);
-		serviceTransactionHistoryRead->conditionBool().conditionInit();
-		asyncSend(serviceTransactionHistoryRead);
-		serviceTransactionHistoryRead->conditionBool().waitForCondition();
+		ClientServiceBase::syncSend(sessionMember_, serviceTransactionHistoryUpdate);
 	}
 
 	void 
-	AttributeService::asyncSend(ServiceTransactionHistoryRead::SPtr serviceTransactionHistoryRead)
+	AttributeService::asyncSend(const ServiceTransactionHistoryUpdate::SPtr& serviceTransactionHistoryUpdate)
 	{
-		serviceTransactionHistoryRead->componentService(this); 
-		componentSession_->sendAsync(serviceTransactionHistoryRead);
+		ClientServiceBase::asyncSend(sessionMember_, serviceTransactionHistoryUpdate);
 	}
 
 	void 
-	AttributeService::syncSend(ServiceTransactionHistoryUpdate::SPtr serviceTransactionHistoryUpdate)
+	AttributeService::receive(
+		const MessageBusMember::WPtr& handleFrom,
+		Message::SPtr message
+	)
 	{
-		serviceTransactionHistoryUpdate->sync(true);
-		serviceTransactionHistoryUpdate->conditionBool().conditionInit();
-		asyncSend(serviceTransactionHistoryUpdate);
-		serviceTransactionHistoryUpdate->conditionBool().waitForCondition();
-	}
-
-	void 
-	AttributeService::asyncSend(ServiceTransactionHistoryUpdate::SPtr serviceTransactionHistoryUpdate)
-	{
-		serviceTransactionHistoryUpdate->componentService(this); 
-		componentSession_->sendAsync(serviceTransactionHistoryUpdate);
-	}
-
-	void 
-	AttributeService::receive(Message::SPtr message)
-	{
-		ServiceTransaction::SPtr serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
-		
-		// check if transaction is synchron
+		auto serviceTransaction = boost::static_pointer_cast<ServiceTransaction>(message);
+#if 1
 		if (serviceTransaction->sync()) {
-			serviceTransaction->conditionBool().conditionTrue();
+			serviceTransaction->promise().set_value(true);
 			return;
 		}
-		
+#endif
+
 		switch (serviceTransaction->nodeTypeResponse().nodeId<uint32_t>())
 		{
 			case OpcUaId_ReadResponse_Encoding_DefaultBinary:
 			{
-				if (attributeServiceIf_ != nullptr) {
-					attributeServiceIf_->attributeServiceReadResponse(
-						boost::static_pointer_cast<ServiceTransactionRead>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionRead>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_WriteResponse_Encoding_DefaultBinary:
 			{
-				if (attributeServiceIf_ != nullptr) {
-					attributeServiceIf_->attributeServiceWriteResponse(
-						boost::static_pointer_cast<ServiceTransactionWrite>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionWrite>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_HistoryReadResponse_Encoding_DefaultBinary:
 			{
-				if (attributeServiceIf_ != nullptr) {
-					attributeServiceIf_->attributeServiceHistoryReadResponse(
-						boost::static_pointer_cast<ServiceTransactionHistoryRead>(serviceTransaction)
-					);
+				auto trx = boost::static_pointer_cast<ServiceTransactionHistoryRead>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
 			case OpcUaId_HistoryUpdateResponse_Encoding_DefaultBinary:
-				{
-				if (attributeServiceIf_ != nullptr) {
-					attributeServiceIf_->attributeServiceHistoryUpdateResponse(
-						boost::static_pointer_cast<ServiceTransactionHistoryUpdate>(serviceTransaction)
-					);
+			{
+				auto trx = boost::static_pointer_cast<ServiceTransactionHistoryUpdate>(serviceTransaction);
+				auto handler = trx->resultHandler();
+				auto handlerStrand = trx->resultHandlerStrand();
+				if (handler) {
+					if (handlerStrand) {
+						handlerStrand->dispatch(
+							[this, handler, trx](void) mutable {
+							    handler(trx);
+						    }
+						);
+					}
+					else {
+					    handler(trx);
+					}
 				}
 				break;
 			}
